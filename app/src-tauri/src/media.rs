@@ -82,6 +82,11 @@ fn osascript(script: &str) -> Option<String> {
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).to_string())
 }
 
+/// Whether there is a player to poll: macOS, or the test seam on any OS.
+pub fn available() -> bool {
+    cfg!(target_os = "macos") || std::env::var_os("D200_MEDIA_FILE").is_some()
+}
+
 /// Current track of Spotify or Music. `None`: nothing playing or paused, or not macOS.
 pub fn poll() -> Option<NowPlaying> {
     // Test seam: read the player line from a file instead of asking the players.
