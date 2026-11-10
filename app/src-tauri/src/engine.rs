@@ -2263,7 +2263,10 @@ impl Engine {
             Ui::Notify(n) => self.notify(n),
             Ui::Options { source, profile, reply } => {
                 let list = match source.as_str() {
-                    "core:profiles" => self.cfg.profiles.iter().map(|p| json!({ "label": p.name, "value": p.name })).collect(),
+                    "core:profiles" => [json!({ "label": "Next profile", "value": "next" }), json!({ "label": "Automatic", "value": "auto" })]
+                        .into_iter()
+                        .chain(self.cfg.profiles.iter().map(|p| json!({ "label": p.name, "value": p.name })))
+                        .collect(),
                     "core:pages" => self
                         .cfg
                         .profiles

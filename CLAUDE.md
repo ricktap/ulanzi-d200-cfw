@@ -46,7 +46,8 @@ git tag v1.2.3 && git push origin v1.2.3
   to it. Don't add shared mutable state.
 - **Colours come from the theme.** Use `Th::resolve(theme, widget, tone)`. Never hard-code hex
   values in widgets or cards. Follow the Night Signal tokens in `docs/design/README.md`.
-- **Keep the UI build-free.** Plain JS, `withGlobalTauri`, no bundler and no frameworks.
+- **Keep the UI build-free.** Plain JS ES modules in `app/ui/js/`, `withGlobalTauri`, no bundler
+  and no frameworks. Every config edit goes through `store.edit()` (undo and saving).
 - **Icons:** the SVGs in `app/ui/icons/night-signal/svg/` are compiled in by `build.rs`. To add
   an icon, add the SVG and add it to `manifest.json`. `icons.rs` tests that every icon renders.
   An icon with changing parts gets a binding file in `icons/` (see `docs/packages.md`);
@@ -61,7 +62,7 @@ git tag v1.2.3 && git push origin v1.2.3
   gets the icon list from the Rust command `icon_set`. Add Rust commands for data; don't loosen
   the CSP.
 - **`replaceChildren(x)` with `null`** inserts the text "null". Use the `put()` helper in
-  `main.js`.
+  `js/dom.js`.
 - **Upper-case local names** in Rust `let` patterns are read as constants. Keep locals lower
   case.
 - **resvg ignores CSS `calc()`/`var()` and `pathLength`.** Bound icons are changed as strings

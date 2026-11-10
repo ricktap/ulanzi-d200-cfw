@@ -63,6 +63,11 @@ The UI (`app/ui/`) is plain HTML/CSS/JS with `withGlobalTauri`, so there is no b
 renders key previews by asking the engine (`preview`), so the editor and the device always show
 the same pixels.
 
+The UI code is ES modules in `app/ui/js/` (`main.js` boots it). All state is in `store.js`: every
+change goes through `store.edit(label, fn)`, which keeps an undo step (Undo button, Cmd/Ctrl+Z)
+and saves deck.json. Apps, actions and icon roles come from the `catalog` command, so the UI has
+no list of its own.
+
 ## Rendering
 
 - Keys are drawn at device resolution: 196x196, and 456x196 for the wide key.

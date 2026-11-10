@@ -105,7 +105,7 @@ impl Action {
         let obj = v.as_object_mut().map(std::mem::take).unwrap_or_default();
         let mut params = obj;
         let kind = params.remove("type").and_then(|t| t.as_str().map(str::to_string)).unwrap_or_default();
-        ActionRef { action: format!("core:{kind}"), params }
+        ActionRef { action: format!("core:{kind}"), params, extra: Map::new() }
     }
 }
 
@@ -116,6 +116,8 @@ pub struct ActionRef {
     pub action: String,
     #[serde(default, skip_serializing_if = "Map::is_empty")]
     pub params: Map<String, Value>,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl ActionRef {
@@ -806,7 +808,7 @@ mod version_tests {
             "app": "com.ricktap.bambu:ams",
             "config": {"unit": "ams2"},
             "states": [{"icon": "com.jemand.neon:spools", "label": "AMS 2", "glow": 3,
-                        "on": {"long": [{"action": "com.ricktap.bambu:refresh", "params": {"all": true}}]}}],
+                        "on": {"long": [{"action": "com.ricktap.bambu:refresh", "params": {"all": true}, "note": "x"}]}}],
             "future": {"x": 1}
         });
         let text = serde_json::json!({

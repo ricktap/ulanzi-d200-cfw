@@ -48,6 +48,8 @@ a { color: var(--mint); cursor: pointer; }
 .tbtn { display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: var(--text); }
 .tbtn:hover { background: var(--card-2); }
 .tbtn img { width: 20px; height: 20px; }
+.tbtn:disabled { opacity: .4; cursor: default; background: none; }
+.tbtn .glyph { width: 20px; text-align: center; font-size: 19px; line-height: 20px; }
 
 /* ---------------------------------------------------------------- shell */
 .shell { flex: 1; display: grid; grid-template-columns: 96px minmax(0, 1fr) 430px; min-height: 0; }
@@ -221,6 +223,7 @@ input[type=color] { width: 42px; height: 34px; border: 1px solid var(--border-2)
 .irow button { background: #0d1115; border: 1px solid transparent; border-radius: 8px; padding: 5px; cursor: pointer; aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .igrid.big .irow button { aspect-ratio: auto; padding: 10px 4px 8px; }
 .irow button:hover { border-color: var(--mint); }
+.irow button.on { border-color: var(--mint); background: var(--mint-soft); }
 .irow img { width: 100%; height: 100%; }
 .igrid.big .irow img { width: 40px; height: 40px; }
 .irow small { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.15; word-break: break-word; }

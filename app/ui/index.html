@@ -16,6 +16,8 @@
     </div>
     <div class="top-actions">
       <button id="btn-firmware" class="btn primary" hidden>Start firmware</button>
+      <button class="tbtn" id="btn-undo" disabled title="Nothing to undo"><span class="glyph">↶</span><span>Undo</span></button>
+      <span class="top-sep"></span>
       <button class="tbtn" id="btn-notify" title="Show a test notification on the status key"><img src="icons/night-signal/svg/notification.svg" alt=""><span>Notify</span></button>
       <button class="tbtn" id="btn-settings"><img src="icons/night-signal/svg/settings.svg" alt=""><span>Settings</span></button>
       <span class="top-sep"></span>
@@ -323,6 +325,6 @@
   </dialog>
 
   <div class="toast" id="toast" hidden></div>
-  <script src="main.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
