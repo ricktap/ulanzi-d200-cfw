@@ -1049,7 +1049,7 @@ impl Engine {
     // -------------------------------------------------------------- media, Teams
 
     fn needs_media(&self) -> bool {
-        cfg!(target_os = "macos")
+        media::available()
             && !self.media_busy
             && (self.cfg.status_key.show != "profile" || self.visible_app(AppKind::Media))
     }

@@ -51,6 +51,14 @@ lasts until the next reboot. It draws your deck. To have it start at boot, see
 tests/e2e/run.sh                                     # end-to-end tests (Python 3, no device needed)
 ```
 
+CI (`.github/workflows/ci.yml`) runs the unit and e2e tests on Linux, builds `d200fw` and a
+universal macOS DMG on every push. A semver tag makes a GitHub release with both files; the
+version comes from the tag (`scripts/set-version.sh`):
+
+```sh
+git tag v1.2.3 && git push origin v1.2.3            # v1.2.3-rc.1 makes a pre-release
+```
+
 ## Documentation
 
 | Doc | Contents |
