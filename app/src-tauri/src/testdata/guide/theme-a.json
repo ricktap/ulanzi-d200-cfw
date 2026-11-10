@@ -1,0 +1,15 @@
+{
+  "id": "com.ricktap.nightsignal",
+  "type": "theme",
+  "name": "Night Signal",
+  "theme": {
+    "type": "full",
+    "variables": {
+      "background": "#0F1216",
+      "base": "#F4F1E8",
+      "muted": "#3A4350",
+      "accent": "#69E0C1",
+      "com.ricktap.bambu:ams.led": "#3B82F6"
+    }
+  }
+}

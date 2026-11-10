@@ -1,0 +1,23 @@
+{
+  "id": "com.ricktap.media:player",
+  "name": "Musik",
+  "icon": "com.ricktap.media:disc",
+  "implements": {
+    "com.ricktap.media:player": {
+      "playing": { "bind": "com.ricktap.media:playing" },
+      "progress": { "bind": "com.ricktap.media:progress" },
+      "title": { "bind": "com.ricktap.media:title" },
+      "color": { "bind": "com.ricktap.media:color" }
+    },
+    "progress": {
+      "value": { "bind": "com.ricktap.media:progress" }
+    },
+    "toggle": {
+      "on": { "bind": "com.ricktap.media:playing" }
+    }
+  },
+  "on": {
+    "press": [{ "action": "com.ricktap.media:toggle" }],
+    "long": [{ "action": "com.ricktap.media:next" }]
+  }
+}

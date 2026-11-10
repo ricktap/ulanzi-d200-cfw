@@ -1,0 +1,21 @@
+{
+  "id": "com.ricktap.hue:light",
+  "name": "Hue Lampe",
+  "icon": "com.ricktap.hue:bulb",
+  "implements": {
+    "com.ricktap.hue:rgb_light": {
+      "on": { "bind": "com.ricktap.hue:lamp.power" },
+      "color": { "bind": "com.ricktap.hue:lamp.color" },
+      "brightness": { "bind": "com.ricktap.hue:lamp.brightness" }
+    },
+    "rgb": {
+      "color": { "bind": "com.ricktap.hue:lamp.color" }
+    },
+    "toggle": {
+      "on": { "bind": "com.ricktap.hue:lamp.power" }
+    }
+  },
+  "on": {
+    "press": [{ "action": "com.ricktap.hue:lamp.toggle" }]
+  }
+}

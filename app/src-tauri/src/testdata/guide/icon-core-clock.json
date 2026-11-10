@@ -1,0 +1,40 @@
+{
+  "id": "core:clock",
+  "roles": ["clock", "button"],
+  "file": "clock.svg",
+  "parts": {
+    "analog": {
+      "visible": {
+        "prop": "clock.style",
+        "map": { "analog": true, "digital": false },
+        "fallback": true
+      }
+    },
+    "ring": { "stroke": { "tone": "base" } },
+    "hour": {
+      "stroke": { "tone": "base" },
+      "transform": {
+        "prop": "clock.hour_angle",
+        "prefix": "rotate(", "suffix": " 50 50)",
+        "fallback": "rotate(300 50 50)"
+      }
+    },
+    "minute": {
+      "stroke": { "tone": "accent" },
+      "transform": {
+        "prop": "clock.minute_angle",
+        "prefix": "rotate(", "suffix": " 50 50)",
+        "fallback": "rotate(60 50 50)"
+      }
+    },
+    "digital": {
+      "fill": { "tone": "base" },
+      "visible": {
+        "prop": "clock.style",
+        "map": { "analog": false, "digital": true },
+        "fallback": false
+      },
+      "text": { "prop": "clock.time", "fallback": "" }
+    }
+  }
+}

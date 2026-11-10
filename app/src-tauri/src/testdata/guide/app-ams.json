@@ -1,0 +1,26 @@
+{
+  "id": "com.ricktap.bambu:ams",
+  "name": "AMS",
+  "icon": "com.ricktap.bambu:rings",
+  "config": [
+    {
+      "key": "unit",
+      "label": "Gerät",
+      "type": "select",
+      "default": "ams1",
+      "values": { "source": "com.ricktap.bambu:units" }
+    }
+  ],
+  "implements": {
+    "com.ricktap.bambu:ams": {
+      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining" },
+      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color" },
+      "slot2_remaining": { "bind": "com.ricktap.bambu:{unit}.slot2.remaining" },
+      "slot2_color": { "bind": "com.ricktap.bambu:{unit}.slot2.color" },
+      "slot3_remaining": { "bind": "com.ricktap.bambu:{unit}.slot3.remaining" },
+      "slot3_color": { "bind": "com.ricktap.bambu:{unit}.slot3.color" },
+      "slot4_remaining": { "bind": "com.ricktap.bambu:{unit}.slot4.remaining" },
+      "slot4_color": { "bind": "com.ricktap.bambu:{unit}.slot4.color" }
+    }
+  }
+}

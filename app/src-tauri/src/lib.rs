@@ -1,5 +1,7 @@
 pub mod apps;
 pub mod bind;
+#[cfg(test)]
+mod guide_tests;
 pub mod cards;
 pub mod config;
 pub mod device;

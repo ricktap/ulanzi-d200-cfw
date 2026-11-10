@@ -1,0 +1,23 @@
+{
+  "id": "com.ricktap.media:disc",
+  "roles": ["com.ricktap.media:player"],
+  "file": "disc.svg",
+  "parts": {
+    "track": { "stroke": { "tone": "muted" } },
+    "ring": {
+      "stroke": { "prop": "com.ricktap.media:player.color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.media:player.progress", "fallback": 0 }
+    },
+    "glyph": { "fill": { "tone": "base" } },
+    "play": {
+      "visible": { "prop": "com.ricktap.media:player.playing", "steps": [true, false], "fallback": true }
+    },
+    "pause": {
+      "visible": { "prop": "com.ricktap.media:player.playing", "steps": [false, true], "fallback": false }
+    },
+    "title": {
+      "fill": { "tone": "base" },
+      "text": { "prop": "com.ricktap.media:player.title", "fallback": "" }
+    }
+  }
+}

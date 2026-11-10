@@ -1,0 +1,14 @@
+{
+  "id": "com.ricktap.hue-sync",
+  "type": "theme",
+  "name": "Hue Sync",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "accent": {
+        "bind": "com.ricktap.hue:lamp.color",
+        "fallback": "#FF9F43"
+      }
+    }
+  }
+}

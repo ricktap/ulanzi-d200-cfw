@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Uhr" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <circle data-part="analog ring" cx="50" cy="50" r="36"/>
+  <path data-part="analog hour" d="M50 50V30"/>
+  <path data-part="analog minute" d="M50 50V20"/>
+  <text data-part="digital" x="50" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="27" font-weight="500" stroke="none"></text>
+</svg>

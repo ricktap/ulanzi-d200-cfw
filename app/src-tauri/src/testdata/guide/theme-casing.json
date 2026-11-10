@@ -1,0 +1,11 @@
+{
+  "id": "com.jemand.ams-blau",
+  "type": "theme",
+  "name": "AMS Gehäuse blau",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "com.ricktap.bambu:ams.casing": "#6F8FD9"
+    }
+  }
+}

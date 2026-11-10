@@ -1,0 +1,25 @@
+{
+  "id": "core:clock",
+  "name": "Uhr",
+  "icon": "core:clock",
+  "config": [
+    {
+      "key": "display",
+      "label": "Anzeige",
+      "type": "select",
+      "default": "analog",
+      "values": [
+        { "label": "Analog", "value": "analog" },
+        { "label": "Digital", "value": "digital" }
+      ]
+    }
+  ],
+  "implements": {
+    "clock": {
+      "time": { "bind": "time.clock" },
+      "hour_angle": { "bind": "time.hour_angle" },
+      "minute_angle": { "bind": "time.minute_angle" },
+      "style": { "config": "display" }
+    }
+  }
+}

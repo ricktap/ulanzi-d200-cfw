@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Glühbirne" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(0 8)">
+    <path data-part="glass" d="M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z" stroke="none"/>
+    <path data-part="outline" d="M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z"/>
+    <path data-part="outline" d="M41 72h18M44 79h12"/>
+  </g>
+</svg>

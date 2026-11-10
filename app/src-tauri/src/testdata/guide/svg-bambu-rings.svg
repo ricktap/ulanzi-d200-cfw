@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="AMS mit Status LED" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <rect data-part="housing" x="6" y="12" width="68" height="76" rx="8"/>
+  <circle data-part="track" cx="24" cy="33" r="10" stroke-width="5"/>
+  <circle data-part="track" cx="56" cy="33" r="10" stroke-width="5"/>
+  <circle data-part="track" cx="24" cy="67" r="10" stroke-width="5"/>
+  <circle data-part="track" cx="56" cy="67" r="10" stroke-width="5"/>
+  <circle data-part="spool-1" cx="24" cy="33" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 24 33)"/>
+  <circle data-part="spool-2" cx="56" cy="33" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 56 33)"/>
+  <circle data-part="spool-3" cx="24" cy="67" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 24 67)"/>
+  <circle data-part="spool-4" cx="56" cy="67" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 56 67)"/>
+  <circle data-part="led" cx="88" cy="20" r="7" stroke="none"/>
+</svg>

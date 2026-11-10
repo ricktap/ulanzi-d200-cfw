@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Skala" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <path data-part="track" d="M20 64a30 30 0 0 1 60 0" stroke-width="9" stroke-linecap="butt"/>
+  <path data-part="level" d="M20 64a30 30 0 0 1 60 0" stroke-width="9" stroke-linecap="butt" pathLength="100"/>
+</svg>
