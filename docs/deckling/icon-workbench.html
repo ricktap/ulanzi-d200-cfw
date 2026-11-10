@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deckling Icon Werkbank</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --paper: #EEF1F4; --panel: #FFFFFF; --ink: #17202B; --quiet: #556170; --rule: #CCD4DD;
+  --accent: #2456D6; --accent-soft: #DCE6FB; --code-bg: #F6F8FA; --mark: #FFE7A8; --mark-ink: #4A3300;
+  --plugin: #7A3FD0; --core: #0B7A6B;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #141A22; --panel: #1C242E; --ink: #E6EBF2; --quiet: #9DA9B8; --rule: #33404F;
+    --accent: #8FB0FF; --accent-soft: #25314A; --code-bg: #10161D; --mark: #5A4310; --mark-ink: #FFE7A8;
+    --plugin: #C3A2FF; --core: #6FD8C6;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #141A22; --panel: #1C242E; --ink: #E6EBF2; --quiet: #9DA9B8; --rule: #33404F;
+  --accent: #8FB0FF; --accent-soft: #25314A; --code-bg: #10161D; --mark: #5A4310; --mark-ink: #FFE7A8;
+  --plugin: #C3A2FF; --core: #6FD8C6;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.55; -webkit-text-size-adjust: 100%;
+}
+.page { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; }
+h1 { font-size: 1.6rem; line-height: 1.2; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
+h2 { font-size: 1.15rem; line-height: 1.3; font-weight: 600; margin: 32px 0 8px; }
+p { margin: 0 0 12px; }
+.lead { color: var(--quiet); }
+code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+p code, li code { font-size: 0.86em; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+
+.stage { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 12px; margin-top: 16px; }
+.tile { border-radius: 10px; padding: 10px; transition: background-color 0.3s; }
+.tile svg { display: block; width: 100%; height: auto; }
+.controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.seg { display: flex; flex: 1 1 200px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; }
+button {
+  font: inherit; color: var(--ink); background: transparent; border: 0; min-height: 44px; padding: 0 14px; cursor: pointer;
+}
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.plain { border: 1px solid var(--rule); border-radius: 10px; }
+
+.signals { list-style: none; margin: 12px 0 0; padding: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+.signals li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 12px; border-top: 1px solid var(--rule); align-items: center; }
+.signals li:first-child { border-top: 0; }
+.signals .name { font-size: 0.8rem; overflow-wrap: anywhere; }
+.signals .val { font-size: 0.8rem; display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-variant-numeric: tabular-nums; }
+.signals .src { grid-column: 1 / -1; font-size: 0.75rem; }
+.src.plugin { color: var(--plugin); } .src.core { color: var(--core); }
+.swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--rule); flex: none; }
+
+.flow { margin: 0; padding-left: 22px; }
+.flow li { margin-bottom: 8px; }
+
+.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--rule); margin-top: 12px; }
+.tabs button { flex: none; border-bottom: 3px solid transparent; color: var(--quiet); padding: 0 12px; }
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.panel { padding-top: 14px; }
+.panel[hidden] { display: none; }
+.file { font-size: 0.8rem; color: var(--quiet); margin: 14px 0 4px; }
+pre {
+  margin: 0 0 12px; padding: 12px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px;
+  font-size: 0.75rem; line-height: 1.6; overflow-x: auto; white-space: pre; tab-size: 2;
+}
+mark.sig { background: var(--mark); color: var(--mark-ink); border-radius: 3px; padding: 0 2px; }
+.note { font-size: 0.875rem; color: var(--quiet); }
+
+.keys { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 10px; align-items: stretch; }
+.tilebtn { display: block; width: 100%; padding: 0; border-radius: 10px; min-height: 0; overflow: hidden; transition: background-color 0.3s; }
+.tilebtn svg { display: block; width: 100%; height: auto; }
+.tilebtn:active { opacity: 0.8; }
+.side { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.side button { text-align: left; line-height: 1.3; padding: 8px 12px; }
+.side small { display: block; color: var(--quiet); font-size: 0.75rem; }
+.wide { margin-top: 10px; }
+.event { margin: 10px 0 0; font-size: 0.8rem; color: var(--quiet); min-height: 1.4em; }
+
+.info { display: flex; flex-direction: column; justify-content: center; gap: 6px; font-size: 0.875rem; }
+.info .k { color: var(--quiet); font-size: 0.75rem; }
+.info .v { overflow-wrap: anywhere; font-size: 0.8rem; }
+.picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.picker button { padding: 0 0 6px; border: 2px solid var(--rule); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.picker button[aria-pressed="true"] { border-color: var(--accent); }
+.picker .mini { display: block; }
+.picker .mini svg { display: block; width: 100%; height: auto; }
+.picker .cap { font-size: 0.7rem; line-height: 1.2; color: var(--quiet); padding: 0 4px; overflow-wrap: anywhere; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.trio figure { margin: 0; }
+.trio figcaption { font-size: 0.75rem; line-height: 1.3; margin-top: 6px; }
+.trio figcaption span { display: block; color: var(--quiet); }
+
+h3 { font-size: 1rem; line-height: 1.3; font-weight: 600; margin: 20px 0 6px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 0.875rem; background: var(--panel); }
+.toc a:focus-visible { outline: 2px solid var(--accent); }
+.scroll { overflow-x: auto; margin: 0 0 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 440px; font-size: 0.85rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+th { font-weight: 600; color: var(--quiet); }
+.figure { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 8px; margin: 12px 0; overflow-x: auto; }
+.figure svg { display: block; width: 100%; min-width: 560px; height: auto; font-family: inherit; }
+.tile1 { max-width: 170px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 0.875rem; }
+.field select { font: inherit; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
+.checks { display: flex; flex-direction: column; margin-top: 8px; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 0.875rem; }
+.checks input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.checks small, .field small { display: block; color: var(--quiet); font-size: 0.75rem; overflow-wrap: anywhere; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.btnrow button { flex: 1 1 120px; }
+ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 6px; }
+
+.sticky { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); padding: 8px 0; margin: 0 -4px; }
+.preview { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 10px; }
+.preview .tile { border-radius: 10px; overflow: hidden; }
+.preview .tile svg, .mini svg { display: block; width: 100%; height: auto; }
+.preview .meta { font-size: 0.8rem; min-width: 0; }
+.preview .meta div { overflow-wrap: anywhere; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 12px; margin-top: 12px; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 48px; padding: 6px 0; border-top: 1px solid var(--rule); }
+.row:first-child { border-top: 0; }
+.row .nm { font-size: 0.8rem; overflow-wrap: anywhere; }
+.row .ty { display: block; font-size: 0.7rem; color: var(--quiet); }
+.row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
+.row input[type="range"] { width: 120px; }
+.row input[type="text"], .row input[type="number"] { width: 110px; min-height: 40px; padding: 0 8px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; font-size: 0.85rem; }
+.row input[type="color"] { width: 48px; height: 40px; padding: 0; border: 1px solid var(--rule); border-radius: 8px; background: none; }
+.row .ctl { display: flex; align-items: center; gap: 8px; justify-content: flex-end; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+textarea { width: 100%; min-height: 180px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.75rem; line-height: 1.5; padding: 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--code-bg); color: var(--ink); white-space: pre; overflow: auto; }
+details { margin-top: 10px; } summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.filerow { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; margin-top: 8px; }
+.filerow input { font: inherit; font-size: 0.8rem; max-width: 100%; }
+.matrix { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.matrix figure { margin: 0; } .matrix .mini { border-radius: 10px; overflow: hidden; }
+.matrix figcaption { font-size: 0.72rem; margin-top: 4px; overflow-wrap: anywhere; }
+.report { list-style: none; margin: 0; padding: 0; }
+.report li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 0.85rem; }
+.report li:first-child { border-top: 0; }
+.tag { font-size: 0.7rem; font-weight: 600; border-radius: 999px; padding: 2px 8px; align-self: start; white-space: nowrap; }
+.tag.err { background: #FBE3E0; color: #8A1C12; } .tag.warn { background: #FBF0D2; color: #6B4A00; } .tag.ok { background: #DDF3EA; color: #0B5A46; } .tag.info { background: var(--accent-soft); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Icon Werkbank</h1>
+  <p class="lead">Lade ein Icon und prüfe, wie es sich gegen ein Interface verhält. Die Regler entstehen aus den Typen des Interfaces. Du brauchst dafür weder das Plugin noch ein Gerät.</p>
+
+  <div class="sticky">
+    <div class="preview">
+      <div class="tile" id="tile"></div>
+      <div class="meta">
+        <div class="mono" id="metaId"></div>
+        <div style="color: var(--quiet)" id="metaRoles"></div>
+        <label class="field" style="margin-top: 8px"><span>Testen gegen</span><select id="against"></select></label>
+      </div>
+    </div>
+  </div>
+
+  <h2>1. Icon laden</h2>
+  <label class="field"><span>Beispiel</span><select id="example"></select></label>
+  <label class="filerow"><span>Bindungsdatei (.json)</span><input type="file" id="fileJson" accept=".json,application/json"></label>
+  <label class="filerow"><span>Grafik (.svg)</span><input type="file" id="fileSvg" accept=".svg,image/svg+xml"></label>
+  <details>
+    <summary>Bindungsdatei bearbeiten</summary>
+    <textarea id="txtJson" spellcheck="false" aria-label="Bindungsdatei"></textarea>
+  </details>
+  <details>
+    <summary>SVG bearbeiten</summary>
+    <textarea id="txtSvg" spellcheck="false" aria-label="SVG"></textarea>
+  </details>
+
+  <h2>2. Interfaces</h2>
+  <p class="note">Die Primitive des Kerns sind eingebaut. Ein eigenes Interface eines Plugins muss geladen werden, sonst weiß die Werkbank nicht, welche Eigenschaften es hat und welchen Typ sie tragen.</p>
+  <label class="filerow"><span>Interface Datei eines Plugins (.json)</span><input type="file" id="fileIf" accept=".json,application/json"></label>
+  <details>
+    <summary>Geladene Interfaces von Plugins bearbeiten</summary>
+    <textarea id="txtIf" spellcheck="false" aria-label="Interfaces von Plugins">{
+  "com.ricktap.hue:rgb_light": {
+    "on": "flag",
+    "color": "color",
+    "brightness": "percent"
+  },
+  "com.ricktap.bambu:ams": {
+    "slot1_remaining": "percent",
+    "slot1_color": "color",
+    "slot2_remaining": "percent",
+    "slot2_color": "color",
+    "slot3_remaining": "percent",
+    "slot3_color": "color",
+    "slot4_remaining": "percent",
+    "slot4_color": "color"
+  }
+}</textarea>
+  </details>
+
+  <h2>3. Werte der App</h2>
+  <p class="note">Ein Regler je Eigenschaft des gewählten Interfaces. Nimm den Haken weg, um zu sehen, was passiert, wenn die App den Wert nicht liefert. Dann greift der fallback.</p>
+  <div class="card" id="props"></div>
+
+  <h2>4. Signale und Theme</h2>
+  <p class="note">Signale, die das Icon direkt bindet, und die Theme Variablen, die es liest. Variablen außerhalb der Kernvariablen sind anfangs nicht gesetzt.</p>
+  <div class="card" id="env"></div>
+
+  <h2>5. Je Rolle</h2>
+  <p class="note">Das Icon einmal je genannter Rolle, jeweils nur mit den Eigenschaften dieser Rolle. So sieht es auf Apps aus, die nur dieses eine Interface erfüllen.</p>
+  <div class="card"><div class="matrix" id="matrix"></div></div>
+
+  <h2>6. Prüfbericht</h2>
+  <div class="card"><ul class="report" id="report"></ul></div>
+</div>
+<script>
+const EXAMPLES = [{"name": "Glühbirne (rgb, toggle, button)", "json": "{\n  \"id\": \"com.jemand.neon:bulb\",\n  \"roles\": [\"rgb\", \"toggle\", \"button\"],\n  \"file\": \"bulb.svg\",\n  \"parts\": {\n    \"outline\": { \"stroke\": { \"tone\": \"base\" } },\n    \"glass\": {\n      \"visible\": { \"prop\": \"toggle.on\", \"fallback\": false },\n      \"fill\": { \"prop\": \"rgb.color\", \"fallback\": \"#FFD84D\" }\n    }\n  }\n}", "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" role=\"img\" aria-label=\"Glühbirne\" fill=\"none\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <g transform=\"translate(0 8)\">\n    <path data-part=\"glass\" d=\"M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z\" stroke=\"none\"/>\n    <path data-part=\"outline\" d=\"M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z\"/>\n    <path data-part=\"outline\" d=\"M41 72h18M44 79h12\"/>\n  </g>\n</svg>"}, {"name": "Schalter (toggle, button)", "json": "{\n  \"id\": \"com.jemand.neon:switch\",\n  \"roles\": [\"toggle\", \"button\"],\n  \"file\": \"switch.svg\",\n  \"parts\": {\n    \"pill\": {\n      \"fill\": {\n        \"prop\": \"toggle.on\",\n        \"steps\": [{ \"tone\": \"muted\" }, { \"tone\": \"accent\" }],\n        \"fallback\": { \"tone\": \"muted\" }\n      }\n    },\n    \"knob\": {\n      \"fill\": { \"tone\": \"base\" },\n      \"cx\": { \"prop\": \"toggle.on\", \"steps\": [34, 66], \"fallback\": 34 }\n    }\n  }\n}", "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" role=\"img\" aria-label=\"Schalter\" fill=\"none\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <rect data-part=\"pill\" x=\"18\" y=\"34\" width=\"64\" height=\"32\" rx=\"16\" stroke=\"none\"/>\n  <circle data-part=\"knob\" cy=\"50\" r=\"11\" stroke=\"none\"/>\n</svg>"}, {"name": "Hue Lampe (eigenes Interface)", "json": "{\n  \"id\": \"com.ricktap.hue:bulb\",\n  \"roles\": [\"com.ricktap.hue:rgb_light\"],\n  \"file\": \"bulb.svg\",\n  \"parts\": {\n    \"outline\": { \"stroke\": { \"tone\": \"base\" } },\n    \"glass\": {\n      \"visible\": { \"prop\": \"com.ricktap.hue:rgb_light.on\", \"fallback\": false },\n      \"fill\": { \"prop\": \"com.ricktap.hue:rgb_light.color\", \"fallback\": \"#FFD84D\" }\n    },\n    \"track\": { \"stroke\": { \"tone\": \"muted\" } },\n    \"level\": {\n      \"stroke\": { \"prop\": \"com.ricktap.hue:rgb_light.color\", \"fallback\": { \"tone\": \"accent\" } },\n      \"progress\": { \"prop\": \"com.ricktap.hue:rgb_light.brightness\", \"fallback\": 0 }\n    }\n  }\n}", "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" role=\"img\" aria-label=\"Hue Lampe\" fill=\"none\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <path data-part=\"glass\" d=\"M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z\" stroke=\"none\"/>\n  <path data-part=\"outline\" d=\"M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z\"/>\n  <path data-part=\"outline\" d=\"M41 72h18M44 79h12\"/>\n  <path data-part=\"track\" d=\"M22 92H78\" stroke-linecap=\"butt\"/>\n  <path data-part=\"level\" d=\"M22 92H78\" stroke-linecap=\"butt\" pathLength=\"100\"/>\n</svg>"}, {"name": "AMS Ringe (eigenes Interface)", "json": "{\n  \"id\": \"com.ricktap.bambu:rings\",\n  \"roles\": [\"com.ricktap.bambu:ams\"],\n  \"file\": \"rings.svg\",\n  \"parts\": {\n    \"housing\": {\n      \"stroke\": { \"tone\": \"com.ricktap.bambu:ams.casing\", \"fallback\": { \"tone\": \"base\" } }\n    },\n    \"track\": { \"stroke\": { \"tone\": \"muted\" } },\n    \"led\": {\n      \"fill\": { \"tone\": \"com.ricktap.bambu:ams.led\", \"fallback\": { \"tone\": \"accent\" } }\n    },\n    \"spool-1\": {\n      \"stroke\": { \"prop\": \"com.ricktap.bambu:ams.slot1_color\", \"fallback\": { \"tone\": \"accent\" } },\n      \"progress\": { \"prop\": \"com.ricktap.bambu:ams.slot1_remaining\", \"fallback\": 0 }\n    },\n    \"spool-2\": {\n      \"stroke\": { \"prop\": \"com.ricktap.bambu:ams.slot2_color\", \"fallback\": { \"tone\": \"accent\" } },\n      \"progress\": { \"prop\": \"com.ricktap.bambu:ams.slot2_remaining\", \"fallback\": 0 }\n    },\n    \"spool-3\": {\n      \"stroke\": { \"prop\": \"com.ricktap.bambu:ams.slot3_color\", \"fallback\": { \"tone\": \"accent\" } },\n      \"progress\": { \"prop\": \"com.ricktap.bambu:ams.slot3_remaining\", \"fallback\": 0 }\n    },\n    \"spool-4\": {\n      \"stroke\": { \"prop\": \"com.ricktap.bambu:ams.slot4_color\", \"fallback\": { \"tone\": \"accent\" } },\n      \"progress\": { \"prop\": \"com.ricktap.bambu:ams.slot4_remaining\", \"fallback\": 0 }\n    }\n  }\n}", "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" role=\"img\" aria-label=\"AMS mit Status LED\" fill=\"none\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <rect data-part=\"housing\" x=\"6\" y=\"12\" width=\"68\" height=\"76\" rx=\"8\"/>\n  <circle data-part=\"track\" cx=\"24\" cy=\"33\" r=\"10\" stroke-width=\"5\"/>\n  <circle data-part=\"track\" cx=\"56\" cy=\"33\" r=\"10\" stroke-width=\"5\"/>\n  <circle data-part=\"track\" cx=\"24\" cy=\"67\" r=\"10\" stroke-width=\"5\"/>\n  <circle data-part=\"track\" cx=\"56\" cy=\"67\" r=\"10\" stroke-width=\"5\"/>\n  <circle data-part=\"spool-1\" cx=\"24\" cy=\"33\" r=\"10\" stroke-width=\"5\" stroke-linecap=\"butt\" pathLength=\"100\" transform=\"rotate(-90 24 33)\"/>\n  <circle data-part=\"spool-2\" cx=\"56\" cy=\"33\" r=\"10\" stroke-width=\"5\" stroke-linecap=\"butt\" pathLength=\"100\" transform=\"rotate(-90 56 33)\"/>\n  <circle data-part=\"spool-3\" cx=\"24\" cy=\"67\" r=\"10\" stroke-width=\"5\" stroke-linecap=\"butt\" pathLength=\"100\" transform=\"rotate(-90 24 67)\"/>\n  <circle data-part=\"spool-4\" cx=\"56\" cy=\"67\" r=\"10\" stroke-width=\"5\" stroke-linecap=\"butt\" pathLength=\"100\" transform=\"rotate(-90 56 67)\"/>\n  <circle data-part=\"led\" cx=\"88\" cy=\"20\" r=\"7\" stroke=\"none\"/>\n</svg>"}, {"name": "Uhr (clock, button)", "json": "{\n  \"id\": \"core:clock\",\n  \"roles\": [\"clock\", \"button\"],\n  \"file\": \"clock.svg\",\n  \"parts\": {\n    \"analog\": {\n      \"visible\": {\n        \"prop\": \"clock.style\",\n        \"map\": { \"analog\": true, \"digital\": false },\n        \"fallback\": true\n      }\n    },\n    \"ring\": { \"stroke\": { \"tone\": \"base\" } },\n    \"hour\": {\n      \"stroke\": { \"tone\": \"base\" },\n      \"transform\": {\n        \"prop\": \"clock.hour_angle\",\n        \"prefix\": \"rotate(\", \"suffix\": \" 50 50)\",\n        \"fallback\": \"rotate(300 50 50)\"\n      }\n    },\n    \"minute\": {\n      \"stroke\": { \"tone\": \"accent\" },\n      \"transform\": {\n        \"prop\": \"clock.minute_angle\",\n        \"prefix\": \"rotate(\", \"suffix\": \" 50 50)\",\n        \"fallback\": \"rotate(60 50 50)\"\n      }\n    },\n    \"digital\": {\n      \"fill\": { \"tone\": \"base\" },\n      \"visible\": {\n        \"prop\": \"clock.style\",\n        \"map\": { \"analog\": false, \"digital\": true },\n        \"fallback\": false\n      },\n      \"text\": { \"prop\": \"clock.time\", \"fallback\": \"\" }\n    }\n  }\n}", "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" role=\"img\" aria-label=\"Uhr\" fill=\"none\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <circle data-part=\"analog ring\" cx=\"50\" cy=\"50\" r=\"36\"/>\n  <path data-part=\"analog hour\" d=\"M50 50V30\"/>\n  <path data-part=\"analog minute\" d=\"M50 50V20\"/>\n  <text data-part=\"digital\" x=\"50\" y=\"60\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"27\" font-weight=\"500\" stroke=\"none\"></text>\n</svg>"}, {"name": "Skala (progress, button)", "json": "{\n  \"id\": \"com.jemand.neon:dial\",\n  \"roles\": [\"progress\", \"button\"],\n  \"file\": \"dial.svg\",\n  \"parts\": {\n    \"track\": { \"stroke\": { \"tone\": \"muted\" } },\n    \"level\": {\n      \"stroke\": { \"tone\": \"accent\" },\n      \"progress\": { \"prop\": \"progress.value\", \"fallback\": 0 }\n    }\n  }\n}", "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" role=\"img\" aria-label=\"Skala\" fill=\"none\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n  <path data-part=\"track\" d=\"M20 64a30 30 0 0 1 60 0\" stroke-width=\"9\" stroke-linecap=\"butt\"/>\n  <path data-part=\"level\" d=\"M20 64a30 30 0 0 1 60 0\" stroke-width=\"9\" stroke-linecap=\"butt\" pathLength=\"100\"/>\n</svg>"}];
+const CORE_INTERFACES = {"button": {}, "toggle": {"on": "flag"}, "progress": {"value": "percent"}, "rgb": {"color": "color"}, "clock": {"time": "text", "hour_angle": "number", "minute_angle": "number", "style": "text"}};
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; };
+  const CORE_VARS = ["background", "base", "muted", "accent"];
+  const TYPE_NAMES = { flag: "an oder aus", percent: "0 bis 100", color: "Farbe", text: "Text", number: "Zahl" };
+
+  const state = {
+    icon: null, svg: "", interfaces: Object.assign({}, CORE_INTERFACES), against: "",
+    props: {},    // "rolle.eigenschaft" -> { set, value }
+    signals: {},  // name -> { set, value }
+    vars: { background: { set: true, value: "#0F1216" }, base: { set: true, value: "#F4F1E8" }, muted: { set: true, value: "#3A4350" }, accent: { set: true, value: "#69E0C1" } }
+  };
+
+  const defaultFor = (type, name) => type === "flag" ? true : type === "percent" ? 60 : type === "color" ? "#5B8DEF" : type === "number" ? 45 : (name === "time" ? "12:34" : name === "style" ? "analog" : "Text");
+  const split = (ref) => { const cut = ref.lastIndexOf("."); return [ref.slice(0, cut), ref.slice(cut + 1)]; };
+
+  // ---- Alle Verweise eines Icons einsammeln
+  function walk(spec, visit, path) {
+    if (spec === null || typeof spec !== "object") return;
+    if (Array.isArray(spec)) { spec.forEach((s) => walk(s, visit, path)); return; }
+    visit(spec, path);
+    if (spec.fallback !== undefined) walk(spec.fallback, visit, path);
+    if (spec.steps) walk(spec.steps, visit, path);
+    if (spec.map) Object.keys(spec.map).forEach((k) => walk(spec.map[k], visit, path));
+  }
+  function refs(icon) {
+    const out = { props: [], binds: [], tones: [] };
+    Object.keys(icon.parts || {}).forEach((part) => Object.keys(icon.parts[part]).forEach((attr) => {
+      walk(icon.parts[part][attr], (spec) => {
+        if (spec.prop && out.props.indexOf(spec.prop) < 0) out.props.push(spec.prop);
+        if (spec.bind && out.binds.indexOf(spec.bind) < 0) out.binds.push(spec.bind);
+        if (spec.tone && out.tones.indexOf(spec.tone) < 0) out.tones.push(spec.tone);
+      }, part + "." + attr);
+    }));
+    return out;
+  }
+
+  // ---- Derselbe Auflöser wie im Kern
+  function resolve(spec, ctx) {
+    if (spec === null || typeof spec !== "object") return spec;
+    let value;
+    if (spec.tone) { const v = state.vars[spec.tone]; value = v && v.set ? v.value : undefined; }
+    else if (spec.prop) { const [role] = split(spec.prop); const p = state.props[spec.prop]; value = p && p.set && ctx.roles.indexOf(role) >= 0 ? p.value : undefined; }
+    else if (spec.bind) { const g = state.signals[spec.bind]; value = g && g.set ? g.value : undefined; }
+    else return undefined;
+    if (value === undefined) return resolve(spec.fallback, ctx);
+    if (spec.steps) value = resolve(spec.steps[Math.floor(Number(value)) % spec.steps.length], ctx);
+    if (spec.map) value = spec.map[value];
+    if (spec.prefix !== undefined || spec.suffix !== undefined) value = (spec.prefix || "") + value + (spec.suffix || "");
+    return value;
+  }
+
+  function cleanSvg(source) {
+    const doc = new DOMParser().parseFromString(source, "image/svg+xml");
+    if (doc.querySelector("parsererror") || !doc.documentElement || doc.documentElement.nodeName !== "svg") return null;
+    doc.querySelectorAll("script, foreignObject").forEach((n) => n.remove());
+    doc.querySelectorAll("*").forEach((n) => Array.from(n.attributes).forEach((a) => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); }));
+    return doc.documentElement;
+  }
+  function paint(host, roles) {
+    host.textContent = "";
+    const svg = cleanSvg(state.svg);
+    if (!svg || !state.icon) return;
+    const node = document.importNode(svg, true);
+    host.append(node);
+    const bg = state.vars.background;
+    host.style.backgroundColor = bg.set ? bg.value : "#000000";
+    const ctx = { roles };
+    Object.keys(state.icon.parts || {}).forEach((part) => {
+      const props = state.icon.parts[part];
+      node.querySelectorAll('[data-part~="' + part + '"]').forEach((target) => {
+        Object.keys(props).forEach((attr) => {
+          const value = resolve(props[attr], ctx);
+          if (value === undefined) return;
+          if (attr === "progress") target.setAttribute("stroke-dasharray", Math.max(0, Math.min(100, Number(value))) + " 100");
+          else if (attr === "visible") target.setAttribute("visibility", value ? "visible" : "hidden");
+          else if (attr === "text") target.textContent = value;
+          else target.setAttribute(attr, value);
+        });
+      });
+    });
+  }
+
+  const activeRoles = () => (state.against === "*" ? (state.icon.roles || []) : [state.against]);
+
+  // ---- Regler aus Typen
+  function control(type, entry, onChange) {
+    const wrap = el("span", "ctl");
+    let input;
+    if (type === "flag") { input = el("input"); input.type = "checkbox"; input.checked = !!entry.value; input.addEventListener("change", () => { entry.value = input.checked; onChange(); }); wrap.append(input, el("span", "", "")); }
+    else if (type === "percent" || type === "number") {
+      input = el("input"); input.type = "range"; input.min = 0; input.max = type === "percent" ? 100 : 360; input.value = entry.value;
+      const out = el("span", "mono", String(entry.value));
+      input.addEventListener("input", () => { entry.value = Number(input.value); out.textContent = input.value; onChange(); });
+      wrap.append(input, out);
+    } else if (type === "color") {
+      input = el("input"); input.type = "color"; input.value = /^#[0-9a-f]{6}$/i.test(entry.value) ? entry.value : "#5B8DEF";
+      input.addEventListener("input", () => { entry.value = input.value; onChange(); });
+      wrap.append(input);
+    } else {
+      input = el("input"); input.type = "text"; input.value = entry.value;
+      input.addEventListener("input", () => { entry.value = input.value; onChange(); });
+      wrap.append(input);
+    }
+    return wrap;
+  }
+  function row(host, name, type, entry, label) {
+    const r = el("div", "row");
+    const set = el("input"); set.type = "checkbox"; set.checked = entry.set; set.setAttribute("aria-label", name + " gesetzt");
+    const nm = el("span", "nm mono", label || name); nm.append(el("span", "ty", "Typ " + type + (TYPE_NAMES[type] ? ", " + TYPE_NAMES[type] : "")));
+    const ctl = control(type, entry, repaint);
+    set.addEventListener("change", () => { entry.set = set.checked; ctl.style.opacity = entry.set ? "1" : "0.35"; repaint(); });
+    ctl.style.opacity = entry.set ? "1" : "0.35";
+    r.append(set, nm, ctl); host.append(r);
+  }
+
+  function buildControls() {
+    const host = $("props"); host.textContent = "";
+    const roles = activeRoles().filter((r) => r !== "button");
+    let any = false;
+    roles.forEach((role) => {
+      const def = state.interfaces[role];
+      if (!def) { host.append(el("p", "note", "Das Interface " + role + " ist nicht geladen. Lade seine Datei unter 2.")); any = true; return; }
+      Object.keys(def).forEach((key) => {
+        const ref = role + "." + key;
+        if (!state.props[ref]) state.props[ref] = { set: true, value: defaultFor(def[key], key) };
+        row(host, ref, def[key], state.props[ref]); any = true;
+      });
+    });
+    if (!any) host.append(el("p", "note", "Die Rolle button hat keine Eigenschaften. Das Icon zeigt hier seine fallbacks."));
+
+    const env = $("env"); env.textContent = "";
+    const found = refs(state.icon);
+    found.binds.forEach((name) => {
+      if (!state.signals[name]) state.signals[name] = { set: true, value: 0 };
+      row(env, name, "number", state.signals[name], name + " (Signal)");
+    });
+    CORE_VARS.concat(found.tones.filter((t) => CORE_VARS.indexOf(t) < 0)).forEach((name) => {
+      if (!state.vars[name]) state.vars[name] = { set: false, value: "#6F8FD9" };
+      row(env, name, "color", state.vars[name], name + (CORE_VARS.indexOf(name) < 0 ? " (eigene Variable)" : ""));
+    });
+  }
+
+  function buildAgainst() {
+    const sel = $("against"); sel.textContent = "";
+    const roles = (state.icon.roles || []).slice();
+    if (roles.indexOf("button") < 0) roles.push("button");
+    roles.forEach((r) => { const o = el("option", "", r); o.value = r; sel.append(o); });
+    const all = el("option", "", "alle Rollen zugleich"); all.value = "*"; sel.append(all);
+    if (roles.indexOf(state.against) < 0 && state.against !== "*") state.against = roles[0];
+    sel.value = state.against;
+  }
+
+  function buildMatrix() {
+    const host = $("matrix"); host.textContent = "";
+    const roles = (state.icon.roles || []).slice();
+    if (roles.indexOf("button") < 0) roles.push("button");
+    roles.forEach((role) => {
+      const fig = el("figure"); const mini = el("div", "mini");
+      fig.append(mini, el("figcaption", "mono", role)); host.append(fig);
+      paint(mini, [role]);
+    });
+  }
+
+  // ---- Prüfbericht
+  function report() {
+    const list = $("report"); list.textContent = "";
+    const add = (kind, label, msg) => { const li = el("li"); li.append(el("span", "tag " + kind, label), el("span", "", msg)); list.append(li); };
+    const icon = state.icon;
+    let problems = 0;
+    const err = (m) => { problems += 1; add("err", "Fehler", m); };
+    const warn = (m) => add("warn", "Hinweis", m);
+    if (!icon.id || icon.id.indexOf(":") < 0) err("Die ID braucht einen Namensraum, zum Beispiel com.jemand.neon:bulb.");
+    if (!Array.isArray(icon.roles) || !icon.roles.length) err("Das Icon nennt keine Rollen.");
+    const svg = cleanSvg(state.svg);
+    if (!svg) { err("Das SVG lässt sich nicht lesen."); return; }
+    const partNames = new Set();
+    svg.querySelectorAll("[data-part]").forEach((n) => n.getAttribute("data-part").split(/\s+/).forEach((p) => partNames.add(p)));
+    Object.keys(icon.parts || {}).forEach((part) => {
+      if (!partNames.has(part)) err("Teil " + part + " steht in der Bindungsdatei, fehlt aber im SVG (data-part).");
+      Object.keys(icon.parts[part]).forEach((attr) => {
+        const where = part + "." + attr;
+        walk(icon.parts[part][attr], (spec) => {
+          if (spec.prop) {
+            const [role, key] = split(spec.prop);
+            if ((icon.roles || []).indexOf(role) < 0) err(where + " liest " + spec.prop + ", aber " + role + " steht nicht in roles.");
+            const def = state.interfaces[role];
+            if (!def) err(where + " liest " + spec.prop + ". Das Interface " + role + " ist nicht geladen.");
+            else if (!(key in def)) err(where + " liest " + spec.prop + ". Das Interface " + role + " kennt keine Eigenschaft " + key + ". Vorhanden: " + (Object.keys(def).join(", ") || "keine") + ".");
+            if (spec.fallback === undefined) err(where + " liest " + spec.prop + " ohne fallback.");
+          }
+          if (spec.bind && spec.fallback === undefined) err(where + " bindet das Signal " + spec.bind + " ohne fallback.");
+          if (spec.tone && CORE_VARS.indexOf(spec.tone) < 0 && spec.fallback === undefined) err(where + " liest die eigene Variable " + spec.tone + " ohne fallback.");
+          Object.keys(spec).forEach((k) => { if (["prop", "bind", "tone", "config", "steps", "map", "prefix", "suffix", "fallback"].indexOf(k) < 0) warn(where + " enthält den unbekannten Schlüssel " + k + "."); });
+          if (spec.config) err(where + " nutzt config. Das ist nur in Apps erlaubt.");
+        }, where);
+        if (attr === "progress") svg.querySelectorAll('[data-part~="' + part + '"]').forEach((n) => { if (n.getAttribute("pathLength") !== "100") warn("Teil " + part + " nutzt progress, das Element braucht pathLength=\"100\"."); });
+      });
+    });
+    partNames.forEach((p) => { if (!(icon.parts || {})[p]) warn("Teil " + p + " im SVG hat keine Bindung und behält sein Aussehen aus der Datei."); });
+    let fixed = 0;
+    svg.querySelectorAll("*").forEach((n) => ["stroke", "fill"].forEach((a) => { const v = n.getAttribute(a); if (v && /^#|^rgb|^hsl/i.test(v)) fixed += 1; }));
+    if (fixed) warn(fixed + " feste Farbe(n) im SVG. Farben sollten aus tone, prop oder bind kommen, sonst folgt das Icon keinem Theme.");
+    (icon.roles || []).forEach((role) => {
+      const def = state.interfaces[role]; if (!def || role === "button") return;
+      const used = refs(icon).props.filter((p) => split(p)[0] === role).map((p) => split(p)[1]);
+      const unused = Object.keys(def).filter((k) => used.indexOf(k) < 0);
+      if (!used.length) warn("Das Icon nennt die Rolle " + role + ", liest aber keine ihrer Eigenschaften.");
+      else if (unused.length) add("info", "Info", "Von " + role + " ungenutzt: " + unused.join(", ") + ".");
+    });
+    if (!problems) add("ok", "In Ordnung", "Keine Fehler. Jede Bindung hat einen fallback, und jede gelesene Eigenschaft steht im Interface.");
+  }
+
+  function repaint() { paint($("tile"), activeRoles()); buildMatrix(); }
+
+  function refresh(rebuild) {
+    let icon;
+    try { icon = JSON.parse($("txtJson").value); } catch (e) {
+      $("report").textContent = ""; const li = el("li"); li.append(el("span", "tag err", "Fehler"), el("span", "", "Die Bindungsdatei ist kein gültiges JSON: " + e.message)); $("report").append(li); return;
+    }
+    let custom = {};
+    try { custom = JSON.parse($("txtIf").value || "{}"); } catch (e) { custom = {}; }
+    state.interfaces = Object.assign({}, custom, CORE_INTERFACES);
+    state.icon = icon; state.svg = $("txtSvg").value;
+    $("metaId").textContent = icon.id || "ohne ID";
+    $("metaRoles").textContent = "Rollen: " + ((icon.roles || []).join(", ") || "keine");
+    if (rebuild) buildAgainst();
+    buildControls(); repaint(); report();
+  }
+
+  function load(example) { $("txtJson").value = example.json; $("txtSvg").value = example.svg; state.against = ""; refresh(true); }
+
+  EXAMPLES.forEach((ex, i) => { const o = el("option", "", ex.name); o.value = i; $("example").append(o); });
+  $("example").addEventListener("change", () => load(EXAMPLES[Number($("example").value)]));
+  $("against").addEventListener("change", () => { state.against = $("against").value; buildControls(); repaint(); });
+  let timer = null;
+  ["txtJson", "txtSvg", "txtIf"].forEach((id) => $(id).addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => refresh(true), 300); }));
+  const readInto = (inputId, targetId, merge) => $(inputId).addEventListener("change", () => {
+    const file = $(inputId).files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (merge) {
+        try { const cur = JSON.parse($(targetId).value || "{}"); $(targetId).value = JSON.stringify(Object.assign(cur, JSON.parse(reader.result)), null, 2); }
+        catch (e) { $(targetId).value = reader.result; }
+      } else { $(targetId).value = reader.result; }
+      refresh(true);
+    };
+    reader.readAsText(file);
+  });
+  readInto("fileJson", "txtJson"); readInto("fileSvg", "txtSvg"); readInto("fileIf", "txtIf", true);
+
+  load(EXAMPLES[0]);
+})();
+
+</script>
+</body>
+</html>

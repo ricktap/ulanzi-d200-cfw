@@ -13,6 +13,9 @@ Custom software for the Ulanzi D200 stream controller:
 
 Read `docs/architecture.md` first, then `docs/config.md` and `docs/protocol.md`.
 
+The target model (Deckling: plugins, icon sets, themes, signals, bindings) is in
+`docs/deckling/architecture.md` and is normative. The work plan is `docs/deckling/briefing.md`.
+
 ## Commands
 
 ```sh
