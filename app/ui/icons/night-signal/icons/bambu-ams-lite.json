@@ -1,0 +1,50 @@
+{
+  "id": "core:bambu-ams-lite",
+  "roles": [
+    "com.ricktap.bambu:ams",
+    "button"
+  ],
+  "file": "bambu-ams-lite.svg",
+  "parts": {
+    "spool-1-ring": {
+      "stroke": {
+        "prop": "com.ricktap.bambu:ams.slot1_color",
+        "fallback": "#69E0C1"
+      },
+      "progress": {
+        "prop": "com.ricktap.bambu:ams.slot1_remaining",
+        "fallback": 80
+      }
+    },
+    "spool-2-ring": {
+      "stroke": {
+        "prop": "com.ricktap.bambu:ams.slot2_color",
+        "fallback": "#B79AF7"
+      },
+      "progress": {
+        "prop": "com.ricktap.bambu:ams.slot2_remaining",
+        "fallback": 65
+      }
+    },
+    "spool-3-ring": {
+      "stroke": {
+        "prop": "com.ricktap.bambu:ams.slot3_color",
+        "fallback": "#FFBF69"
+      },
+      "progress": {
+        "prop": "com.ricktap.bambu:ams.slot3_remaining",
+        "fallback": 40
+      }
+    },
+    "spool-4-ring": {
+      "stroke": {
+        "prop": "com.ricktap.bambu:ams.slot4_color",
+        "fallback": "#FF8278"
+      },
+      "progress": {
+        "prop": "com.ricktap.bambu:ams.slot4_remaining",
+        "fallback": 95
+      }
+    }
+  }
+}

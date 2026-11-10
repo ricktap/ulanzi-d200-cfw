@@ -1,0 +1,272 @@
+[
+  {
+    "id": "core:command",
+    "name": "Run command",
+    "params": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": "core:open",
+    "name": "Open",
+    "params": [
+      {
+        "key": "target",
+        "label": "App, file or URL",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": "core:keys",
+    "name": "Shortcut",
+    "params": [
+      {
+        "key": "combo",
+        "label": "Keys",
+        "type": "text",
+        "placeholder": "cmd+shift+4"
+      }
+    ]
+  },
+  {
+    "id": "core:page",
+    "name": "Go to page",
+    "params": [
+      {
+        "key": "page",
+        "label": "Page",
+        "type": "select",
+        "values": {
+          "source": "core:pages"
+        }
+      }
+    ]
+  },
+  {
+    "id": "core:back",
+    "name": "Back",
+    "params": []
+  },
+  {
+    "id": "core:home",
+    "name": "Home page",
+    "params": []
+  },
+  {
+    "id": "core:profile",
+    "name": "Switch profile",
+    "params": [
+      {
+        "key": "profile",
+        "label": "Profile",
+        "type": "select",
+        "values": {
+          "source": "core:profiles"
+        }
+      }
+    ]
+  },
+  {
+    "id": "core:state",
+    "name": "Change state",
+    "params": [
+      {
+        "key": "to",
+        "label": "State",
+        "type": "text",
+        "default": "next"
+      }
+    ]
+  },
+  {
+    "id": "core:mqtt",
+    "name": "MQTT publish",
+    "params": [
+      {
+        "key": "topic",
+        "label": "Topic",
+        "type": "text"
+      },
+      {
+        "key": "payload",
+        "label": "Payload",
+        "type": "text"
+      },
+      {
+        "key": "retain",
+        "label": "Retain",
+        "type": "toggle"
+      }
+    ]
+  },
+  {
+    "id": "core:brightness",
+    "name": "Brightness",
+    "params": [
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "text",
+        "placeholder": "128, +25, -25"
+      }
+    ]
+  },
+  {
+    "id": "core:notify",
+    "name": "Notification",
+    "params": [
+      {
+        "key": "text",
+        "label": "Text",
+        "type": "text"
+      },
+      {
+        "key": "icon",
+        "label": "Icon",
+        "type": "text"
+      },
+      {
+        "key": "color",
+        "label": "Colour",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": "core:remote",
+    "name": "Remote page",
+    "params": []
+  },
+  {
+    "id": "core:media",
+    "name": "Media",
+    "params": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "select",
+        "values": [
+          {
+            "label": "Play/pause",
+            "value": "playpause"
+          },
+          {
+            "label": "Next",
+            "value": "next"
+          },
+          {
+            "label": "Previous",
+            "value": "previous"
+          },
+          {
+            "label": "Play",
+            "value": "play"
+          },
+          {
+            "label": "Pause",
+            "value": "pause"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:teams",
+    "name": "Teams meeting",
+    "params": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "select",
+        "values": [
+          {
+            "label": "Mute",
+            "value": "toggle-mute"
+          },
+          {
+            "label": "Camera",
+            "value": "toggle-video"
+          },
+          {
+            "label": "Raise hand",
+            "value": "toggle-hand"
+          },
+          {
+            "label": "Blur",
+            "value": "toggle-background-blur"
+          },
+          {
+            "label": "Leave",
+            "value": "leave-call"
+          },
+          {
+            "label": "Chat",
+            "value": "toggle-ui-chat"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:volume",
+    "name": "Volume",
+    "params": [
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "text",
+        "placeholder": "+5, -5, 40, mute, toggle-mute"
+      }
+    ]
+  },
+  {
+    "id": "core:presence",
+    "name": "Teams presence",
+    "params": [
+      {
+        "key": "to",
+        "label": "To",
+        "type": "select",
+        "values": [
+          {
+            "label": "Toggle",
+            "value": "toggle"
+          },
+          {
+            "label": "Automatic",
+            "value": "auto"
+          },
+          {
+            "label": "Available",
+            "value": "Available"
+          },
+          {
+            "label": "Busy",
+            "value": "Busy"
+          },
+          {
+            "label": "Do not disturb",
+            "value": "DoNotDisturb"
+          },
+          {
+            "label": "Be right back",
+            "value": "BeRightBack"
+          },
+          {
+            "label": "Away",
+            "value": "Away"
+          },
+          {
+            "label": "Offline",
+            "value": "Offline"
+          }
+        ]
+      }
+    ]
+  }
+]

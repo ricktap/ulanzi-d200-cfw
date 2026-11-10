@@ -1,23 +1,28 @@
 # deck.json
 
-The app edits this file for you. This page is for hand edits and scripting. The format can still
-change while the project is a draft: a file that no longer loads is moved to `deck.json.old`,
-and the app starts from `app/src-tauri/src/default-config.json`.
+The app edits this file for you. This page is for hand edits and scripting. The source of truth
+is `app/src-tauri/src/config.rs`; the target model is `docs/deckling/architecture.md`.
 
-The source of truth is `app/src-tauri/src/config.rs`.
+The file has a `version`. This app writes version 2. An older file is migrated when it is loaded
+(`migrate.rs`); the original stays next to it as `deck.v1.json`. A newer version, or a file that
+does not parse, is moved to `deck.json.old` and the app starts from `default-config.json`.
+Fields, apps and actions this version does not know are kept when the file is saved.
 
 ```jsonc
 {
+  "version": 2,
   "settings": { ... },
-  "status_key": { "app": "profile", "show": "auto", "actions": { "press": [{"type": "home"}] } },
+  "status_key": { "app": "profile", "show": "auto", "on": { "press": [{"action": "core:home"}] } },
   "profiles": [
     {
       "name": "Default",            // the first profile is the fallback
       "apps": [],                   // bundle ids / app or exe names this profile follows
       "pages": {                    // ordered; the first page is home
         "main": {
-          "0": { "states": [ { "look": {...}, "actions": {...} } ] },
-          "1": { "app": { "type": "sysmon", "modes": ["cpu", "ram"] } }
+          "0": { "states": [ { "label": "Vol +", "icon": "core:volume-up",
+                               "on": { "press": [{"action": "core:volume", "params": {"value": "+5"}}] } } ] },
+          "1": { "app": "core:sysmon", "config": { "modes": ["cpu", "ram"] } },
+          "2": { "app": "core:clock", "states": [ { "icon": "core:pomodoro" } ] }
         }
       }
     }
@@ -32,61 +37,74 @@ Keys `0`-`12` are the square keys. The wide key (13) is the **status key** and i
 
 | Field | Meaning |
 |---|---|
-| `app` | built-in widget, see below. Optional |
-| `states` | list of states. State 0 is the first one. An `{"type":"state","to":"next"}` action cycles through them |
+| `app` | app id, see below. Missing: a plain button (`core:button`) |
+| `config` | the app's settings for this key, by the schema in the app's `config` |
+| `states` | list of states. State 0 is the first one. A `core:state` action cycles through them |
 
-A state has a `look` and `actions`.
+A key whose app comes from a plugin that is not installed shows "Plugin missing" and keeps all
+its fields.
 
-**`look`**
+A state holds the look and the actions:
 
 | Field | Meaning |
 |---|---|
 | `label` | text |
-| `icon` | Night Signal name (`"volume-on"`), emoji, or image path |
+| `icon` | icon id (`"core:volume-on"`), emoji, or image path. On an app key: the chosen icon |
 | `image` | full-key image |
-| `icon_state` | state for a stateful icon, for example `{"on": true}` or `{"temperature": 21.5, "progress": 60}` |
+| `props` | static interface properties for the icon, e.g. `{"toggle.on": true, "rgb.color": "#B79AF7"}`. An app supplies these itself |
 | `bg`, `fg` | colours, `#rrggbb` |
+| `on` | actions per event, see below |
 
-**`actions`**
+On an app key, state 0 holds the chosen icon, label, colours and extra actions. While the chosen
+icon is the app's default (or none is set), core apps draw their built-in widget. Any other icon
+is drawn with its bindings, fed by the app's interfaces.
+
+**`on`**
 
 `press`, `long`, `down` and `up` each hold a list of actions:
 
 - `down` and `up` fire on every press.
 - Exactly one of `press` and `long` fires, depending on `settings.long_press_ms`.
 
-## Actions (`{"type": ..., ...}`)
+## Actions (`{"action": ..., "params": {...}}`)
 
-| type | fields | effect |
+An action is the id of an action a plugin offers, with its parameters. Core actions:
+
+| action | params | effect |
 |---|---|---|
-| `command` | `command` | shell command |
-| `open` | `target` | app, file, folder or URL |
-| `keys` | `combo` | shortcut, for example `cmd+shift+4` |
-| `page` / `back` / `home` | `page` | navigation |
-| `profile` | `profile` | a name, `next` or `auto` |
-| `state` | `to` | `next` or an index |
-| `mqtt` | `topic`, `payload`, `retain` | publish |
-| `brightness` | `value` | `128`, `+25`, `-25` |
-| `notify` | `text`, `icon`, `color` | card on the status key |
-| `remote` | | show the Home Assistant remote page |
-| `media` | `command` | `playpause`, `next`, `previous`, `play`, `pause` |
-| `teams` | `command` | `toggle-mute`, `toggle-video`, `toggle-hand`, `toggle-background-blur`, `leave-call`, `toggle-ui-chat` |
-| `volume` | `value` | `+5`, `-5`, `40`, `mute`, `unmute`, `toggle-mute` |
-| `presence` | `to` | `toggle`, `auto`, `Available`, `Busy`, `DoNotDisturb`, `BeRightBack`, `Away`, `Offline` |
+| `core:command` | `command` | shell command |
+| `core:open` | `target` | app, file, folder or URL |
+| `core:keys` | `combo` | shortcut, for example `cmd+shift+4` |
+| `core:page` / `core:back` / `core:home` | `page` | navigation |
+| `core:profile` | `profile` | a name, `next` or `auto` |
+| `core:state` | `to` | `next` or an index |
+| `core:mqtt` | `topic`, `payload`, `retain` | publish |
+| `core:brightness` | `value` | `128`, `+25`, `-25` |
+| `core:notify` | `text`, `icon`, `color` | card on the status key |
+| `core:remote` | | show the Home Assistant remote page |
+| `core:media` | `command` | `playpause`, `next`, `previous`, `play`, `pause` |
+| `core:teams` | `command` | `toggle-mute`, `toggle-video`, `toggle-hand`, `toggle-background-blur`, `leave-call`, `toggle-ui-chat` |
+| `core:volume` | `value` | `+5`, `-5`, `40`, `mute`, `unmute`, `toggle-mute` |
+| `core:presence` | `to` | `toggle`, `auto`, `Available`, `Busy`, `DoNotDisturb`, `BeRightBack`, `Away`, `Offline` |
 
-## Built-in apps (`"app": {"type": ...}`)
+The list, with a parameter schema per action, comes from the Tauri command `catalog`
+(`app/src-tauri/core/actions.json`).
 
-| type | options |
+## Apps (`"app": "core:..."`)
+
+| id | settings (`config`) |
 |---|---|
-| `sysmon` | `modes`: any of `cpu`, `ram`, `disk`, `net`. A press cycles through them |
-| `mute` | |
-| `weather` | uses `settings.weather` |
-| `clock` | `h12` |
-| `pomodoro` | uses `settings.pomodoro` |
-| `media` | |
-| `teams_mute`, `teams_camera`, `teams_presence` | |
-| `debugger` | `idle_keys`, `active_keys`, `stop_keys` |
+| `core:sysmon` | `modes`: any of `cpu`, `ram`, `disk`, `net`. A press cycles through them |
+| `core:mute` | |
+| `core:weather` | uses `settings.weather` |
+| `core:clock` | `h12` |
+| `core:pomodoro` | uses `settings.pomodoro` |
+| `core:media` | |
+| `core:teams_mute`, `core:teams_camera`, `core:teams_presence` | |
+| `core:debugger` | `idle_keys`, `active_keys`, `stop_keys` |
 
-State 0 of an app key can still add colours and extra actions.
+Each app is a file in `app/src-tauri/core/apps/`: name, default icon, settings schema and the
+interfaces it fulfils (`implements`). See [packages.md](packages.md).
 
 ## status_key
 
@@ -94,7 +112,7 @@ State 0 of an app key can still add colours and extra actions.
 |---|---|
 | `app` | `profile`, `media`, `meeting`, `email`, `steam`, `printer` |
 | `show` | `auto` (the song while a player plays, else the default), `profile`, `media` |
-| `actions` | as for keys. The default is: press → home, long press → remote page |
+| `on` | as for keys. The default is: press → home, long press → remote page |
 
 ## settings
 
@@ -107,7 +125,12 @@ State 0 of an app key can still add colours and extra actions.
 | `teams` | `port` (8124), `client_id`, `tenant`, `away` |
 | `screensaver` | `enabled`, `idle_minutes`, `scene` (`auto`, `snow`, `pink`, `beach`, `leaves`, `rain`), `southern`, `motion`, `fps` |
 | `cards` | `email`, `meetings`, `steam`, `printer`, `hide_content` |
-| `theme` | `palette {active, info, attention, error, background}` and `widgets {<name>: {...}}` |
+| `theme` | `palette {active, info, attention, error, background}`, `widgets {<name>: {...}}` and `variables` |
+
+`theme.variables` sets theme variables over the palette (`accent`, `background`, `base`,
+`muted`, `info`, `warning`, `danger`, or any namespaced name). A value is a colour or a binding,
+for example `"accent": {"bind": "time.second", "steps": ["#FF4D4D", "#3DDC84"]}`. Built-in
+widgets follow the bound palette colours too.
 
 For the theme fields per widget, see [design/widgets-theming.md](design/widgets-theming.md).
 They are: `accent`, `light`, `light_opacity`, `idle_light_factor`, `background`, `border`,

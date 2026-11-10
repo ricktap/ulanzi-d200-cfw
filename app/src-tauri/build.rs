@@ -19,7 +19,39 @@ fn main() {
         writeln!(out, "    ({n:?}, include_str!({:?})),", path.display().to_string()).unwrap();
     }
     out += "];\n";
+
+    // The core plugin and the Night Signal icon set as package files, parsed at
+    // runtime by the package loader (registry.rs): (package path, contents).
+    out += "pub static PACKAGE_FILES: &[(&str, &str)] = &[\n";
+    for (root, prefix) in [("core", "core"), ("../ui/icons/night-signal", "core/night-signal")] {
+        println!("cargo:rerun-if-changed={root}");
+        let mut files = vec![];
+        walk(std::path::Path::new(root), &mut files);
+        files.sort();
+        for f in files {
+            let rel = f.strip_prefix(root).unwrap().to_str().unwrap().replace('\\', "/");
+            if !rel.ends_with(".json") || rel.starts_with("manifest") {
+                continue;
+            }
+            let abs = std::fs::canonicalize(&f).unwrap();
+            writeln!(out, "    ({:?}, include_str!({:?})),", format!("{prefix}/{rel}"), abs.display().to_string()).unwrap();
+        }
+    }
+    out += "];\n";
     std::fs::write(std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("icons_gen.rs"), out).unwrap();
 
     tauri_build::build()
+}
+
+fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            if p.file_name().is_some_and(|n| n != "svg") {
+                walk(&p, out);
+            }
+        } else {
+            out.push(p);
+        }
+    }
 }

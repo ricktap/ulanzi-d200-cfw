@@ -1,0 +1,30 @@
+{
+  "id": "core:media",
+  "name": "Media",
+  "icon": "core:now-playing",
+  "face": "media",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "media.playing",
+        "fallback": false
+      }
+    },
+    "progress": {
+      "value": {
+        "bind": "media.progress",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "media.title",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "core:downloads",
+  "roles": [
+    "toggle",
+    "button"
+  ],
+  "file": "downloads.svg",
+  "parts": {
+    "download-arrow": {
+      "stroke": {
+        "prop": "toggle.on",
+        "fallback": {
+          "tone": "muted"
+        },
+        "steps": [
+          {
+            "tone": "muted"
+          },
+          {
+            "tone": "accent"
+          }
+        ]
+      }
+    }
+  }
+}

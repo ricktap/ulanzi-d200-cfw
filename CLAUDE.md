@@ -39,9 +39,9 @@ git tag v1.2.3 && git push origin v1.2.3
 
 ## Conventions
 
-- **The config format is free during the draft phase.** Change `deck.json` types as needed. No
-  migrations or compatibility layers. Update `default-config.json`, `testdata/ui-config.json`
-  and `docs/config.md` with them.
+- **`deck.json` has a version.** A change to its shape bumps `config::VERSION` and adds a step
+  in `migrate.rs` with a test. Unknown fields must survive load and save (`extra` maps). Update
+  `default-config.json`, `testdata/ui-config.json` and `docs/config.md` with it.
 - **The engine is one thread.** All state lives in `engine.rs`, and everything else sends `Msg`s
   to it. Don't add shared mutable state.
 - **Colours come from the theme.** Use `Th::resolve(theme, widget, tone)`. Never hard-code hex
@@ -49,6 +49,10 @@ git tag v1.2.3 && git push origin v1.2.3
 - **Keep the UI build-free.** Plain JS, `withGlobalTauri`, no bundler and no frameworks.
 - **Icons:** the SVGs in `app/ui/icons/night-signal/svg/` are compiled in by `build.rs`. To add
   an icon, add the SVG and add it to `manifest.json`. `icons.rs` tests that every icon renders.
+  An icon with changing parts gets a binding file in `icons/` (see `docs/packages.md`);
+  `registry.rs` tests that the built-in packages load without warnings.
+- **Plugins never set colours or listen to keys.** Values go out as signals; icons and themes
+  read them through bindings. Don't add per-icon state code to `icons.rs`.
 - The UI text is in English and short. Docs are in English.
 
 ## Gotchas
@@ -60,8 +64,8 @@ git tag v1.2.3 && git push origin v1.2.3
   `main.js`.
 - **Upper-case local names** in Rust `let` patterns are read as constants. Keep locals lower
   case.
-- **resvg ignores CSS `calc()`/`var()`.** Stateful icons are changed as strings in `icons.rs`
-  (`strip_css`, `set_part_attr`). Edit the attributes, not the styles.
+- **resvg ignores CSS `calc()`/`var()` and `pathLength`.** Bound icons are changed as strings
+  in `icons.rs` (`strip_css`, `apply_parts`). Edit the attributes, not the styles.
 - **adb shell** gives no exit codes, and kills background jobs when it ends. Echo a marker and
   check it, and detach jobs with `setsid`. See `docs/hardware.md`.
 - `d200fw` writes `/tmp/app.pid` only when it stops the vendor app (on the device). Tests run it

@@ -297,22 +297,18 @@ impl Canvas {
         }
     }
 
-    /// Draw a Night Signal icon centred in the box; false if `name` is not in the set.
+    /// Draw a registry icon centred in the box; false if there is no such icon.
     pub fn set_icon(&mut self, name: &str, x: f32, y: f32, w: f32, h: f32, overrides: &[(&str, &str)]) -> bool {
-        self.set_icon_state(name, x, y, w, h, overrides, None)
+        self.set_icon_env(name, x, y, w, h, overrides, None)
     }
 
-    /// Same, with the state of a stateful icon (see icons::apply_state).
-    pub fn set_icon_state(&mut self, name: &str, x: f32, y: f32, w: f32, h: f32, overrides: &[(&str, &str)], state: Option<&serde_json::Value>) -> bool {
-        let name = name.trim();
-        if !crate::icons::exists(name) {
-            return false;
-        }
+    /// Same, resolving the icon's bindings in `env` (without one, the fallbacks draw).
+    pub fn set_icon_env(&mut self, name: &str, x: f32, y: f32, w: f32, h: f32, overrides: &[(&str, &str)], env: Option<&IconEnv>) -> bool {
+        let Some(def) = crate::registry::builtin().icon(name) else { return false };
         let s = w.min(h).max(1.0);
-        let pm = match state {
-            Some(st) => crate::icons::render_state(name, s as u32, overrides, st),
-            None => crate::icons::render(name, s as u32, overrides),
-        };
+        let empty = IconEnv::empty();
+        let env = env.unwrap_or(&empty);
+        let pm = crate::icons::render_bound(def, s as u32, overrides, &env.ctx, &mut env.reads.borrow_mut());
         if let Some(pm) = pm {
             let px = x + (w - s) / 2.0;
             let py = y + (h - s) / 2.0;
@@ -482,11 +478,11 @@ impl Canvas {
         self.icon_s(f, base, icon, None, x, y, w, h, fg)
     }
 
-    /// `icon` with an optional stateful-icon state.
-    pub fn icon_s(&mut self, f: &Fonts, base: &Path, icon: &str, state: Option<&serde_json::Value>, x: f32, y: f32, w: f32, h: f32, fg: Rgb) {
+    /// `icon` with bindings resolved in `env`.
+    pub fn icon_s(&mut self, f: &Fonts, base: &Path, icon: &str, env: Option<&IconEnv>, x: f32, y: f32, w: f32, h: f32, fg: Rgb) {
         let hex = format!("#{:02X}{:02X}{:02X}", fg[0], fg[1], fg[2]);
         let ovr: Vec<(&str, &str)> = if fg == [255, 255, 255] || fg == IVORY { vec![] } else { vec![("icon-base", hex.as_str())] };
-        if self.set_icon_state(icon, x, y, w, h, &ovr, state) {
+        if self.set_icon_env(icon, x, y, w, h, &ovr, env) {
             return;
         }
         if is_image_path(icon) {
@@ -782,7 +778,7 @@ pub fn look_colors(look: &Look, default_bg: Rgb) -> (Rgb, Rgb) {
 
 /// A button. Layouts: full image; icon + label; label only (big); `value` (a remote
 /// key's state) as a big figure when numeric, else as a pill.
-pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u32, u32), default_bg: Rgb) -> Canvas {
+pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u32, u32), default_bg: Rgb, env: Option<&IconEnv>) -> Canvas {
     let (bg, fg) = look_colors(look, default_bg);
     let mut c = Canvas::new(size.0, size.1, bg);
     if let Some(img) = look.image.as_deref().and_then(|p| image::open(resolve(base, p)).ok()) {
@@ -824,19 +820,19 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
                 c.caps(f, l, 18.0, cx, 162.0, fg, max);
             }
         }
-        (Some(i), 0, None) => c.icon_s(f, base, i, look.icon_state.as_ref(), cx - 60.0, h / 2.0 - 60.0, 120.0, 120.0, fg),
+        (Some(i), 0, None) => c.icon_s(f, base, i, env, cx - 60.0, h / 2.0 - 60.0, 120.0, 120.0, fg),
         (Some(i), n, None) => {
             if n == 1 {
-                c.icon_s(f, base, i, look.icon_state.as_ref(), cx - 52.0, 22.0, 104.0, 104.0, fg);
+                c.icon_s(f, base, i, env, cx - 52.0, 22.0, 104.0, 104.0, fg);
                 c.caps(f, lines[0], 22.0, cx, 168.0, fg, max);
             } else {
-                c.icon_s(f, base, i, look.icon_state.as_ref(), cx - 44.0, 14.0, 88.0, 88.0, fg);
+                c.icon_s(f, base, i, env, cx - 44.0, 14.0, 88.0, 88.0, fg);
                 c.caps(f, lines[0], 19.0, cx, 140.0, fg, max);
                 c.caps(f, lines[1], 19.0, cx, 168.0, fg, max);
             }
         }
         (Some(i), _, Some(v)) => {
-            c.icon_s(f, base, i, look.icon_state.as_ref(), cx - 44.0, 12.0, 88.0, 88.0, fg);
+            c.icon_s(f, base, i, env, cx - 44.0, 12.0, 88.0, 88.0, fg);
             if numeric {
                 c.figure(f, v, 36.0, cx, 140.0, fg, max);
             } else {
@@ -848,6 +844,63 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
         }
         _ => {}
     }
+    c
+}
+
+/// What bound icons read while one face is drawn, and what they did read.
+pub struct IconEnv<'a> {
+    pub ctx: crate::bind::Ctx<'a>,
+    pub reads: std::cell::RefCell<crate::bind::Reads>,
+}
+
+fn empty_map() -> &'static serde_json::Map<String, serde_json::Value> {
+    static M: std::sync::OnceLock<serde_json::Map<String, serde_json::Value>> = std::sync::OnceLock::new();
+    M.get_or_init(serde_json::Map::new)
+}
+
+fn no_signals() -> &'static crate::bind::Signals {
+    static S: std::sync::OnceLock<crate::bind::Signals> = std::sync::OnceLock::new();
+    S.get_or_init(crate::bind::Signals::default)
+}
+
+impl IconEnv<'static> {
+    /// Nothing to read: every binding takes its fallback.
+    pub fn empty() -> IconEnv<'static> {
+        IconEnv::with_props(empty_map())
+    }
+}
+
+impl<'a> IconEnv<'a> {
+    pub fn new(ctx: crate::bind::Ctx<'a>) -> IconEnv<'a> {
+        IconEnv { ctx, reads: Default::default() }
+    }
+    /// Only static props (cards, remote keys).
+    pub fn with_props(props: &'a serde_json::Map<String, serde_json::Value>) -> IconEnv<'a> {
+        IconEnv::new(crate::bind::Ctx { implements: None, props: Some(props), config: empty_map(), signals: no_signals(), theme: empty_map() })
+    }
+}
+
+/// A key whose app comes from a plugin that is not installed. Its settings stay.
+pub fn missing_plugin(f: &Fonts, app: &str, size: (u32, u32)) -> Canvas {
+    let mut c = Canvas::new(size.0, size.1, DEFAULT_BG);
+    let (w, h) = (c.w(), c.h());
+    // dashed frame
+    let mut x = 10.0;
+    while x < w - 10.0 {
+        c.rect(x, 8.0, 12.0f32.min(w - 10.0 - x), 3.0, 0.0, AMBER, 1.0);
+        c.rect(x, h - 11.0, 12.0f32.min(w - 10.0 - x), 3.0, 0.0, AMBER, 1.0);
+        x += 22.0;
+    }
+    let mut y = 10.0;
+    while y < h - 10.0 {
+        c.rect(8.0, y, 3.0, 12.0f32.min(h - 10.0 - y), 0.0, AMBER, 1.0);
+        c.rect(w - 11.0, y, 3.0, 12.0f32.min(h - 10.0 - y), 0.0, AMBER, 1.0);
+        y += 22.0;
+    }
+    c.caps(f, "Plugin", 20.0, w / 2.0, h / 2.0 - 6.0, AMBER, w - 30.0);
+    c.caps(f, "missing", 20.0, w / 2.0, h / 2.0 + 22.0, AMBER, w - 30.0);
+    let name = app.split(':').next().unwrap_or(app);
+    c.caps(f, name, 12.0, w / 2.0, h - 30.0, MUTED, w - 30.0);
     c
 }
 
@@ -1041,6 +1094,22 @@ pub fn notification_frame(f: &Fonts, base: &Path, n: &Notification, t: f32) -> C
 /// PNG bytes for the app's preview grid.
 pub fn png(rgb: Vec<u8>, size: (u32, u32)) -> Vec<u8> {
     let img = image::RgbImage::from_raw(size.0, size.1, rgb).expect("size");
+    let mut out = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut out, image::ImageFormat::Png).expect("png encode");
+    out.into_inner()
+}
+
+/// PNG from premultiplied RGBA (a tiny-skia pixmap), keeping transparency.
+pub fn png_rgba(mut rgba: Vec<u8>, size: (u32, u32)) -> Vec<u8> {
+    for px in rgba.chunks_exact_mut(4) {
+        let a = px[3] as u32;
+        if a > 0 && a < 255 {
+            for c in &mut px[..3] {
+                *c = ((*c as u32 * 255 + a / 2) / a).min(255) as u8;
+            }
+        }
+    }
+    let img = image::RgbaImage::from_raw(size.0, size.1, rgba).expect("size");
     let mut out = std::io::Cursor::new(Vec::new());
     img.write_to(&mut out, image::ImageFormat::Png).expect("png encode");
     out.into_inner()

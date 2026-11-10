@@ -1,0 +1,18 @@
+{
+  "id": "core:mute",
+  "name": "Mute",
+  "icon": "core:volume-muted",
+  "face": "mute",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "audio.muted",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

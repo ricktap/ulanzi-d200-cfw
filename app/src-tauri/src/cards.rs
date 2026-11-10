@@ -51,8 +51,11 @@ pub struct Card {
     pub note: Option<String>,
     #[serde(default)]
     pub icon: Option<String>,
-    /// State for a stateful icon (e.g. AMS spools, a thermostat reading).
+    /// Interface properties for the icon, e.g. {"progress.value": 40}.
     #[serde(default)]
+    pub props: serde_json::Map<String, serde_json::Value>,
+    /// Older form of `props` (the `setIconState` object), still accepted from MQTT.
+    #[serde(default, skip_serializing)]
     pub icon_state: Option<serde_json::Value>,
     #[serde(default)]
     pub color: Option<String>,
@@ -151,7 +154,7 @@ impl Printer {
         match &self.spools {
             Some(sp) if !sp.is_empty() && !matches!(self.state.to_ascii_lowercase().as_str(), "error" | "complete") => Card {
                 icon: Some(if self.ams.as_deref() == Some("ams-lite") { "bambu-ams-lite".into() } else { "bambu-ams".into() }),
-                icon_state: Some(serde_json::json!({ "spools": sp })),
+                props: crate::migrate::legacy_props("bambu-ams", &serde_json::json!({ "spools": sp })),
                 ..Default::default()
             },
             _ => Card::default(),
@@ -195,7 +198,7 @@ impl Printer {
                 "offline" => "print-offline",
                 _ => "bambu-x1",
             }.into())),
-            icon_state: self.ams_icon().icon_state,
+            props: self.ams_icon().props,
             color: (st == "error").then(|| "#FF8278".into()),
             group: Some(format!("print:{}", self.job.clone().unwrap_or_default())),
             ..Default::default()
@@ -322,7 +325,12 @@ pub fn render(f: &Fonts, base: &Path, card: &Card, extra: &Extra, t: f32) -> Can
         }
         let ovr: Vec<(&str, &str)> = o.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
         let (x, y, w, h) = symbol_box;
-        if !c.set_icon_state(&icon, x, y + dy, w, h, &ovr, card.icon_state.as_ref()) {
+        let props = match &card.icon_state {
+            Some(st) if card.props.is_empty() => crate::migrate::legacy_props(&icon, st),
+            _ => card.props.clone(),
+        };
+        let env = crate::render::IconEnv::with_props(&props);
+        if !c.set_icon_env(&icon, x, y + dy, w, h, &ovr, Some(&env)) {
             c.icon(f, base, &icon, x, y + dy, w, h, ivory);
         }
         if airy { x + w + pad } else { INSET + SYMBOL + INSET }

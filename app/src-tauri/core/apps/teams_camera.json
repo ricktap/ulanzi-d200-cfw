@@ -1,0 +1,18 @@
+{
+  "id": "core:teams_camera",
+  "name": "Teams camera",
+  "icon": "core:camera-on",
+  "face": "teams_camera",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "teams.video",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

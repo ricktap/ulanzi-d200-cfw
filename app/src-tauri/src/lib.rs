@@ -1,4 +1,5 @@
 pub mod apps;
+pub mod bind;
 pub mod cards;
 pub mod config;
 pub mod device;
@@ -6,9 +7,11 @@ pub mod engine;
 pub mod icons;
 pub mod ide;
 pub mod media;
+pub mod migrate;
 pub mod teams;
 pub mod mqtt;
 pub mod platform;
+pub mod registry;
 pub mod render;
 pub mod screensaver;
 
@@ -38,7 +41,8 @@ async fn get_state(h: H<'_>) -> Result<Value, String> {
 }
 
 #[tauri::command]
-async fn save_config(h: H<'_>, config: Config) -> Result<Value, String> {
+async fn save_config(h: H<'_>, config: Value) -> Result<Value, String> {
+    let (config, _) = Config::from_value(config)?;
     let h = h.inner().clone();
     blocking(move || h.ask(|r| Ui::Save(Box::new(config), r))?).await
 }
@@ -112,6 +116,33 @@ async fn teams_sign_in(app: AppHandle, h: H<'_>, client_id: String, tenant: Stri
         Ok(out)
     })
     .await
+}
+
+/// Everything packages contribute: plugins, interfaces, signals, actions, apps, icons.
+#[tauri::command]
+fn catalog() -> Value {
+    registry::builtin().catalog()
+}
+
+/// Values for a `select` field with `{"source": ...}`.
+#[tauri::command]
+async fn options(h: H<'_>, source: String, profile: usize) -> Result<Vec<Value>, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(|reply| Ui::Options { source, profile, reply })).await
+}
+
+/// Current value of every signal.
+#[tauri::command]
+async fn signals(h: H<'_>) -> Result<Value, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(Ui::Signals)).await
+}
+
+/// `icon` drawn with the live values of the app on a key (for the icon picker).
+#[tauri::command]
+async fn preview_icon(h: H<'_>, icon: String, profile: usize, page: String, key: usize) -> Result<String, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(|reply| Ui::PreviewIcon { icon, profile, page, key, reply })?).await
 }
 
 /// Icon names and groups for the icon picker.
@@ -202,6 +233,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
+            catalog,
+            options,
+            signals,
+            preview_icon,
             save_config,
             import_config,
             set_view,

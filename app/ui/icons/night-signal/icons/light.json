@@ -1,0 +1,31 @@
+{
+  "id": "core:light",
+  "roles": [
+    "rgb",
+    "toggle",
+    "button"
+  ],
+  "file": "light.svg",
+  "parts": {
+    "light-glass": {
+      "fill": {
+        "prop": "toggle.on",
+        "fallback": {
+          "prop": "rgb.color",
+          "fallback": {
+            "tone": "accent"
+          }
+        },
+        "steps": [
+          "transparent",
+          {
+            "prop": "rgb.color",
+            "fallback": {
+              "tone": "accent"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

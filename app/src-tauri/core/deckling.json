@@ -1,0 +1,49 @@
+{
+  "id": "core",
+  "type": "plugin",
+  "name": "Core",
+  "version": "1.0.0",
+  "description": "Keys, pages, profiles, system apps and the Night Signal icons.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "config": [
+    {
+      "key": "long_press_ms",
+      "label": "Long press (ms)",
+      "type": "number",
+      "default": 500
+    },
+    {
+      "key": "follow_active_app",
+      "label": "Profiles follow the front app",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "key": "brightness",
+      "label": "Brightness",
+      "type": "number",
+      "default": 180
+    },
+    {
+      "key": "screensaver.enabled",
+      "label": "Screensaver",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "key": "screensaver.idle_minutes",
+      "label": "Screensaver after (min)",
+      "type": "number",
+      "default": 3
+    }
+  ],
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "interfaces": "interfaces.json",
+    "apps": "apps/",
+    "iconset": "night-signal"
+  }
+}

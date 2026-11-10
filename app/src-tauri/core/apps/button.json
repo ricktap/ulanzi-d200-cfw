@@ -1,0 +1,9 @@
+{
+  "id": "core:button",
+  "name": "Button",
+  "implements": {},
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

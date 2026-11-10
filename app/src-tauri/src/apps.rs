@@ -1,7 +1,7 @@
 //! Built-in key apps: system monitor, mute, weather, clock, pomodoro.
 //! Data collection lives here; the engine owns the instances and calls the faces.
 
-use crate::config::{AppCfg, Location, PomodoroCfg};
+use crate::config::{Key, Location, PomodoroCfg};
 use crate::render::{hex, Canvas, Fonts, Rgb, Th, AMBER, BG, CORAL, IVORY, LINE, MINT, MUTED};
 use serde_json::Value;
 use std::collections::VecDeque;
@@ -152,8 +152,9 @@ pub fn fmt_bytes(b: f64) -> String {
     }
 }
 
-pub fn sysmon_modes(cfg: &AppCfg) -> Vec<&'static str> {
-    let m: Vec<&'static str> = SYSMON_MODES.iter().copied().filter(|m| cfg.modes.is_empty() || cfg.modes.iter().any(|x| x == m)).collect();
+pub fn sysmon_modes(key: &Key) -> Vec<&'static str> {
+    let modes = key.cfg_list("modes");
+    let m: Vec<&'static str> = SYSMON_MODES.iter().copied().filter(|m| modes.is_empty() || modes.iter().any(|x| x == m)).collect();
     if m.is_empty() {
         SYSMON_MODES.to_vec()
     } else {
@@ -612,12 +613,17 @@ pub fn clock_face(f: &Fonts, mode: usize, h12: bool, th: &Th) -> Canvas {
     if mode % 2 == 0 {
         c.caps_at(f, "CLOCK", 16.0, PAD + 2.0, 32.0, ivory);
         // live analog clock: hands follow the time, the ring the seconds
-        let st = serde_json::json!({
-            "progress": now.second() as f64 * 100.0 / 60.0,
-            "color": hex(th.accent),
-            "time": {"hours": now.hour(), "minutes": now.minute(), "seconds": now.second()},
-        });
-        c.set_icon_state("analog-clock", K - PAD - 30.0, 7.0, 32.0, 32.0, &[], Some(&st));
+        let props = crate::migrate::legacy_props(
+            "analog-clock",
+            &serde_json::json!({
+                "progress": now.second() as f64 * 100.0 / 60.0,
+                "time": {"hours": now.hour(), "minutes": now.minute(), "seconds": now.second()},
+            }),
+        );
+        let theme: serde_json::Map<String, serde_json::Value> = [("accent".to_string(), serde_json::json!(hex(th.accent)))].into_iter().collect();
+        let mut env = crate::render::IconEnv::with_props(&props);
+        env.ctx.theme = &theme;
+        c.set_icon_env("analog-clock", K - PAD - 30.0, 7.0, 32.0, 32.0, &[], Some(&env));
         let t = if h12 { now.format("%-I:%M").to_string() } else { now.format("%H:%M").to_string() };
         c.figure_left(f, &t, 60.0, PAD, 104.0, ivory, K - 2.0 * PAD);
         let sub = if h12 { now.format("%a · %-d %b · %p").to_string() } else { now.format("%a · %-d %b").to_string() };

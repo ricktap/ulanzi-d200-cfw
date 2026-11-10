@@ -3,6 +3,9 @@
 //! an `emit` callback for UI events and talks to it through `Handle`.
 
 use crate::apps::{self, PomoEvent, Pomodoro, SysStats, TeamsLinkState, Weather};
+use crate::bind::{self, Ctx, Reads, Signals};
+use crate::render::IconEnv;
+use serde_json::Map;
 use crate::cards::{self, Card, Kind, Printer};
 use std::collections::HashSet;
 use crate::ide::DebugWatch;
@@ -55,6 +58,9 @@ pub enum Ui {
     /// Graph sign-in finished (Some) or sign-out (None).
     GraphTokens(Option<Tokens>),
     Screensaver(bool),
+    Options { source: String, profile: usize, reply: Reply<Vec<Value>> },
+    Signals(Reply<Value>),
+    PreviewIcon { icon: String, profile: usize, page: String, key: usize, reply: Reply<Result<String, String>> },
 }
 
 pub enum Msg {
@@ -220,6 +226,11 @@ pub struct Engine {
     scene: Scene,
     /// Keys whose press woke the screensaver: their up/press/long are swallowed.
     swallow: [bool; NUM_KEYS],
+
+    /// Latest value per signal (the core's own for now).
+    signals: Signals,
+    /// What each key's icon read when it was last drawn.
+    reads: Vec<Reads>,
 }
 
 /// What the wide key showed when it was pressed (presses act on that).
@@ -376,6 +387,8 @@ impl Engine {
             saver: None,
             scene: Scene::new(),
             swallow: [false; NUM_KEYS],
+            signals: Signals::default(),
+            reads: vec![Reads::default(); NUM_KEYS],
         };
         e.graph = std::fs::read_to_string(e.file("teams-auth.json")).ok().and_then(|s| serde_json::from_str(&s).ok());
         e.restart_mqtt();
@@ -704,8 +717,18 @@ impl Engine {
         {
             self.start_saver();
         }
+        self.publish_core();
         if self.saver.is_some() {
             return; // the scene owns the screen
+        }
+        // Keys whose icons read a signal that changed.
+        let changed = self.signals.take_changed();
+        if !changed.is_empty() && !self.view.remote {
+            for k in 0..STATUS_KEY {
+                if self.key_cfg(k).kind().is_none() && self.reads[k].signals.iter().any(|s| changed.contains(s)) {
+                    self.draw_key(k);
+                }
+            }
         }
         // Dynamic faces; unchanged images are not re-sent.
         self.draw_apps(None);
@@ -714,9 +737,58 @@ impl Engine {
         }
     }
 
+    /// The core's signals (docs/deckling: the core is a plugin that publishes like any other).
+    fn publish_core(&mut self) {
+        use chrono::Timelike;
+        let now = chrono::Local::now();
+        let (h, m, sec) = (now.hour() as f64, now.minute() as f64, now.second() as f64);
+        let pct = |a: u64, b: u64| if b == 0 { 0.0 } else { (a as f64 * 100.0 / b as f64).round() };
+        let cfg = &self.cfg.settings.pomodoro;
+        let rem = self.pomo.remaining(cfg).as_secs();
+        let len = Pomodoro::len(self.pomo.phase, cfg).as_secs();
+        let mut out: Vec<(&str, Option<Value>)> = vec![
+            ("time.clock", Some(json!(now.format("%H:%M").to_string()))),
+            ("time.second", Some(json!(sec))),
+            ("time.tick", Some(json!(self.ticks))),
+            ("time.hour_angle", Some(json!((h % 12.0) * 30.0 + m * 0.5))),
+            ("time.minute_angle", Some(json!(m * 6.0))),
+            ("time.second_angle", Some(json!(sec * 6.0))),
+            ("time.second_progress", Some(json!((sec * 100.0 / 60.0).round()))),
+            ("system.cpu", Some(json!((self.sys.cpu as f64).round()))),
+            ("system.ram", Some(json!(pct(self.sys.ram_used, self.sys.ram_total)))),
+            ("system.disk", Some(json!(pct(self.sys.disk_used, self.sys.disk_total)))),
+            ("system.net_down", Some(json!(self.sys.rx.round()))),
+            ("system.net_up", Some(json!(self.sys.tx.round()))),
+            ("audio.muted", self.muted.map(|b| json!(b))),
+            ("weather.temperature", self.weather.as_ref().map(|w| json!(w.temp.round()))),
+            ("weather.summary", self.weather.as_ref().map(|w| json!(apps::weather_info(w.code, w.is_day).1))),
+            ("pomodoro.running", Some(json!(self.pomo.running))),
+            ("pomodoro.phase", Some(json!(format!("{:?}", self.pomo.phase).to_lowercase()))),
+            ("pomodoro.remaining", Some(json!(format!("{}:{:02}", rem / 60, rem % 60)))),
+            ("pomodoro.progress", Some(json!(if len == 0 || self.pomo.phase == apps::Phase::Idle { 0.0 } else { ((len - rem.min(len)) as f64 * 100.0 / len as f64).round() }))),
+            ("teams.connected", Some(json!(self.teams_state.connected))),
+            ("teams.in_meeting", self.meeting.as_ref().map(|x| json!(x.in_meeting))),
+            ("teams.mic_on", self.meeting.as_ref().map(|x| json!(x.in_meeting && !x.muted))),
+            ("teams.video", self.meeting.as_ref().map(|x| json!(x.video_on))),
+            ("presence.availability", self.presence.as_ref().map(|x| json!(x.availability))),
+            ("debugger.active", Some(json!(self.debug_active.is_some()))),
+        ];
+        let np = self.np_now();
+        out.push(("media.playing", np.as_ref().map(|n| json!(n.playing))));
+        out.push(("media.title", np.as_ref().map(|n| json!(n.title))));
+        out.push(("media.artist", np.as_ref().map(|n| json!(n.artist))));
+        out.push(("media.progress", np.as_ref().map(|n| json!(if n.duration > 0.0 { (n.position * 100.0 / n.duration).round() } else { 0.0 }))));
+        for (name, v) in out {
+            match v {
+                Some(v) => self.signals.publish(name, v),
+                None => self.signals.clear(name),
+            };
+        }
+    }
+
     fn visible_app(&self, kind: AppKind) -> bool {
         !self.view.remote
-            && (0..STATUS_KEY).any(|k| self.key_cfg(k).app.as_ref().is_some_and(|a| a.kind == kind))
+            && (0..STATUS_KEY).any(|k| self.key_cfg(k).kind() == Some(kind))
     }
 
     fn poll_mute(&mut self) {
@@ -830,9 +902,9 @@ impl Engine {
             if self.status_press(vis, ev) {
                 return;
             }
-            let actions = self.cfg.status_key.actions.get(ev).to_vec();
+            let actions = self.cfg.status_key.on.get(ev).to_vec();
             for a in actions {
-                self.run_action(&a, None);
+                self.run_ref(&a, None);
             }
             return;
         }
@@ -840,14 +912,23 @@ impl Engine {
             return; // remote keys are handled by Home Assistant
         }
         let key = self.key_cfg(k);
-        if let Some(app) = &key.app {
-            self.app_action(k, app.kind, ev);
+        if let Some(kind) = key.kind() {
+            self.app_action(k, kind, ev);
         }
         let path = self.key_path(k);
         let cur = self.rt.states.get(&path).copied().unwrap_or(0);
-        let actions = key.state(cur).actions.get(ev).to_vec();
+        let actions = key.state(cur).on.get(ev).to_vec();
         for a in actions {
-            self.run_action(&a, Some(k));
+            self.run_ref(&a, Some(k));
+        }
+    }
+
+    /// Run a stored action: a core action, or report the missing plugin.
+    fn run_ref(&mut self, r: &crate::config::ActionRef, key: Option<usize>) {
+        match r.parse() {
+            Some(a) => self.run_action(&a, key),
+            None if r.plugin() == "core" => (self.emit)("error", json!({ "message": format!("bad action {}", r.action) })),
+            None => (self.emit)("error", json!({ "message": format!("{}: plugin {} is not installed", r.action, r.plugin()) })),
         }
     }
 
@@ -887,11 +968,12 @@ impl Engine {
             (AppKind::TeamsPresence, KeyEvent::Press) => self.run_action(&Action::Presence { to: "toggle".into() }, None),
             (AppKind::TeamsPresence, KeyEvent::Long) => self.run_action(&Action::Presence { to: "auto".into() }, None),
             (AppKind::Debugger, KeyEvent::Press) | (AppKind::Debugger, KeyEvent::Long) => {
-                let app = self.key_cfg(k).app.unwrap_or_else(|| crate::config::AppCfg::new(AppKind::Debugger));
+                let key = self.key_cfg(k);
+                let pick = |name: &str, def: &str| key.cfg_str(name).unwrap_or(def).to_string();
                 let combo = match (self.debug_active.is_some(), ev) {
-                    (true, KeyEvent::Press) => app.active_keys.unwrap_or_else(|| "cmd+alt+r".into()),
-                    (true, _) => app.stop_keys.unwrap_or_else(|| "cmd+f2".into()),
-                    (false, KeyEvent::Press) => app.idle_keys.unwrap_or_else(|| "ctrl+d".into()),
+                    (true, KeyEvent::Press) => pick("active_keys", "cmd+alt+r"),
+                    (true, _) => pick("stop_keys", "cmd+f2"),
+                    (false, KeyEvent::Press) => pick("idle_keys", "ctrl+d"),
                     (false, _) => return,
                 };
                 self.run_action(&Action::Keys { combo }, None);
@@ -1659,7 +1741,61 @@ impl Engine {
 
     /// The face of key `k` in view `v`.
     fn face(&self, v: &View, k: usize, pressed: bool) -> Option<Vec<u8>> {
+        self.face_r(v, k, pressed).map(|(rgb, _)| rgb)
+    }
+
+    /// Theme variables: the palette as the core variables, then `theme.variables`.
+    fn theme_vars(&self) -> Map<String, Value> {
+        let t = &self.cfg.settings.theme;
+        let p = &t.palette;
+        let mut m = Map::new();
+        for (k, v) in [
+            ("background", p.background.as_str()),
+            ("base", "#F4F1E8"),
+            ("muted", "#87909E"),
+            ("accent", p.active.as_str()),
+            ("info", p.info.as_str()),
+            ("warning", p.attention.as_str()),
+            ("danger", p.error.as_str()),
+        ] {
+            m.insert(k.into(), json!(v));
+        }
+        for (k, v) in &t.variables {
+            m.insert(k.clone(), v.clone());
+        }
+        m
+    }
+
+    /// The configured theme with the palette taken from the (possibly bound) variables,
+    /// so built-in widgets follow them too.
+    fn effective_theme(&self, vars: &Map<String, Value>) -> crate::config::Theme {
+        let mut t = self.cfg.settings.theme.clone();
+        if t.variables.is_empty() {
+            return t;
+        }
+        let none = Map::new();
+        let ctx = Ctx { implements: None, props: None, config: &none, signals: &self.signals, theme: vars };
+        let get = |n: &str| bind::resolve(&json!({ "tone": n }), &ctx, &mut Reads::default()).map(|v| bind::text(&v));
+        for (var, slot) in [
+            ("accent", &mut t.palette.active),
+            ("info", &mut t.palette.info),
+            ("warning", &mut t.palette.attention),
+            ("danger", &mut t.palette.error),
+            ("background", &mut t.palette.background),
+        ] {
+            if let Some(v) = get(var).filter(|v| render::parse_color(v).is_some()) {
+                *slot = v;
+            }
+        }
+        t
+    }
+
+    /// The face of key `k`, and what its icon read.
+    fn face_r(&self, v: &View, k: usize, pressed: bool) -> Option<(Vec<u8>, Reads)> {
         let f = self.fonts()?;
+        let vars = self.theme_vars();
+        let theme_eff = self.effective_theme(&vars);
+        let mut reads = Reads::default();
         let base = base_dir(&self.path);
         let size = render::key_size(k);
         let mut c: Canvas = if k == STATUS_KEY {
@@ -1682,7 +1818,7 @@ impl Engine {
                 }
             };
             let app_card = if v.remote { None } else { self.default_card().filter(|_| !(self.cfg.status_key.app == "steam" && self.game_hidden)) };
-            let theme = &self.cfg.settings.theme;
+            let theme = &theme_eff;
             if let Some((n, t0)) = &self.note {
                 cards::render(f, &base, n, &cards::Extra { cover: cover(n), th: cards::theme_for(theme, n) }, t0.elapsed().as_secs_f32())
             } else if let Some(card) = app_card {
@@ -1707,25 +1843,36 @@ impl Engine {
             }
         } else if v.remote {
             match self.remote.get(&k) {
-                Some(r) => render::button(f, &base, &r.look, r.value.as_deref(), size, render::DEFAULT_BG),
+                Some(r) => {
+                    let env = IconEnv::new(Ctx { implements: None, props: Some(&r.look.props), config: &r.look.props, signals: &self.signals, theme: &vars });
+                    let c = render::button(f, &base, &r.look, r.value.as_deref(), size, render::DEFAULT_BG, Some(&env));
+                    reads = env.reads.into_inner();
+                    c
+                }
                 None => Canvas::new(size.0, size.1, [0, 0, 0]),
             }
         } else {
             let key = self.cfg.key(v.profile, &v.page, k);
             let pname = self.cfg.profiles.get(v.profile).map(|p| p.name.as_str()).unwrap_or("");
             let path = format!("{pname}/{}/{k}", v.page);
-            match &key.app {
-                Some(app) => {
-                    let st = key.state(0);
+            let reg = crate::registry::builtin();
+            let def = key.app.as_deref().and_then(|id| reg.app(id));
+            let st0 = key.state(0);
+            let chosen = st0.look.icon.as_deref().map(str::trim).filter(|i| !i.is_empty());
+            // Built-in widgets draw while the app's default icon is chosen.
+            let builtin_face = def.is_some_and(|d| d.face.is_some() && chosen.is_none_or(|c| Some(c) == d.icon.as_deref()));
+            match key.kind() {
+                Some(kind) if builtin_face => {
+                    let st = st0.clone();
                     let default_bg = render::DEFAULT_BG;
                     let (bg, fg) = render::look_colors(&st.look, default_bg);
                     let mode = self.rt.modes.get(&path).copied().unwrap_or(0);
-                    match app.kind {
+                    match kind {
                         AppKind::Sysmon => {
-                            let modes = apps::sysmon_modes(app);
+                            let modes = apps::sysmon_modes(&key);
                             let i = mode % modes.len();
                             let id = if modes[i] == "net" { "network" } else { modes[i] };
-                            let mut th = render::Th::resolve(&self.cfg.settings.theme, id, if id == "ram" { render::Tone::Info } else { render::Tone::Active });
+                            let mut th = render::Th::resolve(&theme_eff, id, if id == "ram" { render::Tone::Info } else { render::Tone::Active });
                             if st.look.bg.is_some() {
                                 th.bg = bg;
                             }
@@ -1742,11 +1889,11 @@ impl Engine {
                             fg,
                         ),
                         AppKind::Clock => {
-                            let mut th = render::Th::resolve(&self.cfg.settings.theme, "clock", render::Tone::Active);
+                            let mut th = render::Th::resolve(&theme_eff, "clock", render::Tone::Active);
                             if st.look.bg.is_some() {
                                 th.bg = bg;
                             }
-                            apps::clock_face(f, mode, app.h12, &th)
+                            apps::clock_face(f, mode, key.cfg_bool("h12"), &th)
                         }
                         AppKind::Pomodoro => apps::pomodoro_face(f, &self.pomo, &self.cfg.settings.pomodoro, bg, fg),
                         AppKind::Media => {
@@ -1768,10 +1915,27 @@ impl Engine {
                         AppKind::Debugger => apps::debugger_face(f, self.debug_active.as_deref(), bg, fg),
                     }
                 }
-                None if key.is_empty() => Canvas::new(size.0, size.1, [0, 0, 0]),
-                None => {
+                _ if key.app.is_some() && def.is_none() => render::missing_plugin(f, key.app.as_deref().unwrap_or(""), size),
+                _ if key.app.is_some() => {
+                    // Any icon the user picked, fed by the app's interfaces.
+                    let d = def.expect("checked above");
+                    let mut look = st0.look.clone();
+                    if chosen.is_none() {
+                        look.icon = d.icon.clone();
+                    }
+                    let env = IconEnv::new(Ctx { implements: Some(&d.implements), props: Some(&st0.look.props), config: &key.config, signals: &self.signals, theme: &vars });
+                    let c = render::button(f, &base, &look, None, size, render::DEFAULT_BG, Some(&env));
+                    reads = env.reads.into_inner();
+                    c
+                }
+                _ if key.is_empty() => Canvas::new(size.0, size.1, [0, 0, 0]),
+                _ => {
                     let cur = self.rt.states.get(&path).copied().unwrap_or(0);
-                    render::button(f, &base, &key.state(cur).look, None, size, render::DEFAULT_BG)
+                    let look = key.state(cur).look;
+                    let env = IconEnv::new(Ctx { implements: None, props: Some(&look.props), config: &key.config, signals: &self.signals, theme: &vars });
+                    let c = render::button(f, &base, &look, None, size, render::DEFAULT_BG, Some(&env));
+                    reads = env.reads.into_inner();
+                    c
                 }
             }
         };
@@ -1780,13 +1944,14 @@ impl Engine {
             c.overlay(render::MINT, 0.10);
             c.stroke_rect(2.0, 2.0, w - 4.0, h - 4.0, 12.0, 5.0, render::MINT);
         }
-        Some(c.into_rgb())
+        Some((c.into_rgb(), reads))
     }
 
     fn draw_key(&mut self, k: usize) {
         let Some(dev) = self.dev.clone() else { return };
         let pressed = self.held[k].is_some();
-        let Some(rgb) = self.face(&self.view.clone(), k, pressed) else { return };
+        let Some((rgb, reads)) = self.face_r(&self.view.clone(), k, pressed) else { return };
+        self.reads[k] = reads;
         let h = hash(&rgb);
         if self.sent[k] == h {
             return;
@@ -1819,8 +1984,8 @@ impl Engine {
             return;
         }
         for k in 0..STATUS_KEY {
-            if let Some(app) = self.key_cfg(k).app {
-                if kind.is_none_or(|kd| kd == app.kind) {
+            if let Some(app) = self.key_cfg(k).kind() {
+                if kind.is_none_or(|kd| kd == app) {
                     self.draw_key(k);
                 }
             }
@@ -1971,7 +2136,11 @@ impl Engine {
                                     image: None,
                                     bg: s("bg"),
                                     fg: s("fg"),
-                                    icon_state: v.get("icon_state").cloned(),
+                                    props: match (v.get("props"), v.get("icon_state")) {
+                                        (Some(Value::Object(p)), _) => p.clone(),
+                                        (_, Some(st)) => crate::migrate::legacy_props(&s("icon").unwrap_or_default(), st),
+                                        _ => Default::default(),
+                                    },
                                 },
                                 value: s("value"),
                             },
@@ -2092,6 +2261,54 @@ impl Engine {
                 }
             }
             Ui::Notify(n) => self.notify(n),
+            Ui::Options { source, profile, reply } => {
+                let list = match source.as_str() {
+                    "core:profiles" => self.cfg.profiles.iter().map(|p| json!({ "label": p.name, "value": p.name })).collect(),
+                    "core:pages" => self
+                        .cfg
+                        .profiles
+                        .get(profile)
+                        .map(|p| p.pages.keys().map(|n| json!({ "label": n, "value": n })).collect())
+                        .unwrap_or_default(),
+                    _ => vec![],
+                };
+                let _ = reply.send(list);
+            }
+            Ui::Signals(reply) => {
+                let mut all: Vec<(&String, &Value)> = self.signals.all().collect();
+                all.sort_by(|a, b| a.0.cmp(b.0));
+                let types = &crate::registry::builtin().signals;
+                let list: Vec<Value> = all
+                    .into_iter()
+                    .map(|(n, v)| json!({ "name": n, "value": v, "type": types.get(n.as_str()).map(|t| t.kind.as_str()) }))
+                    .collect();
+                let _ = reply.send(json!(list));
+            }
+            Ui::PreviewIcon { icon, profile, page, key, reply } => {
+                let k = self.cfg.key(profile, &page, key);
+                let reg = crate::registry::builtin();
+                let def = k.app.as_deref().and_then(|id| reg.app(id));
+                let vars = self.theme_vars();
+                let st = k.state(0);
+                let env = IconEnv::new(Ctx {
+                    implements: def.map(|d| &d.implements),
+                    props: Some(&st.look.props),
+                    config: &k.config,
+                    signals: &self.signals,
+                    theme: &vars,
+                });
+                let res = match reg.icon(&icon) {
+                    None => Err(format!("no icon {icon}")),
+                    Some(d) => crate::icons::render_bound(d, 96, &[], &env.ctx, &mut Reads::default())
+                        .map(|pm| {
+                            let rgba = pm.data().to_vec();
+                            let png = render::png_rgba(rgba, (96, 96));
+                            format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png))
+                        })
+                        .ok_or_else(|| "could not draw".to_string()),
+                };
+                let _ = reply.send(res);
+            }
             Ui::Screensaver(on) => {
                 if on {
                     self.start_saver();

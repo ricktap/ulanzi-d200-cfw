@@ -24,12 +24,12 @@ cfg["settings"]["follow_active_app"] = False
 cfg["settings"]["long_press_ms"] = 400
 cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18830)
 cfg["profiles"][0]["pages"]["main"]["8"] = {"states": [
-    {"label": "Off", "bg": "#ff0000", "actions": {
-        "down": [{"type": "command", "command": f"touch {mark('D')}"}],
-        "up": [{"type": "command", "command": f"touch {mark('U')}"}],
-        "press": [{"type": "command", "command": f"touch {mark('A')}"}, {"type": "state", "to": "next"}],
-        "long": [{"type": "command", "command": f"touch {mark('L')}"}]}},
-    {"label": "On", "bg": "#00ff00", "actions": {"press": [{"type": "state", "to": "next"}]}}]}
+    {"label": "Off", "bg": "#ff0000", "on": {
+        "down": [{"action": "core:command", "params": {"command": f"touch {mark('D')}"}}],
+        "up": [{"action": "core:command", "params": {"command": f"touch {mark('U')}"}}],
+        "press": [{"action": "core:command", "params": {"command": f"touch {mark('A')}"}}, {"action": "core:state", "params": {"to": "next"}}],
+        "long": [{"action": "core:command", "params": {"command": f"touch {mark('L')}"}}]}},
+    {"label": "On", "bg": "#00ff00", "on": {"press": [{"action": "core:state", "params": {"to": "next"}}]}}]}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 
 broker = Broker(18830)

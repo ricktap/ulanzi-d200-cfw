@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "settings": {
     "brightness": 180,
     "long_press_ms": 500,
@@ -49,15 +50,15 @@
   "status_key": {
     "app": "profile",
     "show": "auto",
-    "actions": {
+    "on": {
       "press": [
         {
-          "type": "home"
+          "action": "core:home"
         }
       ],
       "long": [
         {
-          "type": "remote"
+          "action": "core:remote"
         }
       ]
     }
@@ -69,40 +70,32 @@
       "pages": {
         "main": {
           "0": {
-            "app": {
-              "type": "sysmon"
-            }
+            "app": "core:sysmon"
           },
           "1": {
-            "app": {
-              "type": "mute"
-            }
+            "app": "core:mute"
           },
           "2": {
-            "app": {
-              "type": "weather"
-            }
+            "app": "core:weather"
           },
           "3": {
-            "app": {
-              "type": "clock"
-            }
+            "app": "core:clock"
           },
           "4": {
-            "app": {
-              "type": "pomodoro"
-            }
+            "app": "core:pomodoro"
           },
           "5": {
             "states": [
               {
                 "label": "Terminal",
-                "icon": "terminal-app",
-                "actions": {
+                "icon": "core:terminal-app",
+                "on": {
                   "press": [
                     {
-                      "type": "open",
-                      "target": "Terminal"
+                      "action": "core:open",
+                      "params": {
+                        "target": "Terminal"
+                      }
                     }
                   ]
                 }
@@ -113,12 +106,14 @@
             "states": [
               {
                 "label": "Safari",
-                "icon": "browser",
-                "actions": {
+                "icon": "core:browser",
+                "on": {
                   "press": [
                     {
-                      "type": "open",
-                      "target": "Safari"
+                      "action": "core:open",
+                      "params": {
+                        "target": "Safari"
+                      }
                     }
                   ]
                 }
@@ -129,18 +124,22 @@
             "states": [
               {
                 "label": "Capture",
-                "icon": "screenshot-region",
-                "actions": {
+                "icon": "core:screenshot-region",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+shift+4"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+shift+4"
+                      }
                     }
                   ],
                   "long": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+shift+5"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+shift+5"
+                      }
                     }
                   ]
                 }
@@ -148,25 +147,23 @@
             ]
           },
           "8": {
-            "app": {
-              "type": "teams_mute"
-            }
+            "app": "core:teams_mute"
           },
           "9": {
-            "app": {
-              "type": "media"
-            }
+            "app": "core:media"
           },
           "10": {
             "states": [
               {
                 "label": "Vol -",
-                "icon": "volume-down",
-                "actions": {
+                "icon": "core:volume-down",
+                "on": {
                   "down": [
                     {
-                      "type": "volume",
-                      "value": "-5"
+                      "action": "core:volume",
+                      "params": {
+                        "value": "-5"
+                      }
                     }
                   ]
                 }
@@ -177,12 +174,14 @@
             "states": [
               {
                 "label": "Vol +",
-                "icon": "volume-up",
-                "actions": {
+                "icon": "core:volume-up",
+                "on": {
                   "down": [
                     {
-                      "type": "volume",
-                      "value": "+5"
+                      "action": "core:volume",
+                      "params": {
+                        "value": "+5"
+                      }
                     }
                   ]
                 }
@@ -193,17 +192,19 @@
             "states": [
               {
                 "label": "Home",
-                "icon": "home",
-                "actions": {
+                "icon": "core:home",
+                "on": {
                   "press": [
                     {
-                      "type": "remote"
+                      "action": "core:remote"
                     }
                   ],
                   "long": [
                     {
-                      "type": "page",
-                      "page": "more"
+                      "action": "core:page",
+                      "params": {
+                        "page": "more"
+                      }
                     }
                   ]
                 }
@@ -216,11 +217,11 @@
             "states": [
               {
                 "label": "Back",
-                "icon": "arrow-left",
-                "actions": {
+                "icon": "core:arrow-left",
+                "on": {
                   "press": [
                     {
-                      "type": "back"
+                      "action": "core:back"
                     }
                   ]
                 }
@@ -231,32 +232,40 @@
             "states": [
               {
                 "label": "Dark",
-                "icon": "weather-moon",
-                "actions": {
+                "icon": "core:weather-moon",
+                "on": {
                   "press": [
                     {
-                      "type": "command",
-                      "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to true'"
+                      "action": "core:command",
+                      "params": {
+                        "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to true'"
+                      }
                     },
                     {
-                      "type": "state",
-                      "to": "next"
+                      "action": "core:state",
+                      "params": {
+                        "to": "next"
+                      }
                     }
                   ]
                 }
               },
               {
                 "label": "Light",
-                "icon": "weather-sun",
-                "actions": {
+                "icon": "core:weather-sun",
+                "on": {
                   "press": [
                     {
-                      "type": "command",
-                      "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to false'"
+                      "action": "core:command",
+                      "params": {
+                        "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to false'"
+                      }
                     },
                     {
-                      "type": "state",
-                      "to": "next"
+                      "action": "core:state",
+                      "params": {
+                        "to": "next"
+                      }
                     }
                   ]
                 },
@@ -268,12 +277,14 @@
             "states": [
               {
                 "label": "Lock",
-                "icon": "lock-computer",
-                "actions": {
+                "icon": "core:lock-computer",
+                "on": {
                   "press": [
                     {
-                      "type": "command",
-                      "command": "pmset displaysleepnow"
+                      "action": "core:command",
+                      "params": {
+                        "command": "pmset displaysleepnow"
+                      }
                     }
                   ]
                 }
@@ -284,12 +295,14 @@
             "states": [
               {
                 "label": "Previous",
-                "icon": "previous-track",
-                "actions": {
+                "icon": "core:previous-track",
+                "on": {
                   "press": [
                     {
-                      "type": "media",
-                      "command": "previous"
+                      "action": "core:media",
+                      "params": {
+                        "command": "previous"
+                      }
                     }
                   ]
                 }
@@ -297,20 +310,20 @@
             ]
           },
           "6": {
-            "app": {
-              "type": "media"
-            }
+            "app": "core:media"
           },
           "7": {
             "states": [
               {
                 "label": "Next",
-                "icon": "next-track",
-                "actions": {
+                "icon": "core:next-track",
+                "on": {
                   "press": [
                     {
-                      "type": "media",
-                      "command": "next"
+                      "action": "core:media",
+                      "params": {
+                        "command": "next"
+                      }
                     }
                   ]
                 }
@@ -334,12 +347,14 @@
             "states": [
               {
                 "label": "Back",
-                "icon": "arrow-left",
-                "actions": {
+                "icon": "core:arrow-left",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+["
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+["
+                      }
                     }
                   ]
                 }
@@ -350,12 +365,14 @@
             "states": [
               {
                 "label": "Forward",
-                "icon": "arrow-right",
-                "actions": {
+                "icon": "core:arrow-right",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+]"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+]"
+                      }
                     }
                   ]
                 }
@@ -366,18 +383,22 @@
             "states": [
               {
                 "label": "Reload",
-                "icon": "refresh",
-                "actions": {
+                "icon": "core:refresh",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+r"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+r"
+                      }
                     }
                   ],
                   "long": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+shift+r"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+shift+r"
+                      }
                     }
                   ]
                 }
@@ -388,12 +409,14 @@
             "states": [
               {
                 "label": "New tab",
-                "icon": "capture",
-                "actions": {
+                "icon": "core:capture",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+t"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+t"
+                      }
                     }
                   ]
                 }
@@ -404,17 +427,21 @@
             "states": [
               {
                 "label": "Close tab",
-                "actions": {
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+w"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+w"
+                      }
                     }
                   ],
                   "long": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+shift+t"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+shift+t"
+                      }
                     }
                   ]
                 }
@@ -422,19 +449,13 @@
             ]
           },
           "5": {
-            "app": {
-              "type": "sysmon"
-            }
+            "app": "core:sysmon"
           },
           "6": {
-            "app": {
-              "type": "mute"
-            }
+            "app": "core:mute"
           },
           "7": {
-            "app": {
-              "type": "clock"
-            }
+            "app": "core:clock"
           }
         }
       }
@@ -451,12 +472,14 @@
             "states": [
               {
                 "label": "Previous",
-                "icon": "previous-track",
-                "actions": {
+                "icon": "core:previous-track",
+                "on": {
                   "press": [
                     {
-                      "type": "media",
-                      "command": "previous"
+                      "action": "core:media",
+                      "params": {
+                        "command": "previous"
+                      }
                     }
                   ]
                 }
@@ -464,20 +487,20 @@
             ]
           },
           "1": {
-            "app": {
-              "type": "media"
-            }
+            "app": "core:media"
           },
           "2": {
             "states": [
               {
                 "label": "Next",
-                "icon": "next-track",
-                "actions": {
+                "icon": "core:next-track",
+                "on": {
                   "press": [
                     {
-                      "type": "media",
-                      "command": "next"
+                      "action": "core:media",
+                      "params": {
+                        "command": "next"
+                      }
                     }
                   ]
                 }
@@ -485,20 +508,20 @@
             ]
           },
           "3": {
-            "app": {
-              "type": "mute"
-            }
+            "app": "core:mute"
           },
           "5": {
             "states": [
               {
                 "label": "Vol -",
-                "icon": "volume-down",
-                "actions": {
+                "icon": "core:volume-down",
+                "on": {
                   "down": [
                     {
-                      "type": "volume",
-                      "value": "-5"
+                      "action": "core:volume",
+                      "params": {
+                        "value": "-5"
+                      }
                     }
                   ]
                 }
@@ -509,12 +532,14 @@
             "states": [
               {
                 "label": "Vol +",
-                "icon": "volume-up",
-                "actions": {
+                "icon": "core:volume-up",
+                "on": {
                   "down": [
                     {
-                      "type": "volume",
-                      "value": "+5"
+                      "action": "core:volume",
+                      "params": {
+                        "value": "+5"
+                      }
                     }
                   ]
                 }
@@ -533,30 +558,26 @@
       "pages": {
         "main": {
           "0": {
-            "app": {
-              "type": "teams_mute"
-            }
+            "app": "core:teams_mute"
           },
           "1": {
-            "app": {
-              "type": "teams_camera"
-            }
+            "app": "core:teams_camera"
           },
           "2": {
-            "app": {
-              "type": "teams_presence"
-            }
+            "app": "core:teams_presence"
           },
           "3": {
             "states": [
               {
                 "label": "Raise hand",
-                "icon": "teams-meeting",
-                "actions": {
+                "icon": "core:teams-meeting",
+                "on": {
                   "press": [
                     {
-                      "type": "teams",
-                      "command": "toggle-hand"
+                      "action": "core:teams",
+                      "params": {
+                        "command": "toggle-hand"
+                      }
                     }
                   ]
                 }
@@ -567,12 +588,14 @@
             "states": [
               {
                 "label": "Leave\n(hold)",
-                "icon": "end-call",
-                "actions": {
+                "icon": "core:end-call",
+                "on": {
                   "long": [
                     {
-                      "type": "teams",
-                      "command": "leave-call"
+                      "action": "core:teams",
+                      "params": {
+                        "command": "leave-call"
+                      }
                     }
                   ]
                 }
@@ -583,12 +606,14 @@
             "states": [
               {
                 "label": "Blur",
-                "icon": "mode-focus-on",
-                "actions": {
+                "icon": "core:mode-focus-on",
+                "on": {
                   "press": [
                     {
-                      "type": "teams",
-                      "command": "toggle-background-blur"
+                      "action": "core:teams",
+                      "params": {
+                        "command": "toggle-background-blur"
+                      }
                     }
                   ]
                 }
@@ -599,12 +624,14 @@
             "states": [
               {
                 "label": "Chat",
-                "icon": "teams-chat",
-                "actions": {
+                "icon": "core:teams-chat",
+                "on": {
                   "press": [
                     {
-                      "type": "teams",
-                      "command": "toggle-ui-chat"
+                      "action": "core:teams",
+                      "params": {
+                        "command": "toggle-ui-chat"
+                      }
                     }
                   ]
                 }
@@ -612,9 +639,7 @@
             ]
           },
           "7": {
-            "app": {
-              "type": "clock"
-            }
+            "app": "core:clock"
           }
         }
       }
@@ -637,20 +662,20 @@
       "pages": {
         "main": {
           "0": {
-            "app": {
-              "type": "debugger"
-            }
+            "app": "core:debugger"
           },
           "1": {
             "states": [
               {
                 "label": "Run",
-                "icon": "play",
-                "actions": {
+                "icon": "core:play",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "ctrl+r"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "ctrl+r"
+                      }
                     }
                   ]
                 }
@@ -661,12 +686,14 @@
             "states": [
               {
                 "label": "Stop",
-                "icon": "debug-stop",
-                "actions": {
+                "icon": "core:debug-stop",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+f2"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+f2"
+                      }
                     }
                   ]
                 }
@@ -677,12 +704,14 @@
             "states": [
               {
                 "label": "Resume",
-                "icon": "timer-start",
-                "actions": {
+                "icon": "core:timer-start",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+alt+r"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+alt+r"
+                      }
                     }
                   ]
                 }
@@ -693,12 +722,14 @@
             "states": [
               {
                 "label": "Breakpoint",
-                "icon": "breakpoint",
-                "actions": {
+                "icon": "core:breakpoint",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+f8"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+f8"
+                      }
                     }
                   ]
                 }
@@ -709,12 +740,14 @@
             "states": [
               {
                 "label": "Step over",
-                "icon": "step-over",
-                "actions": {
+                "icon": "core:step-over",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "f8"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "f8"
+                      }
                     }
                   ]
                 }
@@ -725,12 +758,14 @@
             "states": [
               {
                 "label": "Step into",
-                "icon": "step-into",
-                "actions": {
+                "icon": "core:step-into",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "f7"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "f7"
+                      }
                     }
                   ]
                 }
@@ -741,12 +776,14 @@
             "states": [
               {
                 "label": "Step out",
-                "icon": "step-out",
-                "actions": {
+                "icon": "core:step-out",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "shift+f8"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "shift+f8"
+                      }
                     }
                   ]
                 }
@@ -757,12 +794,14 @@
             "states": [
               {
                 "label": "Evaluate",
-                "icon": "calculator",
-                "actions": {
+                "icon": "core:calculator",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "alt+f8"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "alt+f8"
+                      }
                     }
                   ]
                 }
@@ -773,12 +812,14 @@
             "states": [
               {
                 "label": "Find action",
-                "icon": "search",
-                "actions": {
+                "icon": "core:search",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+shift+a"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+shift+a"
+                      }
                     }
                   ]
                 }
@@ -789,12 +830,14 @@
             "states": [
               {
                 "label": "Reformat",
-                "icon": "code-editor",
-                "actions": {
+                "icon": "core:code-editor",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+alt+l"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+alt+l"
+                      }
                     }
                   ]
                 }
@@ -805,12 +848,14 @@
             "states": [
               {
                 "label": "Terminal",
-                "icon": "terminal",
-                "actions": {
+                "icon": "core:terminal",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "alt+f12"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "alt+f12"
+                      }
                     }
                   ]
                 }
@@ -821,12 +866,14 @@
             "states": [
               {
                 "label": "Commit",
-                "icon": "git-branch",
-                "actions": {
+                "icon": "core:git-branch",
+                "on": {
                   "press": [
                     {
-                      "type": "keys",
-                      "combo": "cmd+k"
+                      "action": "core:keys",
+                      "params": {
+                        "combo": "cmd+k"
+                      }
                     }
                   ]
                 }

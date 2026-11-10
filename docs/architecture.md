@@ -42,13 +42,16 @@ The engine owns all state. It decides what each key shows and sends only the key
 | Module | Role |
 |---|---|
 | `lib.rs` | Tauri setup and the commands the UI calls (`get_config`, `save_config`, `icon_set`, `preview`, `trigger`, `teams_sign_in`, …) |
-| `config.rs` | `deck.json` types (serde), loading and saving, defaults (`default-config.json`) |
+| `config.rs` | `deck.json` types (serde), loading and saving, defaults (`default-config.json`). Unknown fields are kept |
+| `migrate.rs` | `deck.json` migrations between versions |
+| `bind.rs` | signals and the binding resolver (see [packages.md](packages.md)) |
+| `registry.rs` | packages: interfaces, signals, actions, apps, icons; load-time checks; the `catalog` |
 | `engine.rs` | key handling: down, up, press and long press; states, pages, profiles, the status key, the card queue, the screensaver |
 | `render.rs` | the drawing canvas: tiny-skia plus ab_glyph text (variable SF weights, tracking, emoji fallback). Also `Th`, the resolved theme |
 | `apps.rs` | built-in widgets: system monitor, mute, weather, clock, pomodoro, media, Teams, debugger |
 | `cards.rs` | wide-key notification cards (meeting, email, printer, push, critical) in Compact and Airy layouts |
 | `screensaver.rs` | seasonal scenes. A seeded 1280x720 scene is clipped to the key windows |
-| `icons.rs` | Night Signal icons compiled in (`build.rs` → `icons_gen.rs`), resvg rendering, `apply_state` for stateful icons |
+| `icons.rs` | Night Signal SVGs compiled in (`build.rs` → `icons_gen.rs`), resvg rendering, `apply_parts` for bound icons |
 | `device.rs` | adb detection, pushing the binary, port forwarding, the protocol client |
 | `mqtt.rs` | rumqttc client, topics, Home Assistant discovery |
 | `teams.rs` | Teams local WebSocket API (meetings) and Microsoft Graph (presence, mail, calendar) |
@@ -65,9 +68,11 @@ the same pixels.
 - Keys are drawn at device resolution: 196x196, and 456x196 for the wide key.
 - The canvas works in **Night Signal** tokens. Colours come from `Th::resolve(theme, widget, tone)`.
   Widgets never hard-code colours.
-- SVG icons are rendered with resvg. Stateful icons get their state as string edits before
-  rendering, because resvg ignores CSS `calc()`/`var()`. `icons.rs` removes those and sets the
-  plain attributes on the `data-part` elements.
+- SVG icons are rendered with resvg. Bound icons get their resolved values as string edits
+  before rendering, because resvg ignores CSS `calc()`/`var()`. `icons.rs` removes those and sets
+  the plain attributes on the `data-part` elements.
+- The Deckling model (plugins, apps, interfaces, signals, bindings) is described in
+  [packages.md](packages.md).
 
 ## Data on disk
 

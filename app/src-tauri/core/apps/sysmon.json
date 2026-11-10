@@ -1,0 +1,51 @@
+{
+  "id": "core:sysmon",
+  "name": "System monitor",
+  "icon": "core:system-monitor",
+  "face": "sysmon",
+  "config": [
+    {
+      "key": "modes",
+      "label": "Views",
+      "type": "select",
+      "multiple": true,
+      "values": [
+        {
+          "label": "CPU",
+          "value": "cpu"
+        },
+        {
+          "label": "Memory",
+          "value": "ram"
+        },
+        {
+          "label": "Disk",
+          "value": "disk"
+        },
+        {
+          "label": "Network",
+          "value": "net"
+        }
+      ]
+    }
+  ],
+  "implements": {
+    "progress": {
+      "value": {
+        "bind": "system.cpu",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "system.cpu",
+        "fallback": "",
+        "suffix": "%"
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

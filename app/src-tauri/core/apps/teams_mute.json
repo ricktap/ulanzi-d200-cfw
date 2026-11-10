@@ -1,0 +1,18 @@
+{
+  "id": "core:teams_mute",
+  "name": "Teams mic",
+  "icon": "core:microphone-on",
+  "face": "teams_mute",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "teams.mic_on",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

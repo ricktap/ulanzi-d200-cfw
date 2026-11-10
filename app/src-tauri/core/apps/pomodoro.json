@@ -1,0 +1,30 @@
+{
+  "id": "core:pomodoro",
+  "name": "Pomodoro",
+  "icon": "core:pomodoro",
+  "face": "pomodoro",
+  "implements": {
+    "progress": {
+      "value": {
+        "bind": "pomodoro.progress",
+        "fallback": 0
+      }
+    },
+    "toggle": {
+      "on": {
+        "bind": "pomodoro.running",
+        "fallback": false
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "pomodoro.remaining",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

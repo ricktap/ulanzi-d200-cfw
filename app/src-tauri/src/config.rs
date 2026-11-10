@@ -8,6 +8,7 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
 
 pub const NUM_KEYS: usize = 14;
@@ -29,11 +30,11 @@ pub struct Look {
     /// Path to an image that fills the whole key.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
-    /// State of a stateful icon (light, thermostat, pomodoro, analog-clock,
-    /// bambu-ams, bambu-ams-lite, downloads, volume-muted), e.g.
-    /// {"on": true, "color": "#B79AF7"} or {"temperature": 21.5, "progress": 60}.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon_state: Option<serde_json::Value>,
+    /// Static interface properties for the icon, e.g. {"toggle.on": true,
+    /// "rgb.color": "#B79AF7"}. Used by keys without an app, remote keys and cards;
+    /// an app supplies these itself.
+    #[serde(skip_serializing_if = "Map::is_empty")]
+    pub props: Map<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bg: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -97,6 +98,45 @@ pub enum Action {
     Presence { to: String },
 }
 
+impl Action {
+    /// The id of a core action: `core:<type>`.
+    pub fn to_ref(&self) -> ActionRef {
+        let mut v = serde_json::to_value(self).unwrap_or_default();
+        let obj = v.as_object_mut().map(std::mem::take).unwrap_or_default();
+        let mut params = obj;
+        let kind = params.remove("type").and_then(|t| t.as_str().map(str::to_string)).unwrap_or_default();
+        ActionRef { action: format!("core:{kind}"), params }
+    }
+}
+
+/// An action as stored: `{"action": "core:page", "params": {"page": "Media"}}`.
+/// Actions of unknown plugins are kept as they are.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ActionRef {
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Map::is_empty")]
+    pub params: Map<String, Value>,
+}
+
+impl ActionRef {
+    /// The core action this names, or `None` for another plugin's action or bad params.
+    pub fn parse(&self) -> Option<Action> {
+        let kind = self.action.strip_prefix("core:")?;
+        let mut obj = self.params.clone();
+        obj.insert("type".into(), Value::String(kind.into()));
+        serde_json::from_value(Value::Object(obj)).ok()
+    }
+    pub fn plugin(&self) -> &str {
+        self.action.split_once(':').map(|(p, _)| p).unwrap_or("core")
+    }
+}
+
+impl From<Action> for ActionRef {
+    fn from(a: Action) -> Self {
+        a.to_ref()
+    }
+}
+
 /// Actions per key event. All four can be used together:
 /// `down` and `up` fire on every press; exactly one of `press` (released
 /// before the long-press time) or `long` (held past it) fires per press.
@@ -104,26 +144,29 @@ pub enum Action {
 #[serde(default)]
 pub struct Actions {
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub press: Vec<Action>,
+    pub press: Vec<ActionRef>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub long: Vec<Action>,
+    pub long: Vec<ActionRef>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub down: Vec<Action>,
+    pub down: Vec<ActionRef>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub up: Vec<Action>,
+    pub up: Vec<ActionRef>,
 }
 
 impl Actions {
     pub fn is_empty(&self) -> bool {
         self.press.is_empty() && self.long.is_empty() && self.down.is_empty() && self.up.is_empty()
     }
-    pub fn get(&self, ev: KeyEvent) -> &[Action] {
+    pub fn get(&self, ev: KeyEvent) -> &[ActionRef] {
         match ev {
             KeyEvent::Press => &self.press,
             KeyEvent::Long => &self.long,
             KeyEvent::Down => &self.down,
             KeyEvent::Up => &self.up,
         }
+    }
+    pub fn all(&self) -> impl Iterator<Item = &ActionRef> {
+        self.press.iter().chain(&self.long).chain(&self.down).chain(&self.up)
     }
 }
 
@@ -153,7 +196,10 @@ pub struct State {
     #[serde(flatten)]
     pub look: Look,
     #[serde(skip_serializing_if = "Actions::is_empty")]
-    pub actions: Actions,
+    pub on: Actions,
+    /// Fields this version does not know, kept on save.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -173,48 +219,62 @@ pub enum AppKind {
     Debugger,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AppCfg {
-    #[serde(rename = "type")]
-    pub kind: AppKind,
-    /// System monitor: which views a press cycles through
-    /// ("cpu", "ram", "disk", "net"). Empty = all.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub modes: Vec<String>,
-    /// Clock: 12-hour format.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub h12: bool,
-    /// Debugger: shortcut on press while idle (default "ctrl+d", Debug).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub idle_keys: Option<String>,
-    /// Debugger: shortcut on press while debugging (default "cmd+alt+r", Resume).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub active_keys: Option<String>,
-    /// Debugger: shortcut on long press while debugging (default "cmd+f2", Stop).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stop_keys: Option<String>,
-}
-
-impl AppCfg {
-    pub fn new(kind: AppKind) -> Self {
-        AppCfg { kind, modes: vec![], h12: false, idle_keys: None, active_keys: None, stop_keys: None }
+impl AppKind {
+    pub const ALL: [AppKind; 10] = [
+        AppKind::Sysmon,
+        AppKind::Mute,
+        AppKind::Weather,
+        AppKind::Clock,
+        AppKind::Pomodoro,
+        AppKind::Media,
+        AppKind::TeamsMute,
+        AppKind::TeamsCamera,
+        AppKind::TeamsPresence,
+        AppKind::Debugger,
+    ];
+    /// "core:sysmon" etc.
+    pub fn id(self) -> String {
+        format!("core:{}", serde_json::to_value(self).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default())
+    }
+    pub fn from_id(id: &str) -> Option<AppKind> {
+        let name = id.strip_prefix("core:")?;
+        serde_json::from_value(Value::String(name.into())).ok()
     }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Key {
+    /// App id such as "core:sysmon". None: a plain button (`core:button`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub app: Option<AppCfg>,
-    /// Button states. State 0 is the initial one; apps use state 0 for colours
-    /// and extra actions.
+    pub app: Option<String>,
+    /// The app's settings for this key (schema in the app's `config`).
+    #[serde(skip_serializing_if = "Map::is_empty")]
+    pub config: Map<String, Value>,
+    /// Button states. State 0 is the initial one; apps use state 0 for the chosen
+    /// icon, label, colours and actions.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub states: Vec<State>,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl Key {
     pub fn is_empty(&self) -> bool {
-        self.app.is_none() && self.states.iter().all(|s| s.look.is_empty() && s.actions.is_empty())
+        self.app.is_none() && self.states.iter().all(|s| s.look.is_empty() && s.on.is_empty())
+    }
+    /// The built-in app this key runs, if it is one of the core apps.
+    pub fn kind(&self) -> Option<AppKind> {
+        self.app.as_deref().and_then(AppKind::from_id)
+    }
+    pub fn cfg_str(&self, k: &str) -> Option<&str> {
+        self.config.get(k).and_then(Value::as_str).filter(|s| !s.trim().is_empty())
+    }
+    pub fn cfg_bool(&self, k: &str) -> bool {
+        self.config.get(k).and_then(Value::as_bool).unwrap_or(false)
+    }
+    pub fn cfg_list(&self, k: &str) -> Vec<String> {
+        self.config.get(k).and_then(Value::as_array).into_iter().flatten().filter_map(|v| v.as_str().map(str::to_string)).collect()
     }
     pub fn state(&self, i: usize) -> State {
         if self.states.is_empty() {
@@ -236,6 +296,8 @@ pub struct Profile {
     pub apps: Vec<String>,
     /// Ordered: the first page is the profile's home page.
     pub pages: IndexMap<String, Page>,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -376,6 +438,10 @@ pub struct Theme {
     pub palette: Palette,
     /// Keyed by widget: cpu, ram, disk, network, clock, mail, music, printer, meeting, game, push.
     pub widgets: IndexMap<String, WidgetTheme>,
+    /// Theme variables over the palette: `accent`, `background`, ... or any
+    /// namespaced name. A value is a colour or a binding (`{"bind": ..., "steps": [...]}`).
+    #[serde(skip_serializing_if = "Map::is_empty")]
+    pub variables: Map<String, Value>,
 }
 
 /// Which events may show a card on the wide display.
@@ -452,6 +518,8 @@ pub struct Settings {
     pub screensaver: ScreensaverCfg,
     pub cards: CardsCfg,
     pub theme: Theme,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl Default for Settings {
@@ -467,6 +535,7 @@ impl Default for Settings {
             screensaver: ScreensaverCfg::default(),
             cards: CardsCfg::default(),
             theme: Theme::default(),
+            extra: Map::new(),
         }
     }
 }
@@ -474,43 +543,67 @@ impl Default for Settings {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StatusKey {
-    pub actions: Actions,
+    pub on: Actions,
     /// Default content: "profile", "media", "meeting", "email", "steam", "printer".
     pub app: String,
     /// "auto" (the song while Spotify/Music plays, else the profile),
     /// "profile" or "media".
     pub show: String,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 impl Default for StatusKey {
     fn default() -> Self {
         StatusKey {
-            actions: Actions { press: vec![Action::Home], long: vec![Action::Remote], ..Default::default() },
+            on: Actions { press: vec![Action::Home.into()], long: vec![Action::Remote.into()], ..Default::default() },
             app: "profile".into(),
             show: "auto".into(),
+            extra: Map::new(),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
+    /// Format version; see `migrate`.
+    #[serde(default)]
+    pub version: u32,
     #[serde(default)]
     pub settings: Settings,
     #[serde(default)]
     pub status_key: StatusKey,
     /// The first profile is the default: used when no other profile matches the active app.
     pub profiles: Vec<Profile>,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
+
+/// The current deck.json format.
+pub const VERSION: u32 = 2;
 
 impl Config {
     pub fn example() -> Self {
-        serde_json::from_str(include_str!("default-config.json")).expect("bundled example config")
+        Config::parse(include_str!("default-config.json")).expect("bundled example config")
     }
 
+    /// Parse any known version; older files are migrated in memory.
     pub fn parse(s: &str) -> Result<Self, String> {
-        let cfg: Config = serde_json::from_str(s).map_err(|e| e.to_string())?;
+        Ok(Config::parse_versioned(s)?.0)
+    }
+
+    /// Like `parse`, also returning the version the text was in.
+    pub fn parse_versioned(s: &str) -> Result<(Self, u64), String> {
+        Config::from_value(serde_json::from_str(s).map_err(|e| e.to_string())?)
+    }
+
+    /// From JSON of any known version (the UI, imports).
+    pub fn from_value(v: Value) -> Result<(Self, u64), String> {
+        let was = crate::migrate::version(&v);
+        let v = crate::migrate::migrate(v, VERSION)?;
+        let cfg: Config = serde_json::from_value(v).map_err(|e| e.to_string())?;
         cfg.validate()?;
-        Ok(cfg)
+        Ok((cfg, was))
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -548,10 +641,8 @@ impl Config {
     /// Does any key use one of these apps, or any action match `act`?
     pub fn uses(&self, kinds: &[AppKind], act: impl Fn(&Action) -> bool) -> bool {
         self.profiles.iter().flat_map(|p| p.pages.values()).flat_map(|pg| pg.values()).any(|k| {
-            k.app.as_ref().is_some_and(|a| kinds.contains(&a.kind))
-                || k.states.iter().any(|s| {
-                    [&s.actions.press, &s.actions.long, &s.actions.down, &s.actions.up].iter().any(|l| l.iter().any(&act))
-                })
+            k.kind().is_some_and(|kd| kinds.contains(&kd))
+                || k.states.iter().any(|s| s.on.all().filter_map(ActionRef::parse).any(|a| act(&a)))
         })
     }
 
@@ -569,12 +660,21 @@ impl Config {
     }
 
     /// Load `path`, creating it from the example config if it does not exist.
+    /// An older version is migrated; the original stays next to it as `deck.v<N>.json`.
+    /// A file that cannot be read is moved to `deck.json.old` and the example is used.
     pub fn load_or_create(path: &Path) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
-            Ok(s) => match Config::parse(&s) {
-                Ok(c) => Ok(c),
+            Ok(s) => match Config::parse_versioned(&s) {
+                Ok((c, was)) => {
+                    if was < VERSION as u64 {
+                        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("deck");
+                        let backup = path.with_file_name(format!("{stem}.v{was}.json"));
+                        write_private(&backup, &s)?;
+                        c.save(path)?;
+                    }
+                    Ok(c)
+                }
                 Err(e) => {
-                    // Draft phase: no migrations. Keep the old file aside and start fresh.
                     let _ = std::fs::rename(path, path.with_extension("json.old"));
                     let c = Config::example();
                     c.save(path)?;
@@ -592,7 +692,9 @@ impl Config {
     }
 
     pub fn save(&self, path: &Path) -> Result<(), String> {
-        let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        let mut c = self.clone();
+        c.version = VERSION;
+        let json = serde_json::to_string_pretty(&c).map_err(|e| e.to_string())?;
         write_private(path, &(json + "\n"))
     }
 }
@@ -644,8 +746,8 @@ mod tests {
     #[test]
     fn parses_ui_output() {
         let c = Config::parse(include_str!("testdata/ui-config.json")).unwrap();
-        let k5 = &c.profiles[0].pages["main"]["5"].states[0].actions;
-        assert_eq!(k5.down, vec![Action::Mqtt { topic: "home/x".into(), payload: "ON".into(), retain: true }]);
+        let k5 = &c.profiles[0].pages["main"]["5"].states[0].on;
+        assert_eq!(k5.down[0].parse(), Some(Action::Mqtt { topic: "home/x".into(), payload: "ON".into(), retain: true }));
         assert_eq!(c.profiles[1].apps, vec!["com.microsoft.VSCode".to_string()]);
         // empty lists are dropped when written back
         let out = serde_json::to_string(&c).unwrap();
@@ -661,6 +763,66 @@ mod tests {
         let p = c.profiles[0].clone();
         c.profiles.push(p);
         assert!(c.validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::*;
+
+    fn tmp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("d200deck-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// A version 1 file is migrated, saved as version 2, and the original kept.
+    #[test]
+    fn v1_file_is_migrated_with_backup() {
+        let dir = tmp("v1");
+        let path = dir.join("deck.json");
+        let v1 = r#"{"profiles": [{"name": "Default", "pages": {"main": {
+            "0": {"app": {"type": "clock", "h12": true}},
+            "1": {"states": [{"icon": "volume-on", "actions": {"press": [{"type": "volume", "value": "+5"}]}}]}}}}]}"#;
+        std::fs::write(&path, v1).unwrap();
+        let c = Config::load_or_create(&path).unwrap();
+        let k0 = c.key(0, "main", 0);
+        assert_eq!(k0.kind(), Some(AppKind::Clock));
+        assert!(k0.cfg_bool("h12"));
+        let k1 = c.key(0, "main", 1);
+        assert_eq!(k1.states[0].look.icon.as_deref(), Some("core:volume-on"));
+        assert_eq!(k1.states[0].on.press[0].parse(), Some(Action::Volume { value: "+5".into() }));
+        assert_eq!(std::fs::read_to_string(dir.join("deck.v1.json")).unwrap(), v1);
+        let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved["version"], 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Unknown apps, actions and fields survive loading and saving unchanged.
+    #[test]
+    fn unknown_things_are_kept() {
+        let key = serde_json::json!({
+            "app": "com.ricktap.bambu:ams",
+            "config": {"unit": "ams2"},
+            "states": [{"icon": "com.jemand.neon:spools", "label": "AMS 2", "glow": 3,
+                        "on": {"long": [{"action": "com.ricktap.bambu:refresh", "params": {"all": true}}]}}],
+            "future": {"x": 1}
+        });
+        let text = serde_json::json!({
+            "version": 2, "overlays": ["com.jemand.ams-blau"],
+            "settings": {"new_setting": 5},
+            "profiles": [{"name": "Default", "color": "red", "pages": {"main": {"6": key}}}]
+        })
+        .to_string();
+        let c = Config::parse(&text).unwrap();
+        let out: Value = serde_json::to_value(&c).unwrap();
+        assert_eq!(out["profiles"][0]["pages"]["main"]["6"], key);
+        assert_eq!(out["overlays"], serde_json::json!(["com.jemand.ams-blau"]));
+        assert_eq!(out["settings"]["new_setting"], 5);
+        assert_eq!(out["profiles"][0]["color"], "red");
+        assert_eq!(c.key(0, "main", 6).kind(), None);
+        assert_eq!(c.key(0, "main", 6).states[0].on.long[0].parse(), None);
     }
 }
 

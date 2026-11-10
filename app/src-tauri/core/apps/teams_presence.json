@@ -1,0 +1,18 @@
+{
+  "id": "core:teams_presence",
+  "name": "Teams presence",
+  "icon": "core:presence-available",
+  "face": "teams_presence",
+  "implements": {
+    "label": {
+      "text": {
+        "bind": "presence.availability",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

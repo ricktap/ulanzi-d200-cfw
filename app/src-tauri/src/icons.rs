@@ -1,13 +1,18 @@
 //! The bundled "Night Signal" icon set (215 SVGs, 64 × 64, line style).
 //! An icon is referenced by name in the config, e.g. "icon": "volume-on".
 
+use crate::bind::{self, Ctx, Reads};
+use crate::registry::IconDef;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use tiny_skia::Pixmap;
 
 include!(concat!(env!("OUT_DIR"), "/icons_gen.rs"));
 
+/// Night Signal icon by name, with or without the `core:` namespace.
 pub fn svg(name: &str) -> Option<&'static str> {
+    let name = name.trim();
+    let name = name.strip_prefix("core:").unwrap_or(name);
     ICONS.binary_search_by(|(n, _)| n.cmp(&name)).ok().map(|i| ICONS[i].1)
 }
 
@@ -44,13 +49,6 @@ pub fn resolve_vars(src: &str, overrides: &[(&str, &str)]) -> String {
     out
 }
 
-/// The stateful icons and their parts (see STATEFUL.md next to the SVGs).
-pub const STATEFUL: [&str; 8] = ["volume-muted", "light", "thermostat", "pomodoro", "analog-clock", "bambu-ams", "bambu-ams-lite", "downloads"];
-
-pub fn is_stateful(name: &str) -> bool {
-    STATEFUL.contains(&name.trim())
-}
-
 /// Drop CSS the renderer cannot evaluate (calc() and CSS transforms) from inline
 /// styles; the presentation attributes beside them carry the same defaults.
 fn strip_css(svg: &str) -> String {
@@ -83,190 +81,144 @@ fn strip_css(svg: &str) -> String {
     out
 }
 
-/// Set attribute `attr` on the element carrying `data-part="part"`.
-fn set_part_attr(svg: &mut String, part: &str, attr: &str, value: &str) {
-    let marker = format!("data-part=\"{part}\"");
-    let Some(m) = svg.find(&marker) else { return };
-    let start = svg[..m].rfind('<').unwrap_or(0);
-    let end = m + svg[m..].find('>').unwrap_or(0);
-    let tag = &svg[start..end];
-    let needle = format!(" {attr}=\"");
-    let new_tag = if let Some(i) = tag.find(&needle) {
-        let vs = i + needle.len();
-        let ve = vs + tag[vs..].find('"').unwrap_or(0);
-        format!("{}{}{}", &tag[..vs], value, &tag[ve..])
-    } else {
-        let t = tag.trim_end_matches('/');
-        let closing = if tag.ends_with('/') { "/" } else { "" };
-        format!("{t} {attr}=\"{value}\"{closing}")
-    };
-    svg.replace_range(start..end, &new_tag);
-}
-
-fn pct(v: &serde_json::Value) -> Option<f64> {
-    v.as_f64().map(|x| x.clamp(0.0, 100.0))
-}
-
-/// Port of `setIconState` (icon-state.js): the same state object, applied to the SVG text.
-/// state: {color, progress, temperature, on, fill, time:{hours,minutes,seconds}, spools:[{color,progress}]}
-pub fn apply_state(name: &str, src: &str, state: &serde_json::Value) -> String {
-    use serde_json::Value;
-    let s = |k: &str| state.get(k).and_then(Value::as_str).map(str::to_string);
-    let mut vars: Vec<(String, String)> = vec![];
-    let mut dash: Vec<(String, f64)> = vec![]; // (part, percent)
-    let mut hands: Vec<(&str, f64)> = vec![];
-    let mut temp: Option<f64> = None;
-    match name {
-        "volume-muted" => {
-            if let Some(c) = s("color") {
-                vars.push(("mute-color".into(), c));
-            }
+/// Elements whose `data-part` list contains `part`: (tag start, tag end) byte ranges.
+fn part_tags(svg: &str, part: &str) -> Vec<(usize, usize)> {
+    let mut out = vec![];
+    for (i, _) in svg.match_indices("data-part=\"") {
+        let rest = &svg[i + 11..];
+        let names = &rest[..rest.find('"').unwrap_or(0)];
+        if names.split_whitespace().any(|n| n == part) {
+            let start = svg[..i].rfind('<').unwrap_or(0);
+            let end = i + svg[i..].find('>').unwrap_or(0);
+            out.push((start, end));
         }
-        "light" => {
-            let on = state.get("on").and_then(Value::as_bool).unwrap_or(true);
-            vars.push(("light-fill".into(), if on { s("color").unwrap_or_else(|| "#69E0C1".into()) } else { "transparent".into() }));
-        }
-        "thermostat" | "pomodoro" => {
-            if let Some(c) = s("color") {
-                vars.push((format!("{name}-color"), c));
-            }
-            if let Some(p) = state.get("progress").and_then(pct) {
-                dash.push((format!("{name}-ring"), p));
-            }
-            if name == "thermostat" {
-                temp = state.get("temperature").and_then(Value::as_f64);
-                if let Some(c) = s("number_color").or(s("numberColor")) {
-                    vars.push(("thermostat-number-color".into(), c));
-                }
-            }
-        }
-        "analog-clock" => {
-            if let Some(c) = s("color") {
-                vars.push(("clock-color".into(), c));
-            }
-            if let Some(f) = s("fill") {
-                vars.push(("clock-fill".into(), f));
-            }
-            if let Some(p) = state.get("progress").and_then(pct) {
-                dash.push(("clock-ring".into(), p));
-            }
-            if let Some(t) = state.get("time") {
-                let g = |k: &str| t.get(k).and_then(Value::as_f64).unwrap_or(0.0);
-                let (h, m, sec) = (g("hours"), g("minutes"), g("seconds"));
-                hands.push(("hour", (h % 12.0) * 30.0 + m * 0.5 + sec / 120.0));
-                hands.push(("minute", m * 6.0 + sec * 0.1));
-                hands.push(("second", sec * 6.0));
-            }
-        }
-        "bambu-ams" | "bambu-ams-lite" => {
-            for (i, sp) in state.get("spools").and_then(Value::as_array).into_iter().flatten().take(4).enumerate() {
-                if let Some(c) = sp.get("color").and_then(Value::as_str) {
-                    vars.push((format!("spool-{}-color", i + 1), c.to_string()));
-                }
-                if let Some(p) = sp.get("progress").and_then(pct) {
-                    dash.push((format!("spool-{}-ring", i + 1), p));
-                }
-            }
-        }
-        "downloads" => {
-            if let Some(c) = s("color") {
-                vars.push(("download-color".into(), c));
-            }
-        }
-        _ => {}
-    }
-    let ovr: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-    let mut out = strip_css(&resolve_vars(src, &ovr));
-    // colours also go to the presentation attributes (the helper sets both)
-    for (k, v) in &vars {
-        let (part, attr) = match k.as_str() {
-            "light-fill" => ("light-glass", "fill"),
-            "mute-color" => ("mute-mark", "stroke"),
-            "download-color" => ("download-arrow", "stroke"),
-            "thermostat-color" => ("thermostat-ring", "stroke"),
-            "pomodoro-color" => ("pomodoro-ring", "stroke"),
-            "clock-color" => ("clock-ring", "stroke"),
-            "clock-fill" => ("clock-dial", "fill"),
-            "thermostat-number-color" => ("thermostat-temperature", "fill"),
-            other if other.starts_with("spool-") => {
-                let n = other.trim_start_matches("spool-").trim_end_matches("-color");
-                let part = format!("spool-{n}-ring");
-                set_part_attr(&mut out, &part, "stroke", v);
-                continue;
-            }
-            _ => continue,
-        };
-        set_part_attr(&mut out, part, attr, v);
-        if k == "thermostat-color" {
-            set_part_attr(&mut out, "thermostat-core", "stroke", v);
-        }
-        if k == "pomodoro-color" {
-            set_part_attr(&mut out, "pomodoro-hands", "stroke", v);
-        }
-    }
-    for (part, p) in dash {
-        let marker = format!("data-part=\"{part}\"");
-        let circ = out
-            .find(&marker)
-            .and_then(|m| {
-                let start = out[..m].rfind('<')?;
-                let end = m + out[m..].find('>')?;
-                let tag = &out[start..end];
-                let i = tag.find("data-circumference=\"")? + 20;
-                tag[i..i + tag[i..].find('"')?].parse::<f64>().ok()
-            })
-            .unwrap_or(100.0);
-        set_part_attr(&mut out, &part, "stroke-dasharray", &format!("{:.4} {:.4}", p * circ / 100.0, circ));
-    }
-    for (h, a) in hands {
-        set_part_attr(&mut out, &format!("clock-{h}"), "transform", &format!("rotate({a:.3} 32 32)"));
-    }
-    if let Some(t) = temp {
-        let v = (t * 10.0).round() / 10.0;
-        let text = if v.fract() == 0.0 { format!("{v:.0}") } else { format!("{v:.1}") };
-        let marker = "data-part=\"thermostat-temperature\"";
-        if let Some(m) = out.find(marker) {
-            if let (Some(gt), Some(close)) = (out[m..].find('>'), out[m..].find("</text>")) {
-                out.replace_range(m + gt + 1..m + close, &text);
-            }
-        }
-        let size = (58.0 / text.chars().count() as f64).min(25.0);
-        set_part_attr(&mut out, "thermostat-temperature", "font-size", &format!("{size:.2}"));
     }
     out
 }
 
-type Key = (String, u32, String);
-static CACHE: OnceLock<Mutex<HashMap<Key, Option<Arc<Pixmap>>>>> = OnceLock::new();
-
-/// Rasterise icon `name` at `size` × `size` pixels.
-pub fn render(name: &str, size: u32, overrides: &[(&str, &str)]) -> Option<Arc<Pixmap>> {
-    render_with(name, size, overrides, None)
+fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+    let needle = format!(" {name}=\"");
+    let i = tag.find(&needle)? + needle.len();
+    Some(&tag[i..i + tag[i..].find('"')?])
 }
 
-/// Rasterise a stateful icon with a state object (falls back to plain icons).
-pub fn render_state(name: &str, size: u32, overrides: &[(&str, &str)], state: &serde_json::Value) -> Option<Arc<Pixmap>> {
-    render_with(name, size, overrides, Some(state))
+/// `tag` with attribute `name` set (None: removed), and the same CSS property
+/// dropped from its inline style so the attribute wins.
+fn with_attr(tag: &str, name: &str, value: Option<&str>) -> String {
+    let mut t = tag.to_string();
+    let needle = format!(" {name}=\"");
+    if let Some(i) = t.find(&needle) {
+        let vs = i + needle.len();
+        let ve = vs + t[vs..].find('"').unwrap_or(0);
+        t.replace_range(i..ve + 1, "");
+    }
+    if let Some(st) = attr(&t, "style").map(str::to_string) {
+        let kept: Vec<&str> = st.split(';').map(str::trim).filter(|d| !d.is_empty() && d.split(':').next().unwrap_or("").trim() != name).collect();
+        t = with_attr_raw(&t, "style", if kept.is_empty() { None } else { Some(kept.join(";")) });
+    }
+    match value {
+        Some(v) => {
+            let closing = if t.ends_with('/') { "/" } else { "" };
+            format!("{} {name}=\"{}\"{closing}", t.trim_end_matches('/'), escape(v))
+        }
+        None => t,
+    }
 }
 
-fn render_with(name: &str, size: u32, overrides: &[(&str, &str)], state: Option<&serde_json::Value>) -> Option<Arc<Pixmap>> {
-    let key = (name.to_string(), size, format!("{overrides:?}{}", state.map(|s| s.to_string()).unwrap_or_default()));
+fn with_attr_raw(tag: &str, name: &str, value: Option<String>) -> String {
+    let needle = format!(" {name}=\"");
+    let mut t = tag.to_string();
+    if let Some(i) = t.find(&needle) {
+        let vs = i + needle.len();
+        let ve = vs + t[vs..].find('"').unwrap_or(0);
+        t.replace_range(i..ve + 1, "");
+    }
+    match value {
+        Some(v) => {
+            let closing = if t.ends_with('/') { "/" } else { "" };
+            format!("{} {name}=\"{v}\"{closing}", t.trim_end_matches('/'))
+        }
+        None => t,
+    }
+}
+
+fn escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;")
+}
+
+/// Apply an icon's bindings to its SVG (architecture section 7):
+/// `progress` fills a stroke 0..100, `visible` shows or hides, `text` sets the
+/// content, any other key is set as an SVG attribute.
+pub fn apply_parts(def: &IconDef, ctx: &Ctx, reads: &mut Reads) -> String {
+    let mut out = strip_css(&def.svg);
+    for (part, attrs) in &def.parts {
+        let Some(attrs) = attrs.as_object() else { continue };
+        for (key, spec) in attrs {
+            let Some(v) = bind::resolve(spec, ctx, reads) else { continue };
+            // Edit from the back so earlier ranges stay valid.
+            for (start, end) in part_tags(&out, part).into_iter().rev() {
+                let tag = out[start..end].to_string();
+                match key.as_str() {
+                    "progress" => {
+                        let p = bind::number(&v).unwrap_or(0.0).clamp(0.0, 100.0);
+                        // resvg ignores pathLength; the ring's length is in data-circumference.
+                        let len = attr(&tag, "data-circumference").and_then(|c| c.parse::<f64>().ok()).unwrap_or(100.0);
+                        let t = with_attr(&tag, "pathLength", None);
+                        let t = with_attr(&t, "stroke-dasharray", Some(&format!("{:.4} {:.4}", p * len / 100.0, len)));
+                        out.replace_range(start..end, &t);
+                    }
+                    "visible" => {
+                        let t = with_attr(&tag, "visibility", Some(if bind::truthy(&v) { "visible" } else { "hidden" }));
+                        out.replace_range(start..end, &t);
+                    }
+                    "text" => {
+                        let close = out[end..].find("</").map(|c| end + c);
+                        if let Some(close) = close {
+                            out.replace_range(end + 1..close, &escape(&bind::text(&v)));
+                        }
+                    }
+                    _ => {
+                        let t = with_attr(&tag, key, Some(&bind::text(&v)));
+                        out.replace_range(start..end, &t);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Rasterise a registry icon with its bindings resolved in `ctx`.
+pub fn render_bound(def: &IconDef, size: u32, overrides: &[(&str, &str)], ctx: &Ctx, reads: &mut Reads) -> Option<Arc<Pixmap>> {
+    if def.parts.is_empty() {
+        return render(&def.id, size, overrides);
+    }
+    let text = resolve_vars(&apply_parts(def, ctx, reads), overrides);
+    cached(text, size)
+}
+
+fn cached(text: String, size: u32) -> Option<Arc<Pixmap>> {
+    let key = (text, size, String::new());
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     if let Some(v) = cache.lock().unwrap().get(&key) {
         return v.clone();
     }
-    let src = svg(name)?;
-    let text = match state {
-        Some(st) if is_stateful(name) => resolve_vars(&apply_state(name, src, st), overrides),
-        _ => strip_css(&resolve_vars(src, overrides)),
-    };
-    let pm = rasterise(&text, size).map(Arc::new);
+    let pm = rasterise(&key.0, size).map(Arc::new);
     let mut c = cache.lock().unwrap();
     if c.len() > 800 {
         c.clear();
     }
     c.insert(key, pm.clone());
     pm
+}
+
+type Key = (String, u32, String);
+static CACHE: OnceLock<Mutex<HashMap<Key, Option<Arc<Pixmap>>>>> = OnceLock::new();
+
+/// Rasterise Night Signal icon `name` at `size` × `size` pixels, without bindings.
+pub fn render(name: &str, size: u32, overrides: &[(&str, &str)]) -> Option<Arc<Pixmap>> {
+    let src = svg(name)?;
+    cached(strip_css(&resolve_vars(src, overrides)), size)
 }
 
 /// System fonts for SVG text (the thermostat's number).
@@ -335,31 +287,71 @@ mod tests {
         pm.data().chunks_exact(4).filter(|p| p[3] > 200 && (0..3).all(|i| (p[i] as i32 - rgb[i] as i32).abs() < 30)).count()
     }
 
+    /// The eight stateful icons, now driven by their binding files.
     #[test]
     fn stateful_icons() {
-        use serde_json::json;
+        use serde_json::{json, Map, Value};
+        let reg = crate::registry::builtin();
+        let sig = bind::Signals::default();
+        let theme: Map<String, Value> = json!({"accent": "#69E0C1", "base": "#F4F1E8", "muted": "#87909E", "background": "#11171D"})
+            .as_object()
+            .cloned()
+            .unwrap();
+        let cfg = Map::new();
+        let draw = |icon: &str, size: u32, props: Value| {
+            let props = props.as_object().cloned().unwrap();
+            let ctx = Ctx { implements: None, props: Some(&props), config: &cfg, signals: &sig, theme: &theme };
+            render_bound(reg.icon(icon).unwrap(), size, &[], &ctx, &mut Reads::default()).unwrap()
+        };
         // light: colour and off
-        let on = render_state("light", 64, &[], &json!({"on": true, "color": "#FF0000"})).unwrap();
-        let off = render_state("light", 64, &[], &json!({"on": false})).unwrap();
+        let on = draw("core:light", 64, json!({"toggle.on": true, "rgb.color": "#FF0000"}));
+        let off = draw("core:light", 64, json!({"toggle.on": false, "rgb.color": "#FF0000"}));
         assert!(count(&on, [255, 0, 0]) > 200 && count(&off, [255, 0, 0]) == 0);
         // pomodoro ring progress: more amber at 90 % than at 10 %
         let amber = [0xFF, 0xBF, 0x69];
-        let p10 = render_state("pomodoro", 128, &[], &json!({"progress": 10})).unwrap();
-        let p90 = render_state("pomodoro", 128, &[], &json!({"progress": 90})).unwrap();
+        let p10 = draw("core:pomodoro", 128, json!({"progress.value": 10}));
+        let p90 = draw("core:pomodoro", 128, json!({"progress.value": 90}));
         assert!(count(&p90, amber) > count(&p10, amber) * 3, "{} vs {}", count(&p90, amber), count(&p10, amber));
         // clock hands move
-        let a = render_state("analog-clock", 64, &[], &json!({"time": {"hours": 3, "minutes": 0, "seconds": 0}})).unwrap();
-        let b = render_state("analog-clock", 64, &[], &json!({"time": {"hours": 9, "minutes": 30, "seconds": 20}})).unwrap();
+        let a = draw("core:analog-clock", 64, json!({"clock.hour_angle": 90, "clock.minute_angle": 0}));
+        let b = draw("core:analog-clock", 64, json!({"clock.hour_angle": 285, "clock.minute_angle": 180}));
         assert_ne!(a.data(), b.data());
         // thermostat number is drawn (ivory text) and changes
-        let t22 = render_state("thermostat", 128, &[], &json!({"temperature": 22})).unwrap();
-        let t185 = render_state("thermostat", 128, &[], &json!({"temperature": 18.5, "color": "#69E0C1"})).unwrap();
+        let t22 = draw("core:thermostat", 128, json!({"label.text": "22"}));
+        let t185 = draw("core:thermostat", 128, json!({"label.text": "18.5"}));
         assert!(count(&t22, [0xF4, 0xF1, 0xE8]) > 150, "no number drawn");
         assert_ne!(t22.data(), t185.data());
-        // AMS spools take their colours
-        let ams = render_state("bambu-ams", 128, &[], &json!({"spools": [{"color": "#0000FF", "progress": 100}]})).unwrap();
+        // AMS spools take their colours from another plugin's interface
+        let ams = draw("core:bambu-ams", 128, json!({"com.ricktap.bambu:ams.slot1_color": "#0000FF", "com.ricktap.bambu:ams.slot1_remaining": 100}));
         assert!(count(&ams, [0, 0, 255]) > 30);
-        // a plain render of a stateful icon still works (defaults)
-        assert!(render("analog-clock", 64, &[]).is_some());
+        // downloads: muted grey off, accent on
+        let idle = draw("core:downloads", 64, json!({}));
+        let busy = draw("core:downloads", 64, json!({"toggle.on": true}));
+        assert!(count(&busy, [0x69, 0xE0, 0xC1]) > count(&idle, [0x69, 0xE0, 0xC1]));
+        // without any values the fallbacks draw the old defaults
+        assert!(count(&draw("core:light", 64, json!({})), [0x69, 0xE0, 0xC1]) > 200);
+    }
+
+    /// A theme variable bound to a signal recolours an icon; no plugin sets a colour.
+    #[test]
+    fn theme_variable_bound_to_signal() {
+        use serde_json::{json, Map, Value};
+        let reg = crate::registry::builtin();
+        let mut sig = bind::Signals::default();
+        let theme: Map<String, Value> = json!({"accent": {"bind": "time.second", "steps": ["#FF0000", "#0000FF"], "fallback": "#69E0C1"}})
+            .as_object()
+            .cloned()
+            .unwrap();
+        let cfg = Map::new();
+        let mut draw = |s: i64| {
+            sig.publish("time.second", json!(s));
+            let ctx = Ctx { implements: None, props: None, config: &cfg, signals: &sig, theme: &theme };
+            let mut reads = Reads::default();
+            let pm = render_bound(reg.icon("core:light").unwrap(), 64, &[], &ctx, &mut reads).unwrap();
+            assert!(reads.signals.contains("time.second"));
+            pm
+        };
+        assert!(count(&draw(0), [255, 0, 0]) > 200);
+        assert!(count(&draw(1), [0, 0, 255]) > 200);
     }
 }

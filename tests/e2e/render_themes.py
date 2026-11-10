@@ -28,13 +28,13 @@ cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=bport)
 cfg["settings"]["screensaver"]["enabled"] = False
 cfg["status_key"]["app"] = "media"
 pg = cfg["profiles"][0]["pages"]["main"]
-pg["0"] = {"app": {"type": "sysmon", "modes": ["cpu"]}}; pg["1"] = {"app": {"type": "sysmon", "modes": ["ram"]}}
-pg["2"] = {"app": {"type": "sysmon", "modes": ["disk"]}}; pg["3"] = {"app": {"type": "sysmon", "modes": ["net"]}}; pg["4"] = {"app": {"type": "clock"}}
-pg["5"] = {"states": [{"label": "Desk", "icon": "light", "icon_state": {"on": True, "color": "#B79AF7"}}]}
-pg["6"] = {"states": [{"label": "Hall", "icon": "light", "icon_state": {"on": False}}]}
-pg["7"] = {"states": [{"label": "Office", "icon": "thermostat", "icon_state": {"temperature": 21.5, "progress": 55, "color": "#FFBF69"}}]}
-pg["8"] = {"states": [{"label": "Focus", "icon": "pomodoro", "icon_state": {"progress": 40}}]}
-pg["9"] = {"states": [{"label": "AMS", "icon": "bambu-ams-lite", "icon_state": {"spools": [{"color": "#69E0C1", "progress": 80}, {"color": "#B79AF7", "progress": 30}, {"color": "#FFBF69", "progress": 60}, {"color": "#FF8278", "progress": 95}]}}]}
+pg["0"] = {"app": "core:sysmon", "config": {"modes": ["cpu"]}}; pg["1"] = {"app": "core:sysmon", "config": {"modes": ["ram"]}}
+pg["2"] = {"app": "core:sysmon", "config": {"modes": ["disk"]}}; pg["3"] = {"app": "core:sysmon", "config": {"modes": ["net"]}}; pg["4"] = {"app": "core:clock"}
+pg["5"] = {"states": [{"label": "Desk", "icon": "core:light", "props": {"toggle.on": True, "rgb.color": "#B79AF7"}}]}
+pg["6"] = {"states": [{"label": "Hall", "icon": "core:light", "props": {"toggle.on": False}}]}
+pg["7"] = {"states": [{"label": "Office", "icon": "core:thermostat", "props": {"label.text": "21.5", "progress.value": 55}}]}
+pg["8"] = {"states": [{"label": "Focus", "icon": "core:pomodoro", "props": {"progress.value": 40}}]}
+pg["9"] = {"states": [{"label": "AMS", "icon": "core:bambu-ams-lite", "props": {f"com.ricktap.bambu:ams.slot{i+1}_{k}": v for i, (c, r) in enumerate([("#69E0C1", 80), ("#B79AF7", 30), ("#FFBF69", 60), ("#FF8278", 95)]) for k, v in (("color", c), ("remaining", r))}}]}
 if variant == "themed":
     cfg["settings"]["theme"] = {
         "palette": {"active": "#74b9ff", "info": "#c7a8ff", "attention": "#ffd166", "error": "#ff6b81", "background": "#101820"},

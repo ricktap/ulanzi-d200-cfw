@@ -1,0 +1,44 @@
+{
+  "id": "core:analog-clock",
+  "roles": [
+    "clock",
+    "progress",
+    "button"
+  ],
+  "file": "analog-clock.svg",
+  "parts": {
+    "clock-ring": {
+      "stroke": {
+        "tone": "accent"
+      },
+      "progress": {
+        "prop": "progress.value",
+        "fallback": 70
+      }
+    },
+    "clock-hour": {
+      "transform": {
+        "prop": "clock.hour_angle",
+        "fallback": 300,
+        "prefix": "rotate(",
+        "suffix": " 32 32)"
+      }
+    },
+    "clock-minute": {
+      "transform": {
+        "prop": "clock.minute_angle",
+        "fallback": 60,
+        "prefix": "rotate(",
+        "suffix": " 32 32)"
+      }
+    },
+    "clock-second": {
+      "transform": {
+        "prop": "clock.second_angle",
+        "fallback": 180,
+        "prefix": "rotate(",
+        "suffix": " 32 32)"
+      }
+    }
+  }
+}

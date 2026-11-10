@@ -1,0 +1,38 @@
+{
+  "id": "core:debugger",
+  "name": "Debugger",
+  "icon": "core:debug-active",
+  "face": "debugger",
+  "config": [
+    {
+      "key": "idle_keys",
+      "label": "Press while idle",
+      "type": "text",
+      "default": "ctrl+d"
+    },
+    {
+      "key": "active_keys",
+      "label": "Press while debugging",
+      "type": "text",
+      "default": "cmd+alt+r"
+    },
+    {
+      "key": "stop_keys",
+      "label": "Long press while debugging",
+      "type": "text",
+      "default": "cmd+f2"
+    }
+  ],
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "debugger.active",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}
