@@ -1,0 +1,15 @@
+# build output
+device/target/
+app/src-tauri/target/
+app/src-tauri/gen/
+app/node_modules/
+
+# python
+__pycache__/
+*.pyc
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp

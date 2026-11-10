@@ -1,0 +1,171 @@
+{
+ "settings": {
+  "brightness": 180,
+  "long_press_ms": 500,
+  "follow_active_app": true,
+  "weather": {
+   "location": {
+    "name": "Berlin",
+    "lat": 52.5,
+    "lon": 13.4
+   },
+   "fahrenheit": false
+  },
+  "pomodoro": {
+   "work": 25,
+   "short_break": 5,
+   "long_break": 15,
+   "rounds": 4,
+   "sound": true
+  },
+  "mqtt": {
+   "enabled": true,
+   "host": "192.168.1.5",
+   "port": 1883,
+   "username": "deck",
+   "password": "",
+   "tls": false,
+   "base_topic": "d200",
+   "discovery": true
+  }
+ },
+ "status_key": {
+  "actions": {
+   "press": [
+    {
+     "type": "home"
+    }
+   ],
+   "long": [
+    {
+     "type": "remote"
+    }
+   ]
+  }
+ },
+ "profiles": [
+  {
+   "name": "Default",
+   "apps": [],
+   "pages": {
+    "main": {
+     "0": {
+      "app": {
+       "type": "sysmon"
+      },
+      "states": [
+       {
+        "bg": "#0f172a",
+        "actions": {
+         "press": [],
+         "long": [],
+         "down": [],
+         "up": []
+        }
+       }
+      ]
+     },
+     "1": {
+      "app": {
+       "type": "mute"
+      }
+     },
+     "5": {
+      "states": [
+       {
+        "label": "Terminal",
+        "icon": "💻",
+        "bg": "#1e3a8a",
+        "actions": {
+         "press": [
+          {
+           "type": "open",
+           "target": "Terminal"
+          }
+         ],
+         "long": [
+          {
+           "type": "keys",
+           "combo": "cmd+n"
+          }
+         ],
+         "down": [
+          {
+           "type": "mqtt",
+           "topic": "home/x",
+           "payload": "ON",
+           "retain": true
+          }
+         ],
+         "up": [
+          {
+           "type": "notify",
+           "text": "Hello",
+           "icon": "🔔"
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "8": {
+      "states": [
+       {
+        "label": "Dark",
+        "icon": "🌙",
+        "bg": "#1f2937",
+        "actions": {
+         "press": [
+          {
+           "type": "state",
+           "to": "next"
+          }
+         ]
+        }
+       },
+       {
+        "label": "",
+        "bg": "#ca8a04",
+        "actions": {
+         "press": [
+          {
+           "type": "state",
+           "to": "1"
+          },
+          {
+           "type": "profile",
+           "profile": "auto"
+          },
+          {
+           "type": "brightness",
+           "value": "+25"
+          },
+          {
+           "type": "back"
+          },
+          {
+           "type": "remote"
+          },
+          {
+           "type": "page",
+           "page": "main"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "Code",
+   "apps": [
+    "com.microsoft.VSCode"
+   ],
+   "pages": {
+    "main": {}
+   }
+  }
+ ]
+}

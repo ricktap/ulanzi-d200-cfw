@@ -1,0 +1,46 @@
+[package]
+name = "d200-deck"
+version = "0.7.0"
+edition = "2021"
+description = "Desktop app that drives an Ulanzi D200 running d200fw"
+
+[lib]
+name = "d200_deck_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "d200-deck"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = { version = "2", features = ["serde"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
+ab_glyph = "0.2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+base64 = "0.22"
+tiny-skia = "0.11"
+resvg = { version = "0.45", default-features = false, features = ["text"] }
+sysinfo = { version = "0.37", default-features = false, features = ["system", "disk", "network", "component"] }
+rumqttc = "0.25"
+ureq = { version = "2", features = ["json"] }
+tungstenite = { version = "0.24", default-features = false, features = ["handshake"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWorkspace", "NSRunningApplication"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

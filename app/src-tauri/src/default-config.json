@@ -1,0 +1,840 @@
+{
+  "settings": {
+    "brightness": 180,
+    "long_press_ms": 500,
+    "follow_active_app": true,
+    "weather": {
+      "location": null,
+      "fahrenheit": false
+    },
+    "pomodoro": {
+      "work": 25,
+      "short_break": 5,
+      "long_break": 15,
+      "rounds": 4,
+      "sound": true
+    },
+    "mqtt": {
+      "enabled": false,
+      "host": "homeassistant.local",
+      "port": 1883,
+      "username": "",
+      "password": "",
+      "tls": false,
+      "base_topic": "d200",
+      "discovery": true
+    },
+    "teams": {
+      "port": 8124,
+      "client_id": "",
+      "tenant": "organizations",
+      "away": "DoNotDisturb"
+    },
+    "screensaver": {
+      "enabled": true,
+      "idle_minutes": 3,
+      "scene": "auto",
+      "southern": false,
+      "motion": true,
+      "fps": 8
+    },
+    "cards": {
+      "email": true,
+      "meetings": true,
+      "steam": true,
+      "printer": true,
+      "hide_content": false
+    }
+  },
+  "status_key": {
+    "app": "profile",
+    "show": "auto",
+    "actions": {
+      "press": [
+        {
+          "type": "home"
+        }
+      ],
+      "long": [
+        {
+          "type": "remote"
+        }
+      ]
+    }
+  },
+  "profiles": [
+    {
+      "name": "Default",
+      "apps": [],
+      "pages": {
+        "main": {
+          "0": {
+            "app": {
+              "type": "sysmon"
+            }
+          },
+          "1": {
+            "app": {
+              "type": "mute"
+            }
+          },
+          "2": {
+            "app": {
+              "type": "weather"
+            }
+          },
+          "3": {
+            "app": {
+              "type": "clock"
+            }
+          },
+          "4": {
+            "app": {
+              "type": "pomodoro"
+            }
+          },
+          "5": {
+            "states": [
+              {
+                "label": "Terminal",
+                "icon": "terminal-app",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "open",
+                      "target": "Terminal"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "6": {
+            "states": [
+              {
+                "label": "Safari",
+                "icon": "browser",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "open",
+                      "target": "Safari"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "7": {
+            "states": [
+              {
+                "label": "Capture",
+                "icon": "screenshot-region",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+shift+4"
+                    }
+                  ],
+                  "long": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+shift+5"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "8": {
+            "app": {
+              "type": "teams_mute"
+            }
+          },
+          "9": {
+            "app": {
+              "type": "media"
+            }
+          },
+          "10": {
+            "states": [
+              {
+                "label": "Vol -",
+                "icon": "volume-down",
+                "actions": {
+                  "down": [
+                    {
+                      "type": "volume",
+                      "value": "-5"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "11": {
+            "states": [
+              {
+                "label": "Vol +",
+                "icon": "volume-up",
+                "actions": {
+                  "down": [
+                    {
+                      "type": "volume",
+                      "value": "+5"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "12": {
+            "states": [
+              {
+                "label": "Home",
+                "icon": "home",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "remote"
+                    }
+                  ],
+                  "long": [
+                    {
+                      "type": "page",
+                      "page": "more"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "more": {
+          "0": {
+            "states": [
+              {
+                "label": "Back",
+                "icon": "arrow-left",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "back"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "1": {
+            "states": [
+              {
+                "label": "Dark",
+                "icon": "weather-moon",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "command",
+                      "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to true'"
+                    },
+                    {
+                      "type": "state",
+                      "to": "next"
+                    }
+                  ]
+                }
+              },
+              {
+                "label": "Light",
+                "icon": "weather-sun",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "command",
+                      "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to false'"
+                    },
+                    {
+                      "type": "state",
+                      "to": "next"
+                    }
+                  ]
+                },
+                "fg": "#FFBF69"
+              }
+            ]
+          },
+          "2": {
+            "states": [
+              {
+                "label": "Lock",
+                "icon": "lock-computer",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "command",
+                      "command": "pmset displaysleepnow"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "5": {
+            "states": [
+              {
+                "label": "Previous",
+                "icon": "previous-track",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "media",
+                      "command": "previous"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "6": {
+            "app": {
+              "type": "media"
+            }
+          },
+          "7": {
+            "states": [
+              {
+                "label": "Next",
+                "icon": "next-track",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "media",
+                      "command": "next"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "Browser",
+      "apps": [
+        "com.apple.Safari",
+        "com.google.Chrome",
+        "org.mozilla.firefox",
+        "company.thebrowser.Browser"
+      ],
+      "pages": {
+        "main": {
+          "0": {
+            "states": [
+              {
+                "label": "Back",
+                "icon": "arrow-left",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+["
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "1": {
+            "states": [
+              {
+                "label": "Forward",
+                "icon": "arrow-right",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+]"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "2": {
+            "states": [
+              {
+                "label": "Reload",
+                "icon": "refresh",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+r"
+                    }
+                  ],
+                  "long": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+shift+r"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "3": {
+            "states": [
+              {
+                "label": "New tab",
+                "icon": "capture",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+t"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "4": {
+            "states": [
+              {
+                "label": "Close tab",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+w"
+                    }
+                  ],
+                  "long": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+shift+t"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "5": {
+            "app": {
+              "type": "sysmon"
+            }
+          },
+          "6": {
+            "app": {
+              "type": "mute"
+            }
+          },
+          "7": {
+            "app": {
+              "type": "clock"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Media",
+      "apps": [
+        "com.spotify.client",
+        "com.apple.Music"
+      ],
+      "pages": {
+        "main": {
+          "0": {
+            "states": [
+              {
+                "label": "Previous",
+                "icon": "previous-track",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "media",
+                      "command": "previous"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "1": {
+            "app": {
+              "type": "media"
+            }
+          },
+          "2": {
+            "states": [
+              {
+                "label": "Next",
+                "icon": "next-track",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "media",
+                      "command": "next"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "3": {
+            "app": {
+              "type": "mute"
+            }
+          },
+          "5": {
+            "states": [
+              {
+                "label": "Vol -",
+                "icon": "volume-down",
+                "actions": {
+                  "down": [
+                    {
+                      "type": "volume",
+                      "value": "-5"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "6": {
+            "states": [
+              {
+                "label": "Vol +",
+                "icon": "volume-up",
+                "actions": {
+                  "down": [
+                    {
+                      "type": "volume",
+                      "value": "+5"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "Teams",
+      "apps": [
+        "com.microsoft.teams2",
+        "com.microsoft.teams"
+      ],
+      "pages": {
+        "main": {
+          "0": {
+            "app": {
+              "type": "teams_mute"
+            }
+          },
+          "1": {
+            "app": {
+              "type": "teams_camera"
+            }
+          },
+          "2": {
+            "app": {
+              "type": "teams_presence"
+            }
+          },
+          "3": {
+            "states": [
+              {
+                "label": "Raise hand",
+                "icon": "teams-meeting",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "teams",
+                      "command": "toggle-hand"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "4": {
+            "states": [
+              {
+                "label": "Leave\n(hold)",
+                "icon": "end-call",
+                "actions": {
+                  "long": [
+                    {
+                      "type": "teams",
+                      "command": "leave-call"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "5": {
+            "states": [
+              {
+                "label": "Blur",
+                "icon": "mode-focus-on",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "teams",
+                      "command": "toggle-background-blur"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "6": {
+            "states": [
+              {
+                "label": "Chat",
+                "icon": "teams-chat",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "teams",
+                      "command": "toggle-ui-chat"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "7": {
+            "app": {
+              "type": "clock"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "JetBrains",
+      "apps": [
+        "com.jetbrains.WebStorm",
+        "com.jetbrains.intellij",
+        "com.jetbrains.intellij.ce",
+        "com.jetbrains.pycharm",
+        "com.jetbrains.pycharm.ce",
+        "com.jetbrains.goland",
+        "com.jetbrains.PhpStorm",
+        "com.jetbrains.rider",
+        "com.jetbrains.CLion",
+        "com.jetbrains.rustrover",
+        "com.jetbrains.datagrip"
+      ],
+      "pages": {
+        "main": {
+          "0": {
+            "app": {
+              "type": "debugger"
+            }
+          },
+          "1": {
+            "states": [
+              {
+                "label": "Run",
+                "icon": "play",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "ctrl+r"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "2": {
+            "states": [
+              {
+                "label": "Stop",
+                "icon": "debug-stop",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+f2"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "3": {
+            "states": [
+              {
+                "label": "Resume",
+                "icon": "timer-start",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+alt+r"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "4": {
+            "states": [
+              {
+                "label": "Breakpoint",
+                "icon": "breakpoint",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+f8"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "5": {
+            "states": [
+              {
+                "label": "Step over",
+                "icon": "step-over",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "f8"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "6": {
+            "states": [
+              {
+                "label": "Step into",
+                "icon": "step-into",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "f7"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "7": {
+            "states": [
+              {
+                "label": "Step out",
+                "icon": "step-out",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "shift+f8"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "8": {
+            "states": [
+              {
+                "label": "Evaluate",
+                "icon": "calculator",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "alt+f8"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "9": {
+            "states": [
+              {
+                "label": "Find action",
+                "icon": "search",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+shift+a"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "10": {
+            "states": [
+              {
+                "label": "Reformat",
+                "icon": "code-editor",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+alt+l"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "11": {
+            "states": [
+              {
+                "label": "Terminal",
+                "icon": "terminal",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "alt+f12"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "12": {
+            "states": [
+              {
+                "label": "Commit",
+                "icon": "git-branch",
+                "actions": {
+                  "press": [
+                    {
+                      "type": "keys",
+                      "combo": "cmd+k"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

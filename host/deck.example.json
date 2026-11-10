@@ -1,0 +1,25 @@
+{
+  "brightness": 180,
+  "pages": {
+    "main": {
+      "0": { "label": "Terminal", "bg": "#1e3a8a", "run": "open -a Terminal" },
+      "1": { "label": "Safari", "bg": "#0e7490", "run": "open -a Safari" },
+      "2": { "label": "Finder", "bg": "#334155", "run": "open ~" },
+      "3": { "label": "Lock", "bg": "#7f1d1d", "run": "pmset displaysleepnow" },
+      "4": { "label": "Media >", "bg": "#4c1d95", "page": "media" },
+      "5": { "label": "Vol -", "bg": "#14532d", "run": "osascript -e 'set volume output volume ((output volume of (get volume settings)) - 10)'" },
+      "6": { "label": "Mute", "bg": "#14532d", "run": "osascript -e 'set volume output muted (not (output muted of (get volume settings)))'" },
+      "7": { "label": "Vol +", "bg": "#14532d", "run": "osascript -e 'set volume output volume ((output volume of (get volume settings)) + 10)'" },
+      "8": { "label": "Screenshot", "bg": "#78350f", "run": "screencapture -i ~/Desktop/shot-$(date +%s).png" },
+      "9": { "label": "Say hi", "bg": "#3f3f46", "run": "say hello from the deck" },
+      "13": { "clock": true, "bg": "#000000" }
+    },
+    "media": {
+      "0": { "label": "< Back", "bg": "#4c1d95", "page": "main" },
+      "5": { "label": "Prev", "bg": "#1f2937", "run": "osascript -e 'tell application \"Music\" to previous track'" },
+      "6": { "label": "Play\nPause", "bg": "#1f2937", "run": "osascript -e 'tell application \"Music\" to playpause'" },
+      "7": { "label": "Next", "bg": "#1f2937", "run": "osascript -e 'tell application \"Music\" to next track'" },
+      "13": { "clock": true, "bg": "#000000" }
+    }
+  }
+}

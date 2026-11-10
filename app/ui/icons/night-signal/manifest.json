@@ -1,0 +1,897 @@
+{
+  "name": "Night Signal \u00b7 Complete collection",
+  "version": "2.1",
+  "count": 218,
+  "viewBox": "0 0 64 64",
+  "strokeWidth": 2.4,
+  "palette": {
+    "base": "#F4F1E8",
+    "mint": "#69E0C1",
+    "coral": "#FF8278",
+    "amber": "#FFBF69",
+    "lavender": "#B79AF7",
+    "muted": "#87909E"
+  },
+  "icons": [
+    {
+      "name": "volume-on",
+      "group": "Audio"
+    },
+    {
+      "name": "volume-muted",
+      "group": "Audio",
+      "stateful": true
+    },
+    {
+      "name": "volume-up",
+      "group": "Audio"
+    },
+    {
+      "name": "volume-down",
+      "group": "Audio"
+    },
+    {
+      "name": "play",
+      "group": "Audio"
+    },
+    {
+      "name": "pause",
+      "group": "Audio"
+    },
+    {
+      "name": "previous-track",
+      "group": "Audio"
+    },
+    {
+      "name": "next-track",
+      "group": "Audio"
+    },
+    {
+      "name": "now-playing",
+      "group": "Audio"
+    },
+    {
+      "name": "equalizer",
+      "group": "Audio"
+    },
+    {
+      "name": "microphone-on",
+      "group": "Calls"
+    },
+    {
+      "name": "microphone-muted",
+      "group": "Calls"
+    },
+    {
+      "name": "camera-on",
+      "group": "Calls"
+    },
+    {
+      "name": "camera-off",
+      "group": "Calls"
+    },
+    {
+      "name": "presence-available",
+      "group": "Calls"
+    },
+    {
+      "name": "presence-away",
+      "group": "Calls"
+    },
+    {
+      "name": "do-not-disturb",
+      "group": "Calls"
+    },
+    {
+      "name": "join-call",
+      "group": "Calls"
+    },
+    {
+      "name": "end-call",
+      "group": "Calls"
+    },
+    {
+      "name": "screen-share",
+      "group": "Calls"
+    },
+    {
+      "name": "cpu",
+      "group": "System"
+    },
+    {
+      "name": "ram",
+      "group": "System"
+    },
+    {
+      "name": "disk",
+      "group": "System"
+    },
+    {
+      "name": "network-upload",
+      "group": "System"
+    },
+    {
+      "name": "network-download",
+      "group": "System"
+    },
+    {
+      "name": "network-traffic",
+      "group": "System"
+    },
+    {
+      "name": "wifi",
+      "group": "System"
+    },
+    {
+      "name": "ethernet",
+      "group": "System"
+    },
+    {
+      "name": "temperature",
+      "group": "System"
+    },
+    {
+      "name": "system-monitor",
+      "group": "System"
+    },
+    {
+      "name": "weather-sun",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-moon",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-partly-cloudy",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-cloudy",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-rain",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-storm",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-snow",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-wind",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-humidity",
+      "group": "Weather"
+    },
+    {
+      "name": "weather-location",
+      "group": "Weather"
+    },
+    {
+      "name": "clock",
+      "group": "Time"
+    },
+    {
+      "name": "calendar",
+      "group": "Time"
+    },
+    {
+      "name": "alarm",
+      "group": "Time"
+    },
+    {
+      "name": "stopwatch",
+      "group": "Time"
+    },
+    {
+      "name": "pomodoro-focus",
+      "group": "Time"
+    },
+    {
+      "name": "pomodoro-break",
+      "group": "Time"
+    },
+    {
+      "name": "timer-start",
+      "group": "Time"
+    },
+    {
+      "name": "timer-pause",
+      "group": "Time"
+    },
+    {
+      "name": "timer-reset",
+      "group": "Time"
+    },
+    {
+      "name": "hourglass",
+      "group": "Time"
+    },
+    {
+      "name": "terminal",
+      "group": "Development"
+    },
+    {
+      "name": "browser",
+      "group": "Development"
+    },
+    {
+      "name": "code-editor",
+      "group": "Development"
+    },
+    {
+      "name": "debug-active",
+      "group": "Development"
+    },
+    {
+      "name": "debug-stop",
+      "group": "Development"
+    },
+    {
+      "name": "breakpoint",
+      "group": "Development"
+    },
+    {
+      "name": "step-over",
+      "group": "Development"
+    },
+    {
+      "name": "step-into",
+      "group": "Development"
+    },
+    {
+      "name": "step-out",
+      "group": "Development"
+    },
+    {
+      "name": "git-branch",
+      "group": "Development"
+    },
+    {
+      "name": "home",
+      "group": "Home"
+    },
+    {
+      "name": "home-connected",
+      "group": "Home"
+    },
+    {
+      "name": "light-on",
+      "group": "Home"
+    },
+    {
+      "name": "light-off",
+      "group": "Home"
+    },
+    {
+      "name": "power-plug",
+      "group": "Home"
+    },
+    {
+      "name": "thermostat",
+      "group": "Home",
+      "stateful": true
+    },
+    {
+      "name": "door-locked",
+      "group": "Home"
+    },
+    {
+      "name": "door-unlocked",
+      "group": "Home"
+    },
+    {
+      "name": "scene",
+      "group": "Home"
+    },
+    {
+      "name": "mqtt",
+      "group": "Home"
+    },
+    {
+      "name": "arrow-left",
+      "group": "Navigation"
+    },
+    {
+      "name": "arrow-right",
+      "group": "Navigation"
+    },
+    {
+      "name": "arrow-up",
+      "group": "Navigation"
+    },
+    {
+      "name": "arrow-down",
+      "group": "Navigation"
+    },
+    {
+      "name": "page-next",
+      "group": "Navigation"
+    },
+    {
+      "name": "page-previous",
+      "group": "Navigation"
+    },
+    {
+      "name": "grid",
+      "group": "Navigation"
+    },
+    {
+      "name": "menu",
+      "group": "Navigation"
+    },
+    {
+      "name": "search",
+      "group": "Navigation"
+    },
+    {
+      "name": "settings",
+      "group": "Navigation"
+    },
+    {
+      "name": "capture",
+      "group": "Actions"
+    },
+    {
+      "name": "record",
+      "group": "Actions"
+    },
+    {
+      "name": "save",
+      "group": "Actions"
+    },
+    {
+      "name": "refresh",
+      "group": "Actions"
+    },
+    {
+      "name": "link",
+      "group": "Actions"
+    },
+    {
+      "name": "notification",
+      "group": "Actions"
+    },
+    {
+      "name": "check",
+      "group": "Actions"
+    },
+    {
+      "name": "warning",
+      "group": "Actions"
+    },
+    {
+      "name": "power",
+      "group": "Actions"
+    },
+    {
+      "name": "sleep",
+      "group": "Actions"
+    },
+    {
+      "name": "profile-work",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "profile-media",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "profile-gaming",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "profile-auto",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "profile-switch",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "press-start",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "release",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "short-press",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "long-press",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "remote-control",
+      "group": "Profiles & events"
+    },
+    {
+      "name": "claude",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "claude-chat",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "claude-thinking",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "claude-complete",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "obsidian",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "obsidian-note",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "obsidian-graph",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "obsidian-daily",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "notion",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "knowledge-search",
+      "group": "AI & knowledge"
+    },
+    {
+      "name": "discord",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "discord-unread",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "discord-voice",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "discord-deafened",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "telegram",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "telegram-unread",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "teams",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "teams-chat",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "teams-meeting",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "teams-available",
+      "group": "Chat & calls"
+    },
+    {
+      "name": "outlook",
+      "group": "Office"
+    },
+    {
+      "name": "outlook-unread",
+      "group": "Office"
+    },
+    {
+      "name": "outlook-compose",
+      "group": "Office"
+    },
+    {
+      "name": "outlook-calendar",
+      "group": "Office"
+    },
+    {
+      "name": "word",
+      "group": "Office"
+    },
+    {
+      "name": "word-document",
+      "group": "Office"
+    },
+    {
+      "name": "excel",
+      "group": "Office"
+    },
+    {
+      "name": "excel-chart",
+      "group": "Office"
+    },
+    {
+      "name": "powerpoint",
+      "group": "Office"
+    },
+    {
+      "name": "powerpoint-present",
+      "group": "Office"
+    },
+    {
+      "name": "terminal-app",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "terminal-command",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "chrome",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "chrome-incognito",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "vscode",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "vscode-debug",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "webstorm-app",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "github-app",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "docker-app",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "git-pull",
+      "group": "Browsers & development"
+    },
+    {
+      "name": "spotify",
+      "group": "Media & games"
+    },
+    {
+      "name": "spotify-playing",
+      "group": "Media & games"
+    },
+    {
+      "name": "spotify-paused",
+      "group": "Media & games"
+    },
+    {
+      "name": "spotify-liked",
+      "group": "Media & games"
+    },
+    {
+      "name": "steam",
+      "group": "Media & games"
+    },
+    {
+      "name": "steam-library",
+      "group": "Media & games"
+    },
+    {
+      "name": "steam-download",
+      "group": "Media & games"
+    },
+    {
+      "name": "steam-playing",
+      "group": "Media & games"
+    },
+    {
+      "name": "obs-studio",
+      "group": "Media & games"
+    },
+    {
+      "name": "obs-live",
+      "group": "Media & games"
+    },
+    {
+      "name": "home-assistant",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-lights",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-climate",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-security",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-energy",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-automation",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-scene",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-presence",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-vacuum",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "ha-garage",
+      "group": "Home Assistant"
+    },
+    {
+      "name": "bambu-lab",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-studio",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-handy",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-x1",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-p1",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-a1",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-a1-mini",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "bambu-ams",
+      "group": "Bambu printers",
+      "stateful": true
+    },
+    {
+      "name": "bambu-ams-lite",
+      "group": "Bambu printers",
+      "stateful": true
+    },
+    {
+      "name": "bambu-camera",
+      "group": "Bambu printers"
+    },
+    {
+      "name": "print-ready",
+      "group": "Print states"
+    },
+    {
+      "name": "print-printing",
+      "group": "Print states"
+    },
+    {
+      "name": "print-paused",
+      "group": "Print states"
+    },
+    {
+      "name": "print-complete",
+      "group": "Print states"
+    },
+    {
+      "name": "print-error",
+      "group": "Print states"
+    },
+    {
+      "name": "print-cancel",
+      "group": "Print states"
+    },
+    {
+      "name": "print-queue",
+      "group": "Print states"
+    },
+    {
+      "name": "print-progress",
+      "group": "Print states"
+    },
+    {
+      "name": "print-remaining",
+      "group": "Print states"
+    },
+    {
+      "name": "print-offline",
+      "group": "Print states"
+    },
+    {
+      "name": "printer-nozzle",
+      "group": "Printer tools"
+    },
+    {
+      "name": "printer-bed",
+      "group": "Printer tools"
+    },
+    {
+      "name": "printer-filament",
+      "group": "Printer tools"
+    },
+    {
+      "name": "printer-spool",
+      "group": "Printer tools"
+    },
+    {
+      "name": "filament-load",
+      "group": "Printer tools"
+    },
+    {
+      "name": "filament-unload",
+      "group": "Printer tools"
+    },
+    {
+      "name": "filament-dry",
+      "group": "Printer tools"
+    },
+    {
+      "name": "printer-fan",
+      "group": "Printer tools"
+    },
+    {
+      "name": "printer-speed",
+      "group": "Printer tools"
+    },
+    {
+      "name": "printer-layer",
+      "group": "Printer tools"
+    },
+    {
+      "name": "finder",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "files",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "downloads",
+      "group": "Workspace extras",
+      "stateful": true
+    },
+    {
+      "name": "calculator",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "password-manager",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "screenshot-region",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "clipboard-history",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "window-split",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "desktop-switch",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "lock-computer",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "desk-standing",
+      "group": "Desk positions"
+    },
+    {
+      "name": "desk-sitting",
+      "group": "Desk positions"
+    },
+    {
+      "name": "desk-up",
+      "group": "Desk positions"
+    },
+    {
+      "name": "desk-down",
+      "group": "Desk positions"
+    },
+    {
+      "name": "desk-lights",
+      "group": "Desk lighting"
+    },
+    {
+      "name": "ultrawides",
+      "group": "Ultrawide screens"
+    },
+    {
+      "name": "ultrawides-backlight",
+      "group": "Monitor backlighting"
+    },
+    {
+      "name": "mode-work-on",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-work-off",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-gaming-on",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-gaming-off",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-focus-on",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-focus-off",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-guest-on",
+      "group": "Desk modes"
+    },
+    {
+      "name": "mode-guest-off",
+      "group": "Desk modes"
+    },
+    {
+      "name": "light",
+      "group": "Stateful",
+      "stateful": true
+    },
+    {
+      "name": "pomodoro",
+      "group": "Stateful",
+      "stateful": true
+    },
+    {
+      "name": "analog-clock",
+      "group": "Stateful",
+      "stateful": true
+    }
+  ]
+}
