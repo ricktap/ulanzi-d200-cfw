@@ -4,22 +4,6 @@
 import { h } from "./dom.js";
 import { edit } from "./store.js";
 
-export function colorField(label, read, holder, field, fallback, where = "") {
-  const cur = read()?.[field];
-  const input = h("input", { type: "color", value: cur || fallback });
-  const box = h("span", { class: "colorbox" + (cur ? "" : " unset") }, input,
-    h("button", { class: "link", type: "button", onclick: () => {
-      edit(`${label} · ${where}`, () => { delete holder()[field]; }, { redraw: false });
-      input.value = fallback;
-      box.classList.add("unset");
-    } }, "default"));
-  input.oninput = () => {
-    edit(`${label} · ${where}`, () => { holder()[field] = input.value; }, { redraw: false, coalesce: `color:${where}:${field}` });
-    box.classList.remove("unset");
-  };
-  return h("label", { class: "field" }, h("span", { class: "label" }, label), box);
-}
-
 export function textField(label, read, holder, field, opts = {}) {
   const el = opts.area ? h("textarea", { rows: opts.rows || 2, placeholder: opts.ph || "" }) : h("input", { placeholder: opts.ph || "" });
   el.value = read()?.[field] ?? "";

@@ -1613,7 +1613,8 @@ impl Engine {
             let pname = self.cfg.profiles.get(v.profile).map(|p| p.name.as_str()).unwrap_or("");
             let path = format!("{pname}/{}/{k}", v.page);
             let reg = crate::registry::builtin();
-            let def = key.app.as_deref().and_then(|id| reg.app(id));
+            // An app of a switched-off plugin draws like one whose plugin is missing.
+            let def = key.app.as_deref().filter(|id| self.plugin_enabled(crate::registry::namespace(id))).and_then(|id| reg.app(id));
             let st0 = key.state(0);
             let chosen = st0.look.icon.as_deref().map(str::trim).filter(|i| !i.is_empty());
             // Built-in widgets draw while the app's default icon is chosen.

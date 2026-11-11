@@ -13,12 +13,12 @@ export function h(tag, attrs = {}, ...kids) {
     else if (k in el && k !== "list") el[k] = v;
     else el.setAttribute(k, v);
   }
-  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid);
+  for (const kid of kids.flat(Infinity)) if (kid !== null && kid !== undefined && kid !== false) el.append(kid);
   return el;
 }
 
 /** replaceChildren that skips null/false (the native one prints "null"). */
-export const put = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k !== null && k !== undefined && k !== false));
+export const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter((k) => k !== null && k !== undefined && k !== false));
 
 export function toast(msg, isErr = false) {
   const t = $("toast");

@@ -1,76 +1,99 @@
-// Profiles view, the profile automation card, page operations and the
-// "use this profile for" app picker.
-import { $, h, put, ask, toast, initials } from "./dom.js";
+// The profile editor above the device: name, bound programs, pages, and
+// adding or deleting profiles and pages.
+import { $, h, put, ask, toast } from "./dom.js";
 import { call } from "./api.js";
-import { state, edit, saveNow, goto, render, profile, allActions } from "./store.js";
+import { state, edit, hint, saveNow, goto, render, profile, allActions } from "./store.js";
 
 const saveThen = async (fn) => {
   await saveNow().catch(() => {});
   fn?.();
 };
 
-export function renderAutomation() {
+let running = null; // [{id, name}] while the editor is open
+
+export function renderProfileEditor() {
+  const el = $("pf-editor");
+  el.hidden = !state.editProfile;
+  if (!state.editProfile) return;
+  const i = state.view.profile;
   const p = profile();
-  const first = p.apps[0];
-  const short = (id) => id.split(".").pop();
-  put($("automation"),
-    h("h3", {}, "Profile automation"),
-    h("div", { class: "auto-row" },
-      h("span", { class: "badge" }, first ? initials(short(first)) : "—"),
-      h("div", { class: "grow" },
-        h("b", {}, first ? p.apps.map(short).join(", ") : state.view.profile === 0 ? "Default profile" : "No app bound"),
-        h("span", { class: "sub" }, first
-          ? `${p.name} activates automatically`
-          : state.view.profile === 0 ? "Used when no other profile matches" : "Only used when you pick it")),
-      h("a", { onclick: () => render("pane:profiles") }, "Edit")),
-  );
+  const name = h("input", { value: p.name });
+  name.onchange = () => renameProfile(i, name.value.trim());
+
+  const bound = p.apps.map((a, j) => h("span", { class: "chip", title: a }, a,
+    h("button", { type: "button", title: `Unbind ${a}`, "aria-label": `Unbind ${a} from this profile`, onclick: () => {
+      edit(`Unbind ${a}`, () => p.apps.splice(j, 1));
+      hint(`${a} is no longer bound to ${p.name}.`);
+    } }, "✕")));
+  const manual = h("input", { placeholder: "Program name or bundle id" });
+  const addManual = () => { const v = manual.value.trim(); if (v) bind(i, v); };
+  manual.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); addManual(); } };
+  const candidates = (running || [])
+    .filter((a) => !p.apps.includes(a.id) && !p.apps.includes(a.name))
+    .map((a) => h("button", { type: "button", class: "chip add", title: a.id, onclick: () => bind(i, a.id) }, "+ " + a.name));
+  if (!running) call("running_apps").then((list) => { running = list || []; renderProfileEditor(); }).catch(() => { running = []; });
+
+  const names = Object.keys(p.pages);
+  const pages = names.map((n, j) => {
+    const input = h("input", { value: n, "aria-label": "Page name" });
+    input.onchange = () => renamePage(n, input.value.trim());
+    return h("div", { class: "page-row" }, input,
+      j === 0 ? h("span", { class: "tag" }, "start page") : h("button", { class: "btn small", type: "button", onclick: () => makeHome(n) }, "Set as start page"),
+      names.length > 1 ? h("button", { class: "btn small danger", type: "button", onclick: () => deletePage(n) }, "Delete") : null);
+  });
+
+  put(el,
+    h("label", { class: "field" }, h("span", { class: "label" }, "Name"), name),
+    h("div", { class: "field" },
+      h("span", { class: "label" }, i === 0 ? "Default profile: used when no bound program is in front" : "Programs that switch to this profile"),
+      h("div", { class: "chips" }, bound.length ? bound : h("span", { class: "sub" }, "No program bound.")),
+      candidates.length ? h("div", { class: "chips" }, candidates) : null,
+      h("div", { class: "row" }, manual, h("button", { class: "btn", type: "button", onclick: addManual }, "Bind"))),
+    h("div", { class: "field" }, h("span", { class: "label" }, "Pages"), pages,
+      h("div", { class: "row wrap" }, h("button", { class: "btn", type: "button", onclick: addPage }, "+ Page"))),
+    h("div", { class: "row wrap" },
+      i > 0 ? h("button", { class: "btn", type: "button", onclick: () => makeDefault(i) }, "Make default profile") : null,
+      i > 0 ? h("button", { class: "btn danger", type: "button", onclick: () => deleteProfile(i) }, "Delete profile") : null));
 }
 
-export function renderProfiles() {
-  const c = state.config;
-  put($("profile-cards"), c.profiles.map((p, i) => {
-    const apps = h("div", { class: "chips" }, p.apps.map((a, j) =>
-      h("span", { class: "chip", title: a }, h("span", {}, a),
-        h("button", { title: "Remove", onclick: (e) => {
-          e.stopPropagation();
-          edit(`Remove ${a} from ${p.name}`, () => p.apps.splice(j, 1));
-        } }, "×"))));
-    const n = Object.keys(p.pages).length;
-    return h("div", { class: "card pcard" + (i === state.view.profile ? " sel" : ""), onclick: () => goto(i, null, false) },
-      h("div", { class: "pcard-head" },
-        h("span", { class: "badge" }, initials(p.name)),
-        h("h3", {}, p.name),
-        i === 0 ? h("span", { class: "tag" }, "default") : null,
-        i === state.view.profile ? h("span", { class: "tag live" }, "on device") : null),
-      h("span", { class: "sub" }, `${n} page${n > 1 ? "s" : ""} · ${p.apps.length ? "used for:" : i === 0 ? "used when nothing else matches" : "no apps bound"}`),
-      apps,
-      h("div", { class: "row wrap" },
-        h("button", { class: "btn small", onclick: (e) => { e.stopPropagation(); openAppPicker(i); } }, "+ Add app"),
-        h("button", { class: "btn small", onclick: (e) => { e.stopPropagation(); renameProfile(i); } }, "Rename"),
-        i > 0 ? h("button", { class: "btn small", onclick: (e) => { e.stopPropagation(); makeDefault(i); } }, "Make default") : null,
-        h("button", { class: "btn small danger-ghost", onclick: (e) => { e.stopPropagation(); deleteProfile(i); } }, "Delete")));
-  }));
+/** A program belongs to at most one profile. */
+function bind(i, app) {
+  const p = state.config.profiles[i];
+  edit(`Bind ${app} to ${p.name}`, (c) => {
+    for (const q of c.profiles) q.apps = q.apps.filter((a) => a !== app);
+    p.apps.push(app);
+  });
+  hint(`${app} is bound to ${p.name} now.`);
+}
+
+export function toggleEditor() {
+  state.editProfile = !state.editProfile;
+  running = null;
+  render("device");
 }
 
 export async function addProfile() {
-  const name = await ask("New profile name", "");
-  if (!name) return;
   const c = state.config;
-  if (c.profiles.some((p) => p.name === name)) return toast("A profile with that name exists", true);
-  edit(`New profile ${name}`, () => c.profiles.push({ name, apps: [], pages: { main: {} } }), { save: false });
-  await saveThen(() => goto(state.config.profiles.length - 1, "main", false));
+  let n = c.profiles.length + 1;
+  while (c.profiles.some((p) => p.name === `Profile ${n}`)) n++;
+  const name = `Profile ${n}`;
+  edit(`New profile ${name}`, () => c.profiles.push({ name, apps: [], pages: { Main: {} } }), { save: false });
+  state.editProfile = true;
+  hint(`${name} created. Give it a name and bind it to a program.`);
+  await saveThen(() => goto(state.config.profiles.length - 1, "Main", false));
 }
 
-async function renameProfile(i) {
+function renameProfile(i, name) {
   const old = state.config.profiles[i].name;
-  const name = await ask("Rename profile", old);
-  if (!name || name === old) return;
-  if (state.config.profiles.some((p) => p.name === name)) return toast("A profile with that name exists", true);
+  if (!name || name === old) return render("device");
+  if (state.config.profiles.some((p) => p.name === name)) {
+    toast("A profile with that name exists", true);
+    return render("device");
+  }
   edit(`Rename profile ${old}`, (c) => {
     c.profiles[i].name = name;
     for (const a of allActions()) if (a.action === "core:profile" && a.params?.profile === old) a.params.profile = name;
-  }, { save: false });
-  await saveThen();
+  });
 }
 
 async function makeDefault(i) {
@@ -84,77 +107,65 @@ async function makeDefault(i) {
 
 async function deleteProfile(i) {
   const c = state.config;
-  if (c.profiles.length < 2) return toast("The last profile cannot be deleted", true);
+  if (i === 0) return;
   if (!(await ask(`Delete profile "${c.profiles[i].name}" and all its pages?`, null))) return;
-  edit(`Delete profile ${c.profiles[i].name}`, (c) => {
+  const name = c.profiles[i].name;
+  edit(`Delete profile ${name}`, (c) => {
     c.profiles.splice(i, 1);
     state.view.profile = 0;
     state.view.page = Object.keys(c.profiles[0].pages)[0];
   }, { save: false });
+  hint(`Profile ${name} deleted.`);
   await saveThen(() => goto(0, null, false));
-}
-
-async function openAppPicker(i) {
-  const list = $("apps-list");
-  put(list, h("li", {}, h("span", { class: "sub" }, "Loading…")));
-  $("dlg-apps").showModal();
-  const add = (id) => {
-    const p = state.config.profiles[i];
-    if (!p.apps.includes(id)) edit(`Bind ${id} to ${p.name}`, () => p.apps.push(id));
-    toast(`Added ${id}`);
-  };
-  $("apps-add").onclick = () => {
-    const v = $("apps-manual").value.trim();
-    if (v) add(v);
-    $("apps-manual").value = "";
-  };
-  const apps = await call("running_apps").catch(() => []);
-  put(list, apps.map((a) => h("li", { onclick: () => add(a.id) }, h("span", {}, a.name), h("span", { class: "sub" }, a.id))));
-  if (!apps.length) put(list, h("li", {}, h("span", { class: "sub" }, "No apps found — type the name below.")));
 }
 
 // ------------------------------------------------------------------ pages
 
 export async function addPage() {
-  const name = await ask("New page name", "");
-  if (!name) return;
-  if (profile().pages[name]) return toast("A page with that name exists", true);
+  const pages = profile().pages;
+  let n = Object.keys(pages).length + 1;
+  while (pages[`Page ${n}`]) n++;
+  const name = `Page ${n}`;
   edit(`New page ${name}`, () => {
-    profile().pages[name] = { "0": { states: [{ label: "Back", icon: "com.deckling.core:arrow-left", on: { press: [{ action: "core:back" }] } }] } };
+    pages[name] = { "0": { states: [{ label: "Back", icon: "com.deckling.core:arrow-left", on: { press: [{ action: "core:back" }] } }] } };
   }, { save: false });
+  hint(`${name} created, with a Back key.`);
   await saveThen(() => goto(state.view.profile, name, false));
 }
 
-export async function renamePage() {
-  const old = state.view.page;
-  const name = await ask("Rename page", old);
-  if (!name || name === old) return;
-  if (profile().pages[name]) return toast("A page with that name exists", true);
+async function renamePage(old, name) {
+  if (!name || name === old) return render("device");
+  if (profile().pages[name]) {
+    toast("A page with that name exists", true);
+    return render("device");
+  }
   edit(`Rename page ${old}`, () => {
     const pages = {};
     for (const [n, p] of Object.entries(profile().pages)) pages[n === old ? name : n] = p;
     profile().pages = pages;
     for (const a of allActions()) if (a.action === "core:page" && a.params?.page === old) a.params.page = name;
-    state.view.page = name;
+    if (state.view.page === old) state.view.page = name;
   }, { save: false });
-  await saveThen(() => goto(state.view.profile, name, false));
+  await saveThen(() => goto(state.view.profile, state.view.page, false));
 }
 
-export async function makeHome() {
-  edit(`Make ${state.view.page} home`, () => {
-    const pages = { [state.view.page]: profile().pages[state.view.page] };
-    for (const [n, p] of Object.entries(profile().pages)) if (n !== state.view.page) pages[n] = p;
+async function makeHome(name) {
+  edit(`Make ${name} the start page`, () => {
+    const pages = { [name]: profile().pages[name] };
+    for (const [n, p] of Object.entries(profile().pages)) if (n !== name) pages[n] = p;
     profile().pages = pages;
   }, { save: false });
-  await saveThen(() => render("toolbar"));
+  hint(`${name} is the start page now.`);
+  await saveThen(() => render("device"));
 }
 
-export async function deletePage() {
-  if (Object.keys(profile().pages).length < 2) return toast("A profile needs at least one page", true);
-  if (!(await ask(`Delete page "${state.view.page}"?`, null))) return;
-  edit(`Delete page ${state.view.page}`, () => {
-    delete profile().pages[state.view.page];
-    state.view.page = Object.keys(profile().pages)[0];
+async function deletePage(name) {
+  if (Object.keys(profile().pages).length < 2) return;
+  if (!(await ask(`Delete page "${name}"?`, null))) return;
+  edit(`Delete page ${name}`, () => {
+    delete profile().pages[name];
+    if (state.view.page === name) state.view.page = Object.keys(profile().pages)[0];
   }, { save: false });
-  await saveThen(() => goto(state.view.profile, null, false));
+  hint(`Page ${name} deleted.`);
+  await saveThen(() => goto(state.view.profile, state.view.page, false));
 }

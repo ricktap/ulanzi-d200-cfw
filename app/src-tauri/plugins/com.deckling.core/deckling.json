@@ -9,40 +9,56 @@
   },
   "config": [
     {
+      "key": "weather.location",
+      "label": "Place",
+      "type": "place",
+      "group": "Weather"
+    },
+    {
       "key": "weather.fahrenheit",
       "label": "Fahrenheit",
       "type": "toggle",
-      "default": false
+      "default": false,
+      "group": "Weather"
     },
     {
       "key": "pomodoro.work",
       "label": "Focus (min)",
       "type": "number",
-      "default": 25
+      "default": 25,
+      "group": "Pomodoro",
+      "min": 1
     },
     {
       "key": "pomodoro.short_break",
       "label": "Short break (min)",
       "type": "number",
-      "default": 5
+      "default": 5,
+      "group": "Pomodoro",
+      "min": 1
     },
     {
       "key": "pomodoro.long_break",
       "label": "Long break (min)",
       "type": "number",
-      "default": 15
+      "default": 15,
+      "group": "Pomodoro",
+      "min": 1
     },
     {
       "key": "pomodoro.rounds",
       "label": "Rounds before a long break",
       "type": "number",
-      "default": 4
+      "default": 4,
+      "group": "Pomodoro",
+      "min": 1
     },
     {
       "key": "pomodoro.sound",
       "label": "Sound",
       "type": "toggle",
-      "default": true
+      "default": true,
+      "group": "Pomodoro"
     }
   ],
   "contributes": {

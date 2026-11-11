@@ -12,7 +12,6 @@ function show(u) {
   if (u) {
     $("btn-update-label").textContent = `Update to ${u.version}`;
     b.title = u.notes || `D200 Deck ${u.version} is available`;
-    $("s-update-state").textContent = `· ${u.version} is available`;
   }
 }
 
@@ -30,20 +29,21 @@ async function install() {
   }
 }
 
-async function check() {
-  $("s-update-state").textContent = "· checking…";
+/** Check now; returns a short line for the Application card. */
+export async function checkUpdate() {
   try {
     const u = await invoke("check_update");
-    if (u) show(u);
-    else $("s-update-state").textContent = "· up to date";
+    if (u) {
+      show(u);
+      return `· ${u.version} is available`;
+    }
+    return "· up to date";
   } catch (e) {
-    $("s-update-state").textContent = "· could not check: " + e;
+    return "· could not check: " + e;
   }
 }
 
 export async function wireUpdates() {
   $("btn-update").onclick = install;
-  $("s-check").onclick = check;
-  $("s-version").textContent = await invoke("app_version").catch(() => "");
   await listen("update", (e) => show(e.payload));
 }

@@ -10,74 +10,194 @@
   "config": [
     {
       "key": "long_press_ms",
-      "label": "Long press (ms)",
+      "label": "Long press after (ms)",
       "type": "number",
-      "default": 500
+      "default": 500,
+      "min": 150,
+      "max": 5000,
+      "group": "Keys"
     },
     {
       "key": "follow_active_app",
-      "label": "Profiles follow the front app",
+      "label": "Profiles follow the program in front",
       "type": "toggle",
-      "default": true
+      "default": true,
+      "group": "Keys"
     },
     {
       "key": "brightness",
-      "label": "Brightness",
+      "label": "Brightness (0 to 255)",
       "type": "number",
-      "default": 180
+      "default": 180,
+      "min": 5,
+      "max": 255,
+      "group": "Keys"
     },
     {
       "key": "screensaver.enabled",
       "label": "Screensaver",
       "type": "toggle",
-      "default": true
+      "default": true,
+      "group": "Screensaver"
     },
     {
       "key": "screensaver.idle_minutes",
-      "label": "Screensaver after (min)",
+      "label": "After (min)",
       "type": "number",
-      "default": 3
+      "default": 3,
+      "min": 1,
+      "max": 120,
+      "group": "Screensaver"
+    },
+    {
+      "key": "screensaver.scene",
+      "label": "Scene",
+      "type": "select",
+      "default": "auto",
+      "values": [
+        {
+          "label": "Seasonal, automatic",
+          "value": "auto"
+        },
+        {
+          "label": "Winter, snow",
+          "value": "snow"
+        },
+        {
+          "label": "Spring, petals",
+          "value": "pink"
+        },
+        {
+          "label": "Summer, beach",
+          "value": "beach"
+        },
+        {
+          "label": "Autumn, leaves",
+          "value": "leaves"
+        },
+        {
+          "label": "Rainy day",
+          "value": "rain"
+        }
+      ],
+      "group": "Screensaver"
+    },
+    {
+      "key": "screensaver.fps",
+      "label": "Frames per second",
+      "type": "number",
+      "default": 8,
+      "min": 1,
+      "max": 20,
+      "group": "Screensaver"
+    },
+    {
+      "key": "screensaver.motion",
+      "label": "Motion",
+      "type": "toggle",
+      "default": true,
+      "group": "Screensaver"
+    },
+    {
+      "key": "screensaver.southern",
+      "label": "Southern hemisphere",
+      "type": "toggle",
+      "default": false,
+      "group": "Screensaver"
+    },
+    {
+      "key": "cards.email",
+      "label": "New mail",
+      "type": "toggle",
+      "default": true,
+      "group": "Cards on the wide key"
+    },
+    {
+      "key": "cards.meetings",
+      "label": "Meeting reminders",
+      "type": "toggle",
+      "default": true,
+      "group": "Cards on the wide key"
+    },
+    {
+      "key": "cards.steam",
+      "label": "Steam games",
+      "type": "toggle",
+      "default": true,
+      "group": "Cards on the wide key"
+    },
+    {
+      "key": "cards.printer",
+      "label": "Printer done or failed",
+      "type": "toggle",
+      "default": true,
+      "group": "Cards on the wide key"
+    },
+    {
+      "key": "cards.hide_content",
+      "label": "Hide sender and subject",
+      "type": "toggle",
+      "default": false,
+      "group": "Cards on the wide key"
     },
     {
       "key": "mqtt.enabled",
-      "label": "Connect",
+      "label": "Connect to a broker",
       "type": "toggle",
-      "default": false
+      "default": false,
+      "group": "MQTT"
     },
     {
       "key": "mqtt.host",
       "label": "Host",
       "type": "text",
-      "default": "homeassistant.local"
+      "default": "homeassistant.local",
+      "placeholder": "homeassistant.local",
+      "group": "MQTT"
     },
     {
       "key": "mqtt.port",
       "label": "Port",
       "type": "number",
-      "default": 1883
+      "default": 1883,
+      "min": 1,
+      "max": 65535,
+      "group": "MQTT"
     },
     {
       "key": "mqtt.username",
       "label": "User",
-      "type": "text"
+      "type": "text",
+      "group": "MQTT"
     },
     {
       "key": "mqtt.password",
       "label": "Password",
       "type": "text",
-      "secret": true
+      "secret": true,
+      "group": "MQTT"
     },
     {
       "key": "mqtt.base_topic",
       "label": "Base topic",
       "type": "text",
-      "default": "d200"
+      "default": "d200",
+      "placeholder": "d200",
+      "group": "MQTT"
+    },
+    {
+      "key": "mqtt.tls",
+      "label": "TLS",
+      "type": "toggle",
+      "default": false,
+      "group": "MQTT"
     },
     {
       "key": "mqtt.discovery",
-      "label": "Discovery",
+      "label": "Home Assistant discovery",
       "type": "toggle",
-      "default": true
+      "default": true,
+      "group": "MQTT"
     }
   ],
   "contributes": {

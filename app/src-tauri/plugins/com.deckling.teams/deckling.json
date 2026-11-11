@@ -12,18 +12,23 @@
       "key": "port",
       "label": "Teams API port",
       "type": "number",
-      "default": 8124
+      "default": 8124,
+      "group": "Meeting controls"
     },
     {
       "key": "client_id",
       "label": "Entra app (client) id",
-      "type": "text"
+      "type": "text",
+      "placeholder": "00000000-0000-0000-0000-000000000000",
+      "group": "Microsoft 365"
     },
     {
       "key": "tenant",
       "label": "Tenant",
       "type": "text",
-      "default": "organizations"
+      "default": "organizations",
+      "placeholder": "yourcompany.com",
+      "group": "Microsoft 365"
     },
     {
       "key": "away",
@@ -42,8 +47,17 @@
         {
           "label": "Away",
           "value": "Away"
+        },
+        {
+          "label": "Be right back",
+          "value": "BeRightBack"
+        },
+        {
+          "label": "Appear offline",
+          "value": "Offline"
         }
-      ]
+      ],
+      "group": "Microsoft 365"
     }
   ],
   "contributes": {

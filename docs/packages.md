@@ -1,7 +1,8 @@
 # Packages, signals and bindings
 
-How the Deckling model (`docs/deckling/architecture.md`) is built so far. Work packages 1 to 4
-of `docs/deckling/briefing.md` are in place; 5 to 8 are not.
+How the Deckling model (`docs/deckling/architecture.md`) is built so far. Work packages 1 to 6
+of `docs/deckling/briefing.md` are in place; 7 (packages from disk) and 8 (third-party plugins)
+are not.
 
 ## Pieces
 
@@ -147,4 +148,11 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 - **`props` on a state** give icons static values on keys without an app, on remote keys and on
   cards. The target model has no such field; it replaces `icon_state`.
 - **Themes as packages, overlays and their order** come with work package 7. Until then,
-  `plugins.core.config.theme.variables` plays the part of one overlay.
+  `plugins.core.config.theme.variables` plays the part of one overlay, and the Theme block in
+  the configurator shows Night Signal and edits its palette colours.
+- **Settings schema extras:** a `config` field may have `group` (a heading in the Packages
+  view), `min`/`max` (numbers), `placeholder`, `secret` (a password field) and the type `place`
+  (a place search for the weather).
+- **Not in the configurator yet** (briefing 6.4, no agreed design): editing several states per
+  key (a key that has them shows tabs to pick which one to edit), changing the order of
+  overlays, the cards on the wide key beyond their switches.

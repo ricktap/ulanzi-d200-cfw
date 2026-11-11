@@ -19,9 +19,10 @@ export const state = {
   catalog: { plugins: [], actions: [], apps: [], icons: [], interfaces: {}, signals: [], warnings: [] },
   selected: 0,
   selState: 0,
-  tab: "design",
-  pane: "editor",
-  openEvents: new Set(["down", "press"]),
+  pane: "deck", // deck | packages | signals
+  libTab: "apps", // apps | actions | icons
+  slot: "press", // the action section the library adds to: press | long | down | up
+  editProfile: false,
 };
 
 const undoStack = []; // [{label, config}]
@@ -37,8 +38,11 @@ function emit(type, detail) {
   for (const fn of listeners[type] || []) fn(detail);
 }
 
-/** Ask the renderer (main.js) to redraw parts: "all", "inspector", "header", "toolbar", "previews", "pane". */
+/** Ask the renderer (main.js) to redraw parts: "all", "inspector", "library", "device", "previews", "pane". */
 export const render = (...parts) => emit("render", new Set(parts));
+
+/** The line under the deck that says what just happened. */
+export const hint = (text) => emit("hint", text);
 
 export const canUndo = () => undoStack.length > 0;
 export const undoLabel = () => undoStack.at(-1)?.label || "";

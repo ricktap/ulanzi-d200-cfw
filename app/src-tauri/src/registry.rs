@@ -136,6 +136,11 @@ pub struct Registry {
     pub warnings: Vec<String>,
 }
 
+/// The package that owns `name`: the part before `:`, or `core` without a prefix.
+pub fn namespace(name: &str) -> &str {
+    name.split_once(':').map_or("core", |(ns, _)| ns)
+}
+
 /// Does package `pkg` own `name`? Names without a prefix belong to the core.
 pub fn owns(pkg: &str, name: &str) -> bool {
     match name.split_once(':') {

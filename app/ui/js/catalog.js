@@ -90,9 +90,32 @@ export function iconsForApp(app) {
   const roles = app?.roles || ["button"];
   const out = [];
   for (const icon of state.catalog.icons) {
+    if (!pluginOn(nsOf(icon.id))) continue;
     const i = roles.findIndex((r) => r !== "button" && icon.roles.includes(r));
     const rank = i >= 0 ? i : icon.roles.includes("button") && roles.includes("button") ? roles.length : -1;
     if (rank >= 0) out.push({ icon, rank, role: i >= 0 ? roles[i] : "button" });
   }
   return out.sort((a, b) => a.rank - b.rank || a.icon.id.localeCompare(b.icon.id));
+}
+
+/** "com.deckling.teams:mute" → "com.deckling.teams"; ids without a prefix belong to core. */
+export const nsOf = (id) => (id && id.includes(":") ? id.slice(0, id.indexOf(":")) : "core");
+/** "com.deckling.ha:entity" role names are shown short. */
+export const shortRole = (r) => (r.includes(":") ? r.split(":").pop() : r);
+
+/** Plugins are on unless `plugins.<id>.enabled` is false; `core` is always on. */
+export const pluginOn = (id) => id === "core" || state.config?.plugins?.[id]?.enabled !== false;
+/** Does an installed and switched-on package offer this app / action? */
+export const appAvailable = (id) => !!appDef(id) && pluginOn(nsOf(id));
+
+/** [{title, items}] grouped by namespace, in catalog order, without switched-off plugins. */
+export function byNamespace(list) {
+  const groups = new Map();
+  for (const x of list) {
+    const ns = nsOf(x.id);
+    if (!pluginOn(ns)) continue;
+    if (!groups.has(ns)) groups.set(ns, []);
+    groups.get(ns).push(x);
+  }
+  return [...groups].map(([title, items]) => ({ title, items }));
 }

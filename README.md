@@ -64,7 +64,7 @@ with `curl` carries no quarantine flag, so macOS opens it without asking. Runs o
 Apple Silicon, macOS 11 or newer.
 
 After that the app updates itself: it looks for a new release shortly after start and every
-six hours, and shows **Update to …** in the header (Settings → General: version and "Check for
+six hours, and shows **Update to …** in the header (Packages → Application: version and "Check for
 updates"). It asks GitHub with the ETag of the last answer, so a check without news does not
 count against GitHub's rate limit; `latest.json` and the package are fetched only for a newer
 release.

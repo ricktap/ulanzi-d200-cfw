@@ -191,6 +191,10 @@ pub fn apply_parts(def: &IconDef, ctx: &Ctx, reads: &mut Reads) -> String {
 /// Rasterise a registry icon with its bindings resolved in `ctx`.
 pub fn render_bound(def: &IconDef, size: u32, overrides: &[(&str, &str)], ctx: &Ctx, reads: &mut Reads) -> Option<Arc<Pixmap>> {
     if def.parts.is_empty() {
+        // An icon without bound parts: its own SVG (icon sets other than Night Signal), else by name.
+        if !def.svg.is_empty() {
+            return cached(strip_css(&resolve_vars(&def.svg, overrides)), size);
+        }
         return render(&def.id, size, overrides);
     }
     let text = resolve_vars(&apply_parts(def, ctx, reads), overrides);
@@ -288,6 +292,16 @@ mod tests {
     }
 
     /// The eight stateful icons, now driven by their binding files.
+    #[test]
+    fn every_registered_icon_draws() {
+        // every icon of every built-in package, bound or not, with no values (fallbacks)
+        let reg = crate::registry::builtin();
+        let (sig, empty) = (bind::Signals::default(), serde_json::Map::new());
+        let ctx = Ctx { implements: None, props: None, config: &empty, signals: &sig, theme: &empty };
+        let failed: Vec<&String> = reg.icons.keys().filter(|id| render_bound(&reg.icons[*id], 48, &[], &ctx, &mut Reads::default()).is_none()).collect();
+        assert!(failed.is_empty(), "icons that do not draw: {failed:?}");
+    }
+
     #[test]
     fn stateful_icons() {
         use serde_json::{json, Map, Value};

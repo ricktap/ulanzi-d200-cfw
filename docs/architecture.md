@@ -76,6 +76,19 @@ change goes through `store.edit(label, fn)`, which keeps an undo step (Undo butt
 and saves deck.json. Apps, actions and icon roles come from the `catalog` command, so the UI has
 no list of its own.
 
+| Module | Part of the window |
+|---|---|
+| `library.js` | Apps, Actions and Icons on the left |
+| `deck.js` | the device: previews, selection, dragging, image drops, page tabs |
+| `profiles.js` | the profile editor above the device |
+| `theme.js` | the Theme block |
+| `inspector.js`, `actions.js` | the inspector: app, settings, icon, label, action sections |
+| `packages.js` | the Packages view and the Application card |
+| `signals.js` | the Signals view |
+
+`cargo run --example uibridge -- deck.json 8790` serves the UI to a normal browser against the
+real engine (commands over HTTP), for working on the UI and for UI tests with Playwright.
+
 ## Rendering
 
 - Keys are drawn at device resolution: 196x196, and 456x196 for the wide key.

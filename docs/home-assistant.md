@@ -1,6 +1,6 @@
 # Home Assistant
 
-MQTT is part of the app: D200 Deck connects to your MQTT broker (Settings → Home Assistant) and
+MQTT is part of the app: D200 Deck connects to your MQTT broker (Packages → Deck → MQTT) and
 offers the deck itself there (key events, profile, brightness, notifications, discovery). The
 plugin `com.deckling.ha` reads and writes Home Assistant's keys through that connection. With discovery on,
 Home Assistant gets a **Ulanzi D200** device:

@@ -32,6 +32,10 @@ cd app/src-tauri && cargo test --lib
 # end-to-end (simulated device, fake broker/Teams/IDE; no hardware)
 tests/e2e/run.sh
 
+# the configurator in Chromium against the real engine (needs Node and Playwright)
+tests/ui/run.sh
+cd app/src-tauri && cargo run --example uibridge -- /tmp/deck.json 8790   # UI in a browser
+
 # release: Actions → CI → Run workflow with release=1.2.3 (or push tag v1.2.3);
 # the version comes from the tag. Every release is tagged and lists its changes.
 scripts/set-version.sh 1.2.3     # sets Cargo.toml/lock, tauri.conf.json, package(-lock).json

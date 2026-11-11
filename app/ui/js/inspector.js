@@ -1,302 +1,176 @@
-// The key editor on the right: header, Design / Actions / States tabs.
-import { $, h, put, ask } from "./dom.js";
+// The inspector for the selected key: app, its settings, icon and label, the
+// action sections, test press and clear.
+import { $, h, put } from "./dom.js";
 import {
-  state, STATUS_KEY, edit, profile, keyObj, ensureKey, ensureState, keyKind, settingsOf } from "./store.js";
-import { appDef, iconUrl, isSetIcon } from "./catalog.js";
-import { img, iconPicker } from "./icons.js";
-import { colorField, textField } from "./controls.js";
-import { eventsEditor, holdThreshold } from "./actions.js";
-import { appDesign, appHelp, placeApp, clearKey } from "./apps.js";
+  state, STATUS_KEY, edit, render, profile, keyObj, ensureKey, ensureState, keyKind, settingsOf } from "./store.js";
+import { appDef, iconDef, withNs, shortRole, pluginOn, nsOf } from "./catalog.js";
+import { schemaField } from "./fields.js";
+import { textField } from "./controls.js";
+import { actionSections, testPress } from "./actions.js";
+import { appHelp, clearKey } from "./apps.js";
 import { keyEl } from "./deck.js";
-import { renderAutomation } from "./profiles.js";
 
-const DEFAULT_BG = "#0f1216";
-const DEFAULT_FG = "#f4f1e8";
-
-function curState() {
-  const k = keyObj();
-  if (!k || !k.states || !k.states.length) return null;
-  if (state.selState >= k.states.length) state.selState = 0;
-  return k.states[state.selState];
-}
-
-export function renderHeader() {
-  const thumb = $("insp-thumb");
-  const { selected, view } = state;
-  let eyebrow, title, pic;
-  if (selected === STATUS_KEY) {
-    eyebrow = "Status key";
-    title = view.remote ? "Remote" : profile().name;
-    pic = img("profile-switch");
-  } else if (view.remote) {
-    const cur = state.snap?.remote?.[String(selected)];
-    eyebrow = `Remote key ${selected}`;
-    title = cur?.look?.label || "Home Assistant";
-    pic = img(isSetIcon(cur?.look?.icon) ? cur.look.icon : "home-assistant");
-  } else {
-    const key = keyObj();
-    const kind = keyKind(key);
-    eyebrow = `Editing key ${selected}`;
-    if (kind === "app") {
-      const a = appDef(key.app);
-      const chosen = key.states?.[0]?.icon;
-      title = a ? a.name : "Plugin missing";
-      pic = img(isSetIcon(chosen) ? chosen : a?.icon || "grid");
-    } else if (kind === "button") {
-      const st = curState() || {};
-      title = (st.label || "").replace(/\\n|\n/g, " ").trim() || "Button";
-      pic = isSetIcon(st.icon) ? img(st.icon) : h("img", { class: "face", alt: "", src: keyEl(selected).querySelector("img").src });
-    } else {
-      title = "Empty key";
-      pic = img("grid");
+/** The object that carries `on` for key k (state 0 of an app key, the shown state of a button, status_key). */
+export function keyHolder(k) {
+  return (create) => {
+    if (k === STATUS_KEY) {
+      const c = state.config;
+      if (!c.status_key) { if (!create) return null; c.status_key = {}; }
+      return c.status_key;
     }
-  }
-  put(thumb, pic);
-  $("ed-eyebrow").textContent = eyebrow;
-  $("ed-title").textContent = title;
+    const key = create ? ensureKey(k) : keyObj(k);
+    const idx = keyKind(key) === "app" ? 0 : state.selState;
+    if (!create) return key?.states?.[idx];
+    return ensureState(key, idx);
+  };
+}
+export const keyWhere = (k) => (k === STATUS_KEY ? "the wide key" : `key ${k}`);
+
+const thumb = (k) => {
+  const src = keyEl(k)?.querySelector("img")?.src;
+  return h("div", { class: "insp-thumb" + (k === STATUS_KEY ? " wide" : "") }, src ? h("img", { alt: "", src }) : null);
+};
+
+function head(k, eyebrow, title) {
+  return h("div", { class: "insp-head" }, thumb(k),
+    h("div", { class: "grow" }, h("div", { class: "label" }, eyebrow), h("h2", {}, title)));
 }
 
 export function renderInspector() {
-  document.querySelectorAll("#insp-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === state.tab));
-  renderHeader();
-  const parts = state.tab === "design" ? designTab() : state.tab === "actions" ? actionsTab() : statesTab();
-  put($("ed"), parts);
-  renderAutomation();
-  $("hint").textContent = state.view.remote
-    ? "Remote page · Home Assistant sets these keys over MQTT"
-    : "Select a key to edit · Drag artwork onto a key";
-}
-
-// ------------------------------------------------------------------ Design tab
-
-/** Label, icon, image and colours of state `i` of the selected key (a button). */
-function lookEditor(i) {
   const k = state.selected;
-  const where = `key ${k}`;
-  const read = () => keyObj(k)?.states?.[i];
-  const holder = () => ensureState(ensureKey(k), i);
-  const st = read() || {};
-  const iconInput = h("input", { placeholder: "Icon name, emoji, or image path" });
-  iconInput.value = st.icon || "";
-  const thumb = h("img", { class: "ithumb", alt: "" });
-  const showThumb = (v) => {
-    const url = iconUrl(v);
-    thumb.hidden = !url;
-    if (url) thumb.src = url;
-  };
-  showThumb(st.icon);
-  const setIcon = (v, typing) => {
-    edit(`Icon · ${where}`, () => {
-      const s = holder();
-      if (v) s.icon = v;
-      else delete s.icon;
-    }, { redraw: false, coalesce: typing ? `icon:${where}:${i}` : null });
-    showThumb(v);
-  };
-  iconInput.oninput = () => setIcon(iconInput.value, true);
-  const palette = h("div", { hidden: true });
-  const pick = (v) => {
-    iconInput.value = v;
-    palette.hidden = true;
-    setIcon(v);
-  };
-  return [
-    textField("Label", read, holder, "label", { area: true, ph: "Text on the key (Enter for a second line)", name: "Label", where: `${where} state ${i}` }),
-    h("div", { class: "field" },
-      h("span", { class: "label" }, "Icon"),
-      h("span", { class: "pathbox" }, thumb, iconInput,
-        h("button", { class: "btn small", type: "button", onclick: () => {
-          if (!palette.firstChild) palette.append(iconPicker(pick));
-          palette.hidden = !palette.hidden;
-        } }, "Icons…")),
-      palette),
-    textField("Image <em>fills the key</em>", read, holder, "image", { ph: "Path to a PNG/JPEG, or drop one on the key", name: "Image", where: `${where} state ${i}`, dropEmpty: true }),
-    h("div", { class: "row" },
-      colorField("Background", read, holder, "bg", DEFAULT_BG, where),
-      colorField("Text & icon", read, holder, "fg", DEFAULT_FG, where)),
-  ];
-}
-
-function stateChips(key) {
-  if (!key?.states || key.states.length < 2) return null;
-  return h("div", { class: "states" },
-    h("span", { class: "label", style: "margin-right:4px" }, "State"),
-    key.states.map((_, i) => h("button", {
-      type: "button", class: "st" + (i === state.selState ? " on" : ""),
-      onclick: () => { state.selState = i; renderInspector(); },
-    }, String(i + 1))));
-}
-
-const STATUS_APPS = [["profile", "Profile"], ["media", "Spotify / Music"], ["meeting", "Next meeting"], ["email", "Email"], ["steam", "Steam game"], ["printer", "Printer"]];
-const STATUS_HELP = {
-  profile: "The profile (and whether it follows the active app), Home Assistant, and the song or the clock. <b>Press / hold</b>: the actions on the Actions tab.",
-  media: "<b>Press</b> plays / pauses, <b>hold</b> opens the player.",
-  meeting: "From your Microsoft 365 calendar. <b>Press</b> opens the join link, <b>hold</b> dismisses the reminder.",
-  email: "Unread mail from Microsoft 365. <b>Press</b> opens the message, <b>hold</b> dismisses the banner.",
-  steam: "The game you are playing. <b>Press</b> opens it in Steam, <b>hold</b> returns to the profile.",
-  printer: "From <code>d200/printer</code> on MQTT. Cards appear when a print completes or fails.",
-};
-
-function statusDesign() {
-  const sk = state.config.status_key;
-  const show = h("select", {}, [["auto", "Song while music plays, otherwise the clock"], ["profile", "Always the clock"], ["media", "The song whenever one is loaded"]].map(([v, t]) => h("option", { value: v }, t)));
-  show.value = sk.show || "auto";
-  show.onchange = () => edit("Status key content", (c) => { c.status_key.show = show.value; }, { redraw: false });
-  const app = h("select", {}, STATUS_APPS.map(([v, t]) => h("option", { value: v }, t)));
-  app.value = sk.app || "profile";
-  app.onchange = () => edit("Status key content", (c) => { c.status_key.app = app.value; });
-  return [
-    h("p", { class: "note", html: "The wide key shows <b>one thing at a time</b>: the content below, or a card (meeting, printer, push, email) that takes over for 8 seconds. While a card is up, press opens it and hold dismisses it." }),
-    h("label", { class: "field" }, h("span", { class: "label" }, "Default content"), app),
-    h("p", { class: "sub", html: STATUS_HELP[sk.app || "profile"] || "" }),
-    (sk.app || "profile") === "profile" ? h("label", { class: "field" }, h("span", { class: "label" }, "Right column"), show) : null,
-  ];
-}
-
-function designTab() {
-  if (state.selected === STATUS_KEY) return statusDesign();
-  if (state.view.remote) return remoteInfo();
-  const key = keyObj();
+  const el = $("insp");
+  if (state.view.remote) return put(el, head(k, "Remote page", `Key ${k}`), remoteInfo(k));
+  if (k === STATUS_KEY) return put(el, head(k, "Wide key", profile().name), wideKey());
+  const key = keyObj(k);
   const kind = keyKind(key);
-  const seg = h("div", { class: "seg" },
-    [["button", "Button"], ["app", "App"], ["empty", "Empty"]].map(([t, label]) =>
-      h("button", { type: "button", class: kind === t ? "on" : "", onclick: () => setKind(t) }, label)));
-  const parts = [h("div", { class: "field" }, h("span", { class: "label" }, "Type"), seg)];
-  if (kind === "app") parts.push(...appDesign(key));
-  else if (kind === "button") {
-    parts.push(stateChips(key));
-    curState();
-    parts.push(...lookEditor(state.selState));
-  } else parts.push(h("p", { class: "sub" }, "This key is blank. Choose Button or App, or pick an app in the Apps view."));
-  return parts;
+  if (kind === "empty") {
+    return put(el, head(k, `Key ${k}`, "Empty"),
+      h("p", { class: "note" }, "Tap an app in the library to put it here, or drag one onto the key. An action from the library makes it a plain button."));
+  }
+  const app = kind === "app" ? appDef(key.app) : null;
+  if (kind === "app" && (!app || !pluginOn(nsOf(key.app)))) return put(el, head(k, `Key ${k}`, "Plugin missing"), missing(k, key, !!app));
+  put(el,
+    head(k, `Key ${k}`, app ? app.name : "Button"),
+    appBox(key, app),
+    app ? settingsBox(k, key, app) : null,
+    iconBox(k, key, app),
+    statesNote(k, key, kind),
+    actionSections(keyHolder(k), { where: keyWhere(k) }),
+    h("div", { class: "row wrap" },
+      h("button", { class: "btn", type: "button", onclick: testPress }, "Test press"),
+      h("button", { class: "btn danger", type: "button", onclick: () => clearKey(k) }, "Clear key")));
 }
 
-function remoteInfo() {
-  const base = settingsOf(state.config).mqtt.base_topic || "d200";
-  const k = state.selected;
+function appBox(key, app) {
+  const roles = app ? [...new Set([...app.roles.map(shortRole), "button"])] : ["button"];
+  const help = appHelp(app);
+  return h("div", { class: "box" },
+    h("div", { class: "head" }, h("span", { class: "label grow" }, "App"), h("span", { class: "sub mono" }, app ? app.id : "core:button")),
+    h("span", { class: "sub" }, "Fulfils: " + roles.join(", ")),
+    help ? h("p", { class: "sub" }, help) : null);
+}
+
+function settingsBox(k, key, app) {
+  if (!app.config?.length) return null;
+  return h("div", { class: "box" },
+    h("span", { class: "label" }, "Settings"),
+    app.config.map((f) => schemaField(f, () => keyObj(k)?.config?.[f.key], (v, typing) => {
+      edit(`${app.name} · ${f.label || f.key}`, () => {
+        const key = ensureKey(k);
+        if (v === undefined) {
+          if (key.config) delete key.config[f.key];
+          if (key.config && !Object.keys(key.config).length) delete key.config;
+        } else (key.config ||= {})[f.key] = v;
+      }, { redraw: false, coalesce: typing ? `config:${k}:${f.key}` : null });
+    }, { labelled: true })));
+}
+
+/** The richest role the icon shares with the app. */
+function readsRole(iconId, app) {
+  const icon = iconDef(iconId);
+  if (!icon) return null;
+  const roles = [...(app?.roles || []), "button"];
+  return roles.find((r) => icon.roles.includes(r)) || null;
+}
+
+function iconBox(k, key, app) {
+  const idx = app ? 0 : state.selState;
+  const read = () => keyObj(k)?.states?.[idx];
+  const holder = () => ensureState(ensureKey(k), idx);
+  const chosen = read()?.icon;
+  const shown = chosen ? withNs(chosen) : app?.icon || "";
+  const role = shown ? readsRole(shown, app) : null;
+  const where = `key ${k}`;
+  return h("div", { class: "box" },
+    h("div", { class: "head" }, h("span", { class: "label grow" }, "Icon"),
+      h("button", { class: "btn small", type: "button", onclick: () => { state.libTab = "icons"; render("library"); } }, "Change icon")),
+    h("span", { class: "sub mono" }, shown || "none", chosen ? "" : app ? " (default)" : ""),
+    role ? h("span", { class: "sub" }, "Reads: " + shortRole(role)) : null,
+    textField("Label", read, holder, "label", { area: true, rows: 2, ph: app ? "Empty: the app's own text" : "Text on the key", name: "Label", where }),
+    app ? null : textField("Image", read, holder, "image", { ph: "Path to a PNG or JPEG; fills the key", name: "Image", where, dropEmpty: true }));
+}
+
+/** Several states per key have no design in the new configurator yet: show them, edit the chosen one. */
+function statesNote(k, key, kind) {
+  const n = key.states?.length || 0;
+  if (kind === "app" || n < 2) return null;
+  if (state.selState >= n) state.selState = 0;
+  return h("div", { class: "box" },
+    h("span", { class: "label" }, `This key has ${n} states. You edit state ${state.selState + 1}.`),
+    h("div", { class: "tabs" }, key.states.map((_, i) => h("button", {
+      type: "button", class: i === state.selState ? "on" : "", onclick: () => { state.selState = i; render("inspector", "library"); },
+    }, `State ${i + 1}`))));
+}
+
+function missing(k, key, installed) {
+  const n = h("p", { class: "note warn" });
+  n.append(installed ? "The plugin of " : "No installed package offers ", h("code", {}, key.app),
+    installed ? " is switched off under Packages. The key keeps its assignment." : ". The key keeps its assignment and works again when the plugin is back.");
+  return [n, h("div", { class: "row wrap" }, h("button", { class: "btn danger", type: "button", onclick: () => clearKey(k) }, "Clear key"))];
+}
+
+// ------------------------------------------------------------------ wide key
+
+const WIDE_CONTENT = [["profile", "Profile and clock"], ["media", "Spotify or Music"], ["meeting", "Next meeting"], ["email", "Mail"], ["steam", "Steam game"], ["printer", "Printer"]];
+
+function wideKey() {
+  const sk = state.config.status_key || {};
+  const app = h("select", {}, WIDE_CONTENT.map(([v, t]) => h("option", { value: v }, t)));
+  app.value = sk.app || "profile";
+  app.onchange = () => edit("Wide key content", (c) => { (c.status_key ||= {}).app = app.value; });
+  const show = h("select", {}, [["auto", "The song while music plays, else the clock"], ["profile", "Always the clock"], ["media", "The song whenever one is loaded"]].map(([v, t]) => h("option", { value: v }, t)));
+  show.value = sk.show || "auto";
+  show.onchange = () => edit("Wide key content", (c) => { (c.status_key ||= {}).show = show.value; }, { redraw: false });
+  return [
+    h("p", { class: "sub" }, "The wide key shows one thing at a time: its content, or a card (meeting, printer, notification, mail) for a few seconds. While a card is up, a press opens it and a long press dismisses it."),
+    h("div", { class: "box" },
+      h("label", { class: "field" }, h("span", { class: "label" }, "Content"), app),
+      (sk.app || "profile") === "profile" ? h("label", { class: "field" }, h("span", { class: "label" }, "Right side"), show) : null),
+    actionSections(keyHolder(STATUS_KEY), { where: "the wide key", slots: [["press", "On press", false], ["long", "Long press", true]] }),
+    h("button", { class: "btn", type: "button", onclick: testPress }, "Test press"),
+  ];
+}
+
+// ------------------------------------------------------------------ remote page
+
+function remoteInfo(k) {
+  const base = settingsOf(state.config).mqtt?.base_topic || "d200";
   const cur = state.snap?.remote?.[String(k)];
   const example = `action: mqtt.publish
 data:
-  topic: ${base}/remote/${k}/set
+  topic: ${base}/ha/remote-${k}/set
   retain: true
   payload: >
-    {"label": "Kitchen", "icon": "light-on",
-     "value": "{{ states('light.kitchen') }}"}`;
+    {"label": "Kitchen", "icon": "light",
+     "on": {{ is_state('light.kitchen', 'on') }}}`;
+  const n = h("p", { class: "note" });
+  n.append("Home Assistant sets this key with a retained message on ", h("code", {}, `${base}/ha/remote-${k}/set`),
+    ". Presses come back as device triggers and on ", h("code", {}, `${base}/remote/${k}/action`), ".");
   return [
-    h("p", { class: "note", html: `Home Assistant sets this key with a retained message on <code>${base}/remote/${k}/set</code>. Presses come back on <code>${base}/remote/${k}/action</code> and as device triggers in HA.` }),
-    h("div", { class: "field" }, h("span", { class: "label" }, "Current"), h("pre", { class: "code" }, cur ? JSON.stringify(cur, null, 2) : "nothing set yet")),
+    n,
+    h("div", { class: "field" }, h("span", { class: "label" }, "Now"), h("pre", { class: "code" }, cur ? JSON.stringify(cur, null, 2) : "Nothing set yet.")),
     h("div", { class: "field" }, h("span", { class: "label" }, "Example"), h("pre", { class: "code" }, example)),
-    settingsOf(state.config).mqtt.enabled ? null : h("p", { class: "note", html: "MQTT is off. Turn it on in <b>Settings → Home Assistant</b>." }),
+    settingsOf(state.config).mqtt?.enabled ? null : h("p", { class: "note warn" }, "MQTT is off. Switch it on under Packages, Deck, MQTT."),
   ];
 }
 
-/** Switch the selected key between Button, App and Empty. */
-export function setKind(t) {
-  const k = state.selected;
-  const old = keyObj(k);
-  const kind = keyKind(old);
-  if (t === kind) return;
-  if (t === "empty") return clearKey(k);
-  if (t === "app") {
-    const id = old?.app && old.app !== "core:button" ? old.app : "com.deckling.core:sysmon";
-    return placeApp(id, k);
-  }
-  edit(`Button on key ${k}`, () => {
-    const key = ensureKey(k);
-    delete key.app;
-    delete key.config;
-    ensureState(key, 0);
-    state.selState = 0;
-  });
-}
-
-// ------------------------------------------------------------------ Actions tab
-
-function actionsTab() {
-  const k = state.selected;
-  if (k === STATUS_KEY) {
-    return [
-      h("span", { class: "label ev-title" }, "Status key events"),
-      ...eventsEditor((create) => {
-        const c = state.config;
-        if (!c.status_key) { if (!create) return null; c.status_key = {}; }
-        return c.status_key;
-      }, { allowState: false, where: "status key" }),
-      holdThreshold(),
-    ];
-  }
-  if (state.view.remote) {
-    const base = settingsOf(state.config).mqtt.base_topic || "d200";
-    return [h("p", { class: "note", html: `Presses on the Remote page go to Home Assistant: <code>${base}/remote/${k}/action</code> gets <code>down</code>, <code>up</code>, <code>press</code> and <code>long_press</code>. Build the reaction as an HA automation.` })];
-  }
-  const key = keyObj();
-  const kind = keyKind(key);
-  if (kind === "empty") return [h("p", { class: "sub" }, "Make this key a Button or App on the Design tab first.")];
-  if (kind === "app") {
-    const app = appDef(key.app);
-    const help = appHelp(app);
-    return [
-      help ? h("p", { class: "note" }, help) : null,
-      h("span", { class: "label ev-title" }, "Extra actions"),
-      ...eventsEditor((create) => (create ? ensureState(ensureKey(k), 0) : keyObj(k)?.states?.[0]), { allowState: false, where: `key ${k}` }),
-      holdThreshold(),
-    ];
-  }
-  curState();
-  const i = state.selState;
-  return [
-    stateChips(key),
-    h("span", { class: "label ev-title" }, "Button events"),
-    ...eventsEditor((create) => (create ? ensureState(ensureKey(k), i) : keyObj(k)?.states?.[i]), { where: `key ${k}` }),
-    holdThreshold(),
-  ];
-}
-
-// ------------------------------------------------------------------ States tab
-
-function statesTab() {
-  const key = keyObj();
-  if (state.selected === STATUS_KEY || state.view.remote || keyKind(key) !== "button") {
-    return [h("p", { class: "note", html: "States are for buttons: each state has its own look and actions, e.g. a toggle that shows <b>On</b> and <b>Off</b>." })];
-  }
-  const states = key.states?.length ? key.states : [{}];
-  const rows = states.map((st, i) => {
-    const icon = isSetIcon(st.icon) ? img(st.icon) : h("span", { class: "ithumb" }, st.icon || "");
-    return h("div", { class: "state-row" + (i === state.selState ? " on" : ""), onclick: () => { state.selState = i; renderInspector(); } },
-      icon,
-      h("div", { class: "grow" }, h("b", {}, `State ${i + 1}${i === 0 ? " · initial" : ""}`), h("span", { class: "sub" }, (st.label || "no label").replace(/\\n|\n/g, " "))),
-      states.length > 1 ? h("button", { class: "icon-btn", title: "Remove", onclick: (e) => { e.stopPropagation(); removeState(i); } }, "✕") : null);
-  });
-  return [
-    h("p", { class: "note", html: "A key with several states shows the current one. A <b>Change state</b> action switches it; new states get <b>Change state</b> (next) on short press." }),
-    ...rows,
-    h("div", { class: "row wrap" }, h("button", { class: "btn", onclick: addState }, "+ Add state (copy of the selected one)")),
-  ];
-}
-
-const isStateNext = (a) => a.action === "core:state";
-
-function addState() {
-  const k = state.selected;
-  edit(`Add state · key ${k}`, () => {
-    const key = ensureKey(k);
-    ensureState(key, 0);
-    key.states.push(structuredClone(key.states[state.selState] || {}));
-    for (const s of key.states) {
-      s.on ||= {};
-      s.on.press ||= [];
-      if (!s.on.press.some(isStateNext)) s.on.press.push({ action: "core:state", params: { to: "next" } });
-    }
-    state.selState = key.states.length - 1;
-  });
-}
-
-async function removeState(i) {
-  const k = state.selected;
-  if (!(await ask(`Remove state ${i + 1}?`, null))) return;
-  edit(`Remove state · key ${k}`, () => {
-    const key = ensureKey(k);
-    key.states.splice(i, 1);
-    state.selState = Math.max(0, Math.min(state.selState, key.states.length - 1));
-  });
-}

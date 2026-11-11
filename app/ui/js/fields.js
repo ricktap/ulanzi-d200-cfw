@@ -17,9 +17,9 @@ export function schemaField(f, read, write, { labelled = false } = {}) {
   let ctl;
   switch (f.type) {
     case "toggle": {
-      const c = h("input", { type: "checkbox", checked: cur === undefined ? !!f.default : !!cur });
+      const c = h("input", { type: "checkbox", class: "switch", checked: cur === undefined ? !!f.default : !!cur });
       c.onchange = () => write(c.checked ? true : f.default === true ? false : undefined);
-      return h("label", { class: "toggle" + (labelled ? "" : " sub") }, c, label);
+      return h("label", { class: "switch-row" }, c, label);
     }
     case "number": {
       ctl = h("input", { type: "number", placeholder: f.placeholder || (labelled ? "" : label), title: label });
@@ -49,7 +49,7 @@ export function schemaField(f, read, write, { labelled = false } = {}) {
     }
     default: {
       // text, and any type this UI does not know yet
-      ctl = h("input", { placeholder: f.placeholder || (labelled ? "" : label), title: label, class: MONO.test(f.key) ? "mono" : "" });
+      ctl = h("input", { type: f.type === "password" ? "password" : "text", autocomplete: "off", placeholder: f.placeholder || (labelled ? "" : label), title: label, class: MONO.test(f.key) ? "mono" : "" });
       ctl.value = cur === undefined || cur === null ? "" : typeof cur === "object" ? JSON.stringify(cur) : String(cur);
       ctl.oninput = () => write(ctl.value === "" ? undefined : ctl.value, true);
     }
