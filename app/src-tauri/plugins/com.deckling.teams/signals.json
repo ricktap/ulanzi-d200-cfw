@@ -1,0 +1,22 @@
+[
+  {
+    "name": "com.deckling.teams:connected",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:in_meeting",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:mic_on",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:video",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:presence",
+    "type": "text"
+  }
+]

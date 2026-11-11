@@ -1,5 +1,5 @@
 {
-  "id": "core:analog-clock",
+  "id": "com.deckling.core:analog-clock",
   "roles": [
     "clock",
     "progress",

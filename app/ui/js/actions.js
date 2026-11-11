@@ -12,7 +12,7 @@ const EVENTS = [
   ["press", "Short press", (ms) => `Under ${ms} ms`],
   ["long", "Long press", (ms) => `${ms} ms or longer`],
 ];
-const FIRST_ACTION = "core:command";
+const FIRST_ACTION = "com.deckling.core:command";
 
 /**
  * The four event sections.

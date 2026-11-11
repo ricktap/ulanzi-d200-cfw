@@ -33,9 +33,9 @@ cfg["settings"]["screensaver"]["enabled"] = False
 cfg["status_key"]["app"] = "media"
 cfg["profiles"][0]["name"] = "Work"
 pg = cfg["profiles"][0]["pages"]["main"]
-pg["0"] = {"app": "core:sysmon", "config": {"modes": ["cpu"]}}; pg["1"] = {"app": "core:sysmon", "config": {"modes": ["ram"]}}
-pg["2"] = {"app": "core:sysmon", "config": {"modes": ["disk"]}}; pg["3"] = {"app": "core:sysmon", "config": {"modes": ["net"]}}
-pg["4"] = {"app": "core:clock"}
+pg["0"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["cpu"]}}; pg["1"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["ram"]}}
+pg["2"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["disk"]}}; pg["3"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["net"]}}
+pg["4"] = {"app": "com.deckling.core:clock"}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 open(sim + "/player.txt", "w").write("Spotify\tplaying\tMidnight City\tM83\tHurry Up, We're Dreaming\t84\t243\thttp://127.0.0.1:18992/art.png\n")
 dev = subprocess.Popen([os.environ["D200FW_HOST_BIN"], "--no-kill", "--port", "7396", "--fb", sim + "/fb", "--input", sim + "/kbd"], stderr=subprocess.DEVNULL)

@@ -1,0 +1,20 @@
+{
+  "id": "com.deckling.core:weather",
+  "name": "Weather",
+  "description": "Current weather for the place set in Settings, Weather. Press refreshes.",
+  "icon": "com.deckling.core:weather-partly-cloudy",
+  "face": "weather",
+  "implements": {
+    "label": {
+      "text": {
+        "bind": "com.deckling.core:weather.temperature",
+        "fallback": "",
+        "suffix": "°"
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

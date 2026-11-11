@@ -49,10 +49,10 @@ def check(name, ok, extra=""):
 time.sleep(4.5)
 saved = json.load(open(sim + "/cfg/deck.json"))
 keys = saved["profiles"][0]["pages"]["main"]
-check("migrated to version 2", saved.get("version") == 2, saved.get("version"))
+check("migrated to version 3", saved.get("version") == 3, saved.get("version"))
 check("original kept as deck.v1.json", json.load(open(sim + "/cfg/deck.v1.json")) == v1)
-check("app became an id with config", keys["2"] == {"app": "core:clock", "config": {"h12": True}}, keys["2"])
-check("actions became refs", keys["3"]["states"][0]["on"]["press"][0] == {"action": "core:command", "params": {"command": "true"}}, keys["3"])
+check("app became an id with config", keys["2"] == {"app": "com.deckling.core:clock", "config": {"h12": True}}, keys["2"])
+check("actions became refs", keys["3"]["states"][0]["on"]["press"][0] == {"action": "com.deckling.core:command", "params": {"command": "true"}}, keys["3"])
 check("icon_state became props", keys["3"]["states"][0]["props"] == {"toggle.on": False}, keys["3"])
 check("unknown app key unchanged", keys["1"] == v1["profiles"][0]["pages"]["main"]["1"], keys["1"])
 

@@ -199,7 +199,7 @@ export function setKind(t) {
   if (t === kind) return;
   if (t === "empty") return clearKey(k);
   if (t === "app") {
-    const id = old?.app && old.app !== "core:button" ? old.app : "core:sysmon";
+    const id = old?.app && old.app !== "core:button" ? old.app : "com.deckling.core:sysmon";
     return placeApp(id, k);
   }
   edit(`Button on key ${k}`, () => {
@@ -237,7 +237,7 @@ function actionsTab() {
     const app = appDef(key.app);
     const help = appHelp(app);
     return [
-      help ? h("p", { class: "note", html: help }) : null,
+      help ? h("p", { class: "note" }, help) : null,
       h("span", { class: "label ev-title" }, "Extra actions"),
       ...eventsEditor((create) => (create ? ensureState(ensureKey(k), 0) : keyObj(k)?.states?.[0]), { allowState: false, where: `key ${k}` }),
       holdThreshold(),

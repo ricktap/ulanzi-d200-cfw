@@ -1,5 +1,5 @@
 {
-  "id": "core:downloads",
+  "id": "com.deckling.core:downloads",
   "roles": [
     "toggle",
     "button"

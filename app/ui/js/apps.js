@@ -10,20 +10,8 @@ import { openSettings, showThemeWidget } from "./settings.js";
 
 const DEFAULT_BG = "#0f1216";
 
-// Short help per core app. A package can bring its own `description`.
-const HELP = {
-  "core:sysmon": "CPU, RAM, disk or network up/down with a live graph. <b>Press</b> switches between the ticked views.",
-  "core:mute": "Shows whether the computer is muted. <b>Press</b> mutes or unmutes.",
-  "core:weather": "Current weather for the place set in Settings → Weather. <b>Press</b> refreshes.",
-  "core:clock": "<b>Press</b> switches between the time and the date.",
-  "core:pomodoro": "<b>Press</b> starts, pauses and resumes. <b>Long press</b> resets. Times in Settings → Pomodoro.",
-  "core:media": "Spotify or Apple Music. <b>Press</b> plays / pauses, <b>long press</b> skips.",
-  "core:teams_mute": "Live mic state in Teams meetings. <b>Press</b> mutes / unmutes. Needs Teams → Settings → Privacy → <b>Manage API</b>.",
-  "core:teams_camera": "Live camera state in Teams meetings. <b>Press</b> turns it on / off.",
-  "core:teams_presence": "Your live Teams status. <b>Press</b> toggles available ↔ unavailable, <b>long press</b> goes back to automatic. Needs a sign-in (Settings → Teams).",
-  "core:debugger": "Lights up while a JetBrains IDE debugs. <b>Press</b>: debug / resume. <b>Long press</b> while debugging: stop.",
-};
-export const appHelp = (app) => (app ? app.description || HELP[app.id] || "" : "");
+/** Plain text from the package; never HTML, since packages may come from anyone. */
+export const appHelp = (app) => (app ? app.description || "" : "");
 
 /**
  * Put app `id` on the selected key: sets `app` and `config` from the schema
@@ -70,7 +58,7 @@ export function appDesign(key) {
   }
 
   const help = appHelp(app);
-  if (help) parts.push(h("p", { class: "note", html: help }));
+  if (help) parts.push(h("p", { class: "note" }, help));
 
   // Settings from the app's config schema.
   const fields = (app.config || []).map((f) =>
@@ -95,8 +83,8 @@ export function appDesign(key) {
 }
 
 function themeWidget(key) {
-  if (key.app === "core:clock") return "clock";
-  if (key.app !== "core:sysmon") return null;
+  if (key.app === "com.deckling.core:clock") return "clock";
+  if (key.app !== "com.deckling.core:sysmon") return null;
   const m = key.config?.modes;
   return Array.isArray(m) && m.length === 1 ? (m[0] === "net" ? "network" : m[0]) : "cpu";
 }
@@ -141,7 +129,7 @@ export function renderApps() {
   $("apps-target").textContent = editableKey() ? `Selected: key ${k}` : "Select one of keys 0–12 first";
   put($("app-cards"), placeableApps().map((a) =>
     h("div", { class: "card acard" }, img(a.icon),
-      h("div", { class: "grow" }, h("h3", {}, a.name), h("p", { class: "sub", html: appHelp(a) }),
+      h("div", { class: "grow" }, h("h3", {}, a.name), h("p", { class: "sub" }, appHelp(a)),
         h("button", { class: "btn small", disabled: !editableKey(), onclick: () => {
           placeApp(a.id);
           toast(`${a.name} on key ${state.selected}`);

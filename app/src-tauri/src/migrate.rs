@@ -7,6 +7,12 @@
 //!   `"on": {"press": [{"action": "core:page", "params": {"page": "x"}}]}` (keys and status key)
 //! - Night Signal icon names get the core namespace: `"volume-on"` becomes `"core:volume-on"`
 //! - `icon_state` becomes `props`, keyed by interface property (`legacy_props`)
+//!
+//! Version 2 to 3: `core:` keeps only what is fixed in the app (navigation, states,
+//! brightness, notifications, the plain button). Everything loaded as a plugin moves
+//! to its own namespace: `com.deckling.core` (built-in apps, Night Signal icons),
+//! `com.deckling.teams`, `com.deckling.jetbrains`, `com.deckling.ha`. App ids, action
+//! ids, icon ids and signal names in bindings are renamed.
 
 use serde_json::{json, Map, Value};
 
@@ -24,12 +30,113 @@ pub fn migrate(mut v: Value, target: u32) -> Result<Value, String> {
     while ver < target as u64 {
         v = match ver {
             1 => v1_to_v2(v),
+            2 => v2_to_v3(v),
             _ => return Err(format!("no migration from version {ver}")),
         };
         ver += 1;
         v["version"] = json!(ver);
     }
     Ok(v)
+}
+
+const APPS_V3: [(&str, &str); 10] = [
+    ("core:sysmon", "com.deckling.core:sysmon"),
+    ("core:mute", "com.deckling.core:mute"),
+    ("core:weather", "com.deckling.core:weather"),
+    ("core:clock", "com.deckling.core:clock"),
+    ("core:pomodoro", "com.deckling.core:pomodoro"),
+    ("core:media", "com.deckling.core:media"),
+    ("core:teams_mute", "com.deckling.teams:mute"),
+    ("core:teams_camera", "com.deckling.teams:camera"),
+    ("core:teams_presence", "com.deckling.teams:presence"),
+    ("core:debugger", "com.deckling.jetbrains:debugger"),
+];
+
+const ACTIONS_V3: [(&str, &str); 9] = [
+    ("core:command", "com.deckling.core:command"),
+    ("core:open", "com.deckling.core:open"),
+    ("core:keys", "com.deckling.core:keys"),
+    ("core:volume", "com.deckling.core:volume"),
+    ("core:media", "com.deckling.core:media"),
+    ("core:teams", "com.deckling.teams:meeting"),
+    ("core:presence", "com.deckling.teams:presence"),
+    ("core:mqtt", "com.deckling.ha:mqtt"),
+    ("core:remote", "com.deckling.ha:remote"),
+];
+
+/// Signal names of version 2 that moved into a plugin namespace.
+fn signal_v3(name: &str) -> Option<String> {
+    let fixed = [
+        ("teams.connected", "com.deckling.teams:connected"),
+        ("teams.in_meeting", "com.deckling.teams:in_meeting"),
+        ("teams.mic_on", "com.deckling.teams:mic_on"),
+        ("teams.video", "com.deckling.teams:video"),
+        ("presence.availability", "com.deckling.teams:presence"),
+        ("debugger.active", "com.deckling.jetbrains:debugger.active"),
+    ];
+    if let Some((_, to)) = fixed.iter().find(|(from, _)| *from == name) {
+        return Some(to.to_string());
+    }
+    ["system.", "audio.", "weather.", "pomodoro.", "media."]
+        .iter()
+        .any(|p| name.starts_with(p))
+        .then(|| format!("com.deckling.core:{name}"))
+}
+
+fn rename(v: &mut Value, table: &[(&str, &str)]) {
+    if let Some((_, to)) = v.as_str().and_then(|s| table.iter().find(|(from, _)| *from == s)) {
+        *v = json!(to);
+    }
+}
+
+/// Every `"bind"` anywhere (theme variables, props written by hand).
+fn rename_binds(v: &mut Value) {
+    match v {
+        Value::Object(o) => {
+            if let Some(new) = o.get("bind").and_then(Value::as_str).and_then(signal_v3) {
+                o.insert("bind".into(), json!(new));
+            }
+            o.values_mut().for_each(rename_binds);
+        }
+        Value::Array(a) => a.iter_mut().for_each(rename_binds),
+        _ => {}
+    }
+}
+
+fn rename_actions(on: Option<&mut Value>) {
+    for list in on.and_then(Value::as_object_mut).into_iter().flat_map(|m| m.values_mut()) {
+        for a in list.as_array_mut().into_iter().flatten() {
+            if let Some(id) = a.get_mut("action") {
+                rename(id, &ACTIONS_V3);
+            }
+        }
+    }
+}
+
+fn v2_to_v3(mut v: Value) -> Value {
+    rename_binds(&mut v);
+    if let Some(sk) = v.get_mut("status_key") {
+        rename_actions(sk.get_mut("on"));
+    }
+    for p in v.get_mut("profiles").and_then(Value::as_array_mut).into_iter().flatten() {
+        for page in p.get_mut("pages").and_then(Value::as_object_mut).into_iter().flat_map(|m| m.values_mut()) {
+            for key in page.as_object_mut().into_iter().flat_map(|m| m.values_mut()) {
+                if let Some(app) = key.get_mut("app") {
+                    rename(app, &APPS_V3);
+                }
+                for st in key.get_mut("states").and_then(Value::as_array_mut).into_iter().flatten() {
+                    rename_actions(st.get_mut("on"));
+                    if let Some(icon) = st.get_mut("icon") {
+                        let new = icon.as_str().and_then(|i| i.strip_prefix("core:")).filter(|n| crate::icons::exists(n)).map(|n| format!("com.deckling.core:{n}"));
+                        if let Some(n) = new {
+                            *icon = json!(n);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    v
 }
 
 fn v1_to_v2(mut v: Value) -> Value {
@@ -164,8 +271,35 @@ mod tests {
     }
 
     #[test]
+    fn v2_to_plugin_namespaces() {
+        let v2 = json!({
+            "version": 2,
+            "settings": {"theme": {"variables": {"accent": {"bind": "teams.mic_on", "steps": ["#000", "#FFF"], "fallback": "#FFF"}}}},
+            "status_key": {"on": {"long": [{"action": "core:remote"}]}},
+            "profiles": [{"name": "Default", "pages": {"main": {
+                "0": {"app": "core:teams_mute"},
+                "1": {"app": "core:sysmon", "states": [{"icon": "core:cpu", "props": {"label.text": {"bind": "system.cpu"}}}]},
+                "2": {"states": [{"icon": "core:light", "on": {"press": [{"action": "core:page", "params": {"page": "x"}}, {"action": "core:mqtt", "params": {"topic": "t", "payload": "p"}}]}}]},
+                "3": {"app": "com.x:y", "states": [{"icon": "com.x:z", "on": {"press": [{"action": "com.x:go"}]}}]}
+            }}}]
+        });
+        let v3 = migrate(v2, 3).unwrap();
+        assert_eq!(v3["version"], 3);
+        assert_eq!(v3["settings"]["theme"]["variables"]["accent"]["bind"], "com.deckling.teams:mic_on");
+        assert_eq!(v3["status_key"]["on"]["long"][0]["action"], "com.deckling.ha:remote");
+        let keys = &v3["profiles"][0]["pages"]["main"];
+        assert_eq!(keys["0"]["app"], "com.deckling.teams:mute");
+        assert_eq!(keys["1"]["app"], "com.deckling.core:sysmon");
+        assert_eq!(keys["1"]["states"][0]["icon"], "com.deckling.core:cpu");
+        assert_eq!(keys["1"]["states"][0]["props"]["label.text"]["bind"], "com.deckling.core:system.cpu");
+        assert_eq!(keys["2"]["states"][0]["on"]["press"][0]["action"], "core:page", "fixed actions keep core:");
+        assert_eq!(keys["2"]["states"][0]["on"]["press"][1]["action"], "com.deckling.ha:mqtt");
+        assert_eq!(keys["3"], json!({"app": "com.x:y", "states": [{"icon": "com.x:z", "on": {"press": [{"action": "com.x:go"}]}}]}));
+    }
+
+    #[test]
     fn newer_versions_are_refused() {
-        assert!(migrate(json!({"version": 9, "profiles": []}), 2).is_err());
-        assert_eq!(migrate(json!({"version": 2, "x": 1}), 2).unwrap(), json!({"version": 2, "x": 1}));
+        assert!(migrate(json!({"version": 9, "profiles": []}), 3).is_err());
+        assert_eq!(migrate(json!({"version": 3, "x": 1}), 3).unwrap(), json!({"version": 3, "x": 1}));
     }
 }

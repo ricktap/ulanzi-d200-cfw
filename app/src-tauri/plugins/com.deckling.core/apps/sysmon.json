@@ -1,7 +1,8 @@
 {
-  "id": "core:sysmon",
+  "id": "com.deckling.core:sysmon",
   "name": "System monitor",
-  "icon": "core:system-monitor",
+  "description": "CPU, memory, disk or network with a live graph. Press switches between the chosen views.",
+  "icon": "com.deckling.core:system-monitor",
   "face": "sysmon",
   "config": [
     {
@@ -32,13 +33,13 @@
   "implements": {
     "progress": {
       "value": {
-        "bind": "system.cpu",
+        "bind": "com.deckling.core:system.cpu",
         "fallback": 0
       }
     },
     "label": {
       "text": {
-        "bind": "system.cpu",
+        "bind": "com.deckling.core:system.cpu",
         "fallback": "",
         "suffix": "%"
       }

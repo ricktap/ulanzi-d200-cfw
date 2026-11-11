@@ -36,7 +36,9 @@ There are exactly three kinds. Each package is a folder with a `deckling.json`.
 | Icon set | Icons with bindings | no |
 | Theme | Variables, type `full` or `partial` | no |
 
-A plugin may embed an icon set (folder `iconset/`). It has exactly the same format as a standalone icon set and provides the default icon of each app. The core is itself a plugin with the ID `core`. Night Signal is its embedded icon set.
+A plugin may embed an icon set (folder `iconset/`). It has exactly the same format as a standalone icon set and provides the default icon of each app.
+
+`core` names only what is fixed in the app: keys, pages, profiles, states, brightness, notifications, the primitive interfaces, the core theme variables and the clock signals. It is loaded like a package but cannot be removed. Everything else that ships with the app is a plugin with its own ID: `com.deckling.core` (system monitor, mute, weather, clock, Pomodoro, media, commands, shortcuts, volume, with Night Signal as its embedded icon set), `com.deckling.teams`, `com.deckling.jetbrains` and `com.deckling.ha`.
 
 Themes and icon sets are independent of each other. A theme refers to no icon set and embeds none.
 
@@ -81,7 +83,7 @@ Rules:
 }
 ```
 
-`runtime.kind` is `builtin` (Rust module in the core, for Core, Teams, JetBrains, Home Assistant) or `process` (own process, JSON RPC over stdio, later).
+`runtime.kind` is `builtin` (Rust module in the app, for `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains`, `com.deckling.ha`) or `process` (own process, JSON RPC over stdio, later).
 
 ### 5.2 Settings of a plugin
 
@@ -319,10 +321,11 @@ Profiles: the first profile is the default. `apps` names the programs a profile 
 
 | Package | Content | Modules today |
 | --- | --- | --- |
-| `core` | Hotkey, command, open, volume, brightness, pages, profiles, clock, system monitor, Pomodoro, weather, media. Night Signal as embedded icon set | `engine.rs`, `render.rs`, `apps.rs`, `platform.rs`, `media.rs`, `icons.rs` |
-| Microsoft 365 | Meeting actions, microphone, camera, presence. Mail and calendar | `teams.rs` |
-| JetBrains | Debugger | `ide.rs` |
-| Home Assistant | MQTT send, remote keys, printer | `mqtt.rs` |
+| `core` (fixed) | Pages, profiles, states, brightness, notifications, primitive interfaces, clock signals | `engine.rs`, `render.rs`, `icons.rs` |
+| `com.deckling.core` | Hotkey, command, open, volume, clock, system monitor, Pomodoro, weather, media. Night Signal as embedded icon set | `apps.rs`, `platform.rs`, `media.rs` |
+| `com.deckling.teams` | Meeting actions, microphone, camera, presence. Mail and calendar | `teams.rs` |
+| `com.deckling.jetbrains` | Debugger | `ide.rs` |
+| `com.deckling.ha` | MQTT send, remote keys, printer | `mqtt.rs` |
 
 The eight existing stateful icons already work through `data-part` and states. They are the natural first test for the binding language.
 
@@ -338,7 +341,7 @@ The eight existing stateful icons already work through `data-part` and states. T
 
 ## 13. Open decisions
 
-1. Name: the repo is called Deckling, the app is called D200 Deck. Decide the core namespace and own package IDs.
+1. Name: decided. `core` is only what is fixed in the app; the built-in plugins are `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains` and `com.deckling.ha` (section 3). The app is still called D200 Deck.
 2. Smooth transitions: `steps` jumps. A flowing rainbow needs crossfading or a core signal that is already a colour.
 3. Values per key: `key.index`, `key.column`, `key.row` are signals with context.
 4. Inheritance of interfaces: would save duplicate mappings, costs a concept. Only when needed.

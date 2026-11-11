@@ -1,0 +1,14 @@
+{
+  "id": "com.deckling.jetbrains",
+  "type": "plugin",
+  "name": "JetBrains",
+  "version": "1.0.0",
+  "description": "Debugger state of a running JetBrains IDE.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "contributes": {
+    "signals": "signals.json",
+    "apps": "apps/"
+  }
+}

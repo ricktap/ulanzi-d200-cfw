@@ -31,17 +31,26 @@ export const iconDef = (id) => state.catalog.icons.find((i) => i.id === withNs(i
 /** Apps a user can place (everything but the plain button). */
 export const placeableApps = () => state.catalog.apps.filter((a) => a.id !== "core:button");
 
-/** "volume-on" → "core:volume-on"; ids with a namespace stay. */
+/** The plugin with the built-in apps and the Night Signal icons. */
+export const CORE_PLUGIN = "com.deckling.core";
+
+/** Night Signal name, or null: "volume-on", "core:volume-on" (old) and "com.deckling.core:volume-on". */
+const nightSignalName = (s) =>
+  s.startsWith(CORE_PLUGIN + ":") ? s.slice(CORE_PLUGIN.length + 1) : s.startsWith("core:") ? s.slice(5) : s.includes(":") ? null : s;
+
+/** "volume-on" → "com.deckling.core:volume-on"; ids with a namespace stay. */
 export const withNs = (id) => {
   const s = (id || "").trim();
-  return s && !s.includes(":") ? `core:${s}` : s;
+  if (!s) return s;
+  const n = nightSignalName(s);
+  return n && iconSet.some((i) => i.name === n) ? `${CORE_PLUGIN}:${n}` : s;
 };
 
-/** URL of an icon's SVG when it is a Night Signal icon (core namespace), else null. */
+/** URL of an icon's SVG when it is a Night Signal icon, else null. */
 export function iconUrl(id) {
   const s = (id || "").trim();
   if (!s) return null;
-  const name = s.startsWith("core:") ? s.slice(5) : s.includes(":") ? null : s;
+  const name = nightSignalName(s);
   if (!name || !iconSet.some((i) => i.name === name)) return null;
   return `${ICON_DIR}/svg/${name}.svg`;
 }

@@ -1,5 +1,5 @@
 {
-  "id": "core:volume-muted",
+  "id": "com.deckling.core:volume-muted",
   "roles": [
     "button"
   ],

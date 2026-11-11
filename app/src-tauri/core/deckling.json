@@ -1,9 +1,9 @@
 {
   "id": "core",
-  "type": "plugin",
-  "name": "Core",
+  "type": "core",
+  "name": "Deck",
+  "description": "What is fixed in the app: keys, pages, profiles, the primitive interfaces and the clock signals.",
   "version": "1.0.0",
-  "description": "Keys, pages, profiles, system apps and the Night Signal icons.",
   "runtime": {
     "kind": "builtin"
   },
@@ -43,7 +43,6 @@
     "signals": "signals.json",
     "actions": "actions.json",
     "interfaces": "interfaces.json",
-    "apps": "apps/",
-    "iconset": "night-signal"
+    "apps": "apps/"
   }
 }

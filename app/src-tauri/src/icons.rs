@@ -9,10 +9,10 @@ use tiny_skia::Pixmap;
 
 include!(concat!(env!("OUT_DIR"), "/icons_gen.rs"));
 
-/// Night Signal icon by name, with or without the `core:` namespace.
+/// Night Signal icon by name, with or without its namespace (`com.deckling.core:`, or the old `core:`).
 pub fn svg(name: &str) -> Option<&'static str> {
     let name = name.trim();
-    let name = name.strip_prefix("core:").unwrap_or(name);
+    let name = name.strip_prefix("com.deckling.core:").or_else(|| name.strip_prefix("core:")).unwrap_or(name);
     ICONS.binary_search_by(|(n, _)| n.cmp(&name)).ok().map(|i| ICONS[i].1)
 }
 
@@ -304,32 +304,32 @@ mod tests {
             render_bound(reg.icon(icon).unwrap(), size, &[], &ctx, &mut Reads::default()).unwrap()
         };
         // light: colour and off
-        let on = draw("core:light", 64, json!({"toggle.on": true, "rgb.color": "#FF0000"}));
-        let off = draw("core:light", 64, json!({"toggle.on": false, "rgb.color": "#FF0000"}));
+        let on = draw("com.deckling.core:light", 64, json!({"toggle.on": true, "rgb.color": "#FF0000"}));
+        let off = draw("com.deckling.core:light", 64, json!({"toggle.on": false, "rgb.color": "#FF0000"}));
         assert!(count(&on, [255, 0, 0]) > 200 && count(&off, [255, 0, 0]) == 0);
         // pomodoro ring progress: more amber at 90 % than at 10 %
         let amber = [0xFF, 0xBF, 0x69];
-        let p10 = draw("core:pomodoro", 128, json!({"progress.value": 10}));
-        let p90 = draw("core:pomodoro", 128, json!({"progress.value": 90}));
+        let p10 = draw("com.deckling.core:pomodoro", 128, json!({"progress.value": 10}));
+        let p90 = draw("com.deckling.core:pomodoro", 128, json!({"progress.value": 90}));
         assert!(count(&p90, amber) > count(&p10, amber) * 3, "{} vs {}", count(&p90, amber), count(&p10, amber));
         // clock hands move
-        let a = draw("core:analog-clock", 64, json!({"clock.hour_angle": 90, "clock.minute_angle": 0}));
-        let b = draw("core:analog-clock", 64, json!({"clock.hour_angle": 285, "clock.minute_angle": 180}));
+        let a = draw("com.deckling.core:analog-clock", 64, json!({"clock.hour_angle": 90, "clock.minute_angle": 0}));
+        let b = draw("com.deckling.core:analog-clock", 64, json!({"clock.hour_angle": 285, "clock.minute_angle": 180}));
         assert_ne!(a.data(), b.data());
         // thermostat number is drawn (ivory text) and changes
-        let t22 = draw("core:thermostat", 128, json!({"label.text": "22"}));
-        let t185 = draw("core:thermostat", 128, json!({"label.text": "18.5"}));
+        let t22 = draw("com.deckling.core:thermostat", 128, json!({"label.text": "22"}));
+        let t185 = draw("com.deckling.core:thermostat", 128, json!({"label.text": "18.5"}));
         assert!(count(&t22, [0xF4, 0xF1, 0xE8]) > 150, "no number drawn");
         assert_ne!(t22.data(), t185.data());
         // AMS spools take their colours from another plugin's interface
-        let ams = draw("core:bambu-ams", 128, json!({"com.ricktap.bambu:ams.slot1_color": "#0000FF", "com.ricktap.bambu:ams.slot1_remaining": 100}));
+        let ams = draw("com.deckling.core:bambu-ams", 128, json!({"com.ricktap.bambu:ams.slot1_color": "#0000FF", "com.ricktap.bambu:ams.slot1_remaining": 100}));
         assert!(count(&ams, [0, 0, 255]) > 30);
         // downloads: muted grey off, accent on
-        let idle = draw("core:downloads", 64, json!({}));
-        let busy = draw("core:downloads", 64, json!({"toggle.on": true}));
+        let idle = draw("com.deckling.core:downloads", 64, json!({}));
+        let busy = draw("com.deckling.core:downloads", 64, json!({"toggle.on": true}));
         assert!(count(&busy, [0x69, 0xE0, 0xC1]) > count(&idle, [0x69, 0xE0, 0xC1]));
         // without any values the fallbacks draw the old defaults
-        assert!(count(&draw("core:light", 64, json!({})), [0x69, 0xE0, 0xC1]) > 200);
+        assert!(count(&draw("com.deckling.core:light", 64, json!({})), [0x69, 0xE0, 0xC1]) > 200);
     }
 
     /// A theme variable bound to a signal recolours an icon; no plugin sets a colour.
@@ -347,7 +347,7 @@ mod tests {
             sig.publish("time.second", json!(s));
             let ctx = Ctx { implements: None, props: None, config: &cfg, signals: &sig, theme: &theme };
             let mut reads = Reads::default();
-            let pm = render_bound(reg.icon("core:light").unwrap(), 64, &[], &ctx, &mut reads).unwrap();
+            let pm = render_bound(reg.icon("com.deckling.core:light").unwrap(), 64, &[], &ctx, &mut reads).unwrap();
             assert!(reads.signals.contains("time.second"));
             pm
         };

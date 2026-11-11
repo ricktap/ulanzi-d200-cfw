@@ -1,0 +1,6 @@
+[
+  {
+    "name": "com.deckling.jetbrains:debugger.active",
+    "type": "flag"
+  }
+]

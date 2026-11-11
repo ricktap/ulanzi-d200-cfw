@@ -98,14 +98,36 @@ pub enum Action {
     Presence { to: String },
 }
 
+/// Built-in actions: (action id, `Action` type). `core:` is what is fixed in the app;
+/// the rest belong to the built-in plugins.
+pub const ACTION_IDS: [(&str, &str); 16] = [
+    ("core:page", "page"),
+    ("core:back", "back"),
+    ("core:home", "home"),
+    ("core:profile", "profile"),
+    ("core:state", "state"),
+    ("core:brightness", "brightness"),
+    ("core:notify", "notify"),
+    ("com.deckling.core:command", "command"),
+    ("com.deckling.core:open", "open"),
+    ("com.deckling.core:keys", "keys"),
+    ("com.deckling.core:volume", "volume"),
+    ("com.deckling.core:media", "media"),
+    ("com.deckling.teams:meeting", "teams"),
+    ("com.deckling.teams:presence", "presence"),
+    ("com.deckling.ha:mqtt", "mqtt"),
+    ("com.deckling.ha:remote", "remote"),
+];
+
 impl Action {
-    /// The id of a core action: `core:<type>`.
+    /// As stored: `{"action": "<id>", "params": {...}}`.
     pub fn to_ref(&self) -> ActionRef {
         let mut v = serde_json::to_value(self).unwrap_or_default();
         let obj = v.as_object_mut().map(std::mem::take).unwrap_or_default();
         let mut params = obj;
         let kind = params.remove("type").and_then(|t| t.as_str().map(str::to_string)).unwrap_or_default();
-        ActionRef { action: format!("core:{kind}"), params, extra: Map::new() }
+        let id = ACTION_IDS.iter().find(|(_, t)| *t == kind).map(|(id, _)| id.to_string()).unwrap_or_default();
+        ActionRef { action: id, params, extra: Map::new() }
     }
 }
 
@@ -121,9 +143,9 @@ pub struct ActionRef {
 }
 
 impl ActionRef {
-    /// The core action this names, or `None` for another plugin's action or bad params.
+    /// The built-in action this names, or `None` for another plugin's action or bad params.
     pub fn parse(&self) -> Option<Action> {
-        let kind = self.action.strip_prefix("core:")?;
+        let kind = ACTION_IDS.iter().find(|(id, _)| *id == self.action)?.1;
         let mut obj = self.params.clone();
         obj.insert("type".into(), Value::String(kind.into()));
         serde_json::from_value(Value::Object(obj)).ok()
@@ -234,13 +256,23 @@ impl AppKind {
         AppKind::TeamsPresence,
         AppKind::Debugger,
     ];
-    /// "core:sysmon" etc.
-    pub fn id(self) -> String {
-        format!("core:{}", serde_json::to_value(self).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default())
+    /// The app id of this built-in app.
+    pub fn id(self) -> &'static str {
+        match self {
+            AppKind::Sysmon => "com.deckling.core:sysmon",
+            AppKind::Mute => "com.deckling.core:mute",
+            AppKind::Weather => "com.deckling.core:weather",
+            AppKind::Clock => "com.deckling.core:clock",
+            AppKind::Pomodoro => "com.deckling.core:pomodoro",
+            AppKind::Media => "com.deckling.core:media",
+            AppKind::TeamsMute => "com.deckling.teams:mute",
+            AppKind::TeamsCamera => "com.deckling.teams:camera",
+            AppKind::TeamsPresence => "com.deckling.teams:presence",
+            AppKind::Debugger => "com.deckling.jetbrains:debugger",
+        }
     }
     pub fn from_id(id: &str) -> Option<AppKind> {
-        let name = id.strip_prefix("core:")?;
-        serde_json::from_value(Value::String(name.into())).ok()
+        AppKind::ALL.into_iter().find(|k| k.id() == id)
     }
 }
 
@@ -582,7 +614,7 @@ pub struct Config {
 }
 
 /// The current deck.json format.
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 
 impl Config {
     pub fn example() -> Self {
@@ -793,11 +825,11 @@ mod version_tests {
         assert_eq!(k0.kind(), Some(AppKind::Clock));
         assert!(k0.cfg_bool("h12"));
         let k1 = c.key(0, "main", 1);
-        assert_eq!(k1.states[0].look.icon.as_deref(), Some("core:volume-on"));
+        assert_eq!(k1.states[0].look.icon.as_deref(), Some("com.deckling.core:volume-on"));
         assert_eq!(k1.states[0].on.press[0].parse(), Some(Action::Volume { value: "+5".into() }));
         assert_eq!(std::fs::read_to_string(dir.join("deck.v1.json")).unwrap(), v1);
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved["version"], 2);
+        assert_eq!(saved["version"], 3);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

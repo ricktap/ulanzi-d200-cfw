@@ -1,5 +1,5 @@
 {
-  "id": "core:thermostat",
+  "id": "com.deckling.core:thermostat",
   "roles": [
     "progress",
     "label",

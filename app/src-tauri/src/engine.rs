@@ -754,30 +754,30 @@ impl Engine {
             ("time.minute_angle", Some(json!(m * 6.0))),
             ("time.second_angle", Some(json!(sec * 6.0))),
             ("time.second_progress", Some(json!((sec * 100.0 / 60.0).round()))),
-            ("system.cpu", Some(json!((self.sys.cpu as f64).round()))),
-            ("system.ram", Some(json!(pct(self.sys.ram_used, self.sys.ram_total)))),
-            ("system.disk", Some(json!(pct(self.sys.disk_used, self.sys.disk_total)))),
-            ("system.net_down", Some(json!(self.sys.rx.round()))),
-            ("system.net_up", Some(json!(self.sys.tx.round()))),
-            ("audio.muted", self.muted.map(|b| json!(b))),
-            ("weather.temperature", self.weather.as_ref().map(|w| json!(w.temp.round()))),
-            ("weather.summary", self.weather.as_ref().map(|w| json!(apps::weather_info(w.code, w.is_day).1))),
-            ("pomodoro.running", Some(json!(self.pomo.running))),
-            ("pomodoro.phase", Some(json!(format!("{:?}", self.pomo.phase).to_lowercase()))),
-            ("pomodoro.remaining", Some(json!(format!("{}:{:02}", rem / 60, rem % 60)))),
-            ("pomodoro.progress", Some(json!(if len == 0 || self.pomo.phase == apps::Phase::Idle { 0.0 } else { ((len - rem.min(len)) as f64 * 100.0 / len as f64).round() }))),
-            ("teams.connected", Some(json!(self.teams_state.connected))),
-            ("teams.in_meeting", self.meeting.as_ref().map(|x| json!(x.in_meeting))),
-            ("teams.mic_on", self.meeting.as_ref().map(|x| json!(x.in_meeting && !x.muted))),
-            ("teams.video", self.meeting.as_ref().map(|x| json!(x.video_on))),
-            ("presence.availability", self.presence.as_ref().map(|x| json!(x.availability))),
-            ("debugger.active", Some(json!(self.debug_active.is_some()))),
+            ("com.deckling.core:system.cpu", Some(json!((self.sys.cpu as f64).round()))),
+            ("com.deckling.core:system.ram", Some(json!(pct(self.sys.ram_used, self.sys.ram_total)))),
+            ("com.deckling.core:system.disk", Some(json!(pct(self.sys.disk_used, self.sys.disk_total)))),
+            ("com.deckling.core:system.net_down", Some(json!(self.sys.rx.round()))),
+            ("com.deckling.core:system.net_up", Some(json!(self.sys.tx.round()))),
+            ("com.deckling.core:audio.muted", self.muted.map(|b| json!(b))),
+            ("com.deckling.core:weather.temperature", self.weather.as_ref().map(|w| json!(w.temp.round()))),
+            ("com.deckling.core:weather.summary", self.weather.as_ref().map(|w| json!(apps::weather_info(w.code, w.is_day).1))),
+            ("com.deckling.core:pomodoro.running", Some(json!(self.pomo.running))),
+            ("com.deckling.core:pomodoro.phase", Some(json!(format!("{:?}", self.pomo.phase).to_lowercase()))),
+            ("com.deckling.core:pomodoro.remaining", Some(json!(format!("{}:{:02}", rem / 60, rem % 60)))),
+            ("com.deckling.core:pomodoro.progress", Some(json!(if len == 0 || self.pomo.phase == apps::Phase::Idle { 0.0 } else { ((len - rem.min(len)) as f64 * 100.0 / len as f64).round() }))),
+            ("com.deckling.teams:connected", Some(json!(self.teams_state.connected))),
+            ("com.deckling.teams:in_meeting", self.meeting.as_ref().map(|x| json!(x.in_meeting))),
+            ("com.deckling.teams:mic_on", self.meeting.as_ref().map(|x| json!(x.in_meeting && !x.muted))),
+            ("com.deckling.teams:video", self.meeting.as_ref().map(|x| json!(x.video_on))),
+            ("com.deckling.teams:presence", self.presence.as_ref().map(|x| json!(x.availability))),
+            ("com.deckling.jetbrains:debugger.active", Some(json!(self.debug_active.is_some()))),
         ];
         let np = self.np_now();
-        out.push(("media.playing", np.as_ref().map(|n| json!(n.playing))));
-        out.push(("media.title", np.as_ref().map(|n| json!(n.title))));
-        out.push(("media.artist", np.as_ref().map(|n| json!(n.artist))));
-        out.push(("media.progress", np.as_ref().map(|n| json!(if n.duration > 0.0 { (n.position * 100.0 / n.duration).round() } else { 0.0 }))));
+        out.push(("com.deckling.core:media.playing", np.as_ref().map(|n| json!(n.playing))));
+        out.push(("com.deckling.core:media.title", np.as_ref().map(|n| json!(n.title))));
+        out.push(("com.deckling.core:media.artist", np.as_ref().map(|n| json!(n.artist))));
+        out.push(("com.deckling.core:media.progress", np.as_ref().map(|n| json!(if n.duration > 0.0 { (n.position * 100.0 / n.duration).round() } else { 0.0 }))));
         for (name, v) in out {
             match v {
                 Some(v) => self.signals.publish(name, v),

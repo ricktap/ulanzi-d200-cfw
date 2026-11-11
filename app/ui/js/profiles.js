@@ -120,7 +120,7 @@ export async function addPage() {
   if (!name) return;
   if (profile().pages[name]) return toast("A page with that name exists", true);
   edit(`New page ${name}`, () => {
-    profile().pages[name] = { "0": { states: [{ label: "Back", icon: "core:arrow-left", on: { press: [{ action: "core:back" }] } }] } };
+    profile().pages[name] = { "0": { states: [{ label: "Back", icon: "com.deckling.core:arrow-left", on: { press: [{ action: "core:back" }] } }] } };
   }, { save: false });
   await saveThen(() => goto(state.view.profile, name, false));
 }

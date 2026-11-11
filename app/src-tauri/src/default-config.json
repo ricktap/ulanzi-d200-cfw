@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "settings": {
     "brightness": 180,
     "long_press_ms": 500,
@@ -45,11 +45,19 @@
       "steam": true,
       "printer": true,
       "hide_content": false
+    },
+    "theme": {
+      "palette": {
+        "active": "#69E0C1",
+        "info": "#B79AF7",
+        "attention": "#FFBF69",
+        "error": "#FF8278",
+        "background": "#11171D"
+      },
+      "widgets": {}
     }
   },
   "status_key": {
-    "app": "profile",
-    "show": "auto",
     "on": {
       "press": [
         {
@@ -58,10 +66,12 @@
       ],
       "long": [
         {
-          "action": "core:remote"
+          "action": "com.deckling.ha:remote"
         }
       ]
-    }
+    },
+    "app": "profile",
+    "show": "auto"
   },
   "profiles": [
     {
@@ -70,29 +80,29 @@
       "pages": {
         "main": {
           "0": {
-            "app": "core:sysmon"
+            "app": "com.deckling.core:sysmon"
           },
           "1": {
-            "app": "core:mute"
+            "app": "com.deckling.core:mute"
           },
           "2": {
-            "app": "core:weather"
+            "app": "com.deckling.core:weather"
           },
           "3": {
-            "app": "core:clock"
+            "app": "com.deckling.core:clock"
           },
           "4": {
-            "app": "core:pomodoro"
+            "app": "com.deckling.core:pomodoro"
           },
           "5": {
             "states": [
               {
                 "label": "Terminal",
-                "icon": "core:terminal-app",
+                "icon": "com.deckling.core:terminal-app",
                 "on": {
                   "press": [
                     {
-                      "action": "core:open",
+                      "action": "com.deckling.core:open",
                       "params": {
                         "target": "Terminal"
                       }
@@ -106,11 +116,11 @@
             "states": [
               {
                 "label": "Safari",
-                "icon": "core:browser",
+                "icon": "com.deckling.core:browser",
                 "on": {
                   "press": [
                     {
-                      "action": "core:open",
+                      "action": "com.deckling.core:open",
                       "params": {
                         "target": "Safari"
                       }
@@ -124,11 +134,11 @@
             "states": [
               {
                 "label": "Capture",
-                "icon": "core:screenshot-region",
+                "icon": "com.deckling.core:screenshot-region",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+shift+4"
                       }
@@ -136,7 +146,7 @@
                   ],
                   "long": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+shift+5"
                       }
@@ -147,20 +157,20 @@
             ]
           },
           "8": {
-            "app": "core:teams_mute"
+            "app": "com.deckling.teams:mute"
           },
           "9": {
-            "app": "core:media"
+            "app": "com.deckling.core:media"
           },
           "10": {
             "states": [
               {
                 "label": "Vol -",
-                "icon": "core:volume-down",
+                "icon": "com.deckling.core:volume-down",
                 "on": {
                   "down": [
                     {
-                      "action": "core:volume",
+                      "action": "com.deckling.core:volume",
                       "params": {
                         "value": "-5"
                       }
@@ -174,11 +184,11 @@
             "states": [
               {
                 "label": "Vol +",
-                "icon": "core:volume-up",
+                "icon": "com.deckling.core:volume-up",
                 "on": {
                   "down": [
                     {
-                      "action": "core:volume",
+                      "action": "com.deckling.core:volume",
                       "params": {
                         "value": "+5"
                       }
@@ -192,11 +202,11 @@
             "states": [
               {
                 "label": "Home",
-                "icon": "core:home",
+                "icon": "com.deckling.core:home",
                 "on": {
                   "press": [
                     {
-                      "action": "core:remote"
+                      "action": "com.deckling.ha:remote"
                     }
                   ],
                   "long": [
@@ -217,7 +227,7 @@
             "states": [
               {
                 "label": "Back",
-                "icon": "core:arrow-left",
+                "icon": "com.deckling.core:arrow-left",
                 "on": {
                   "press": [
                     {
@@ -232,11 +242,11 @@
             "states": [
               {
                 "label": "Dark",
-                "icon": "core:weather-moon",
+                "icon": "com.deckling.core:weather-moon",
                 "on": {
                   "press": [
                     {
-                      "action": "core:command",
+                      "action": "com.deckling.core:command",
                       "params": {
                         "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to true'"
                       }
@@ -252,11 +262,12 @@
               },
               {
                 "label": "Light",
-                "icon": "core:weather-sun",
+                "icon": "com.deckling.core:weather-sun",
+                "fg": "#FFBF69",
                 "on": {
                   "press": [
                     {
-                      "action": "core:command",
+                      "action": "com.deckling.core:command",
                       "params": {
                         "command": "osascript -e 'tell application \"System Events\" to tell appearance preferences to set dark mode to false'"
                       }
@@ -268,8 +279,7 @@
                       }
                     }
                   ]
-                },
-                "fg": "#FFBF69"
+                }
               }
             ]
           },
@@ -277,11 +287,11 @@
             "states": [
               {
                 "label": "Lock",
-                "icon": "core:lock-computer",
+                "icon": "com.deckling.core:lock-computer",
                 "on": {
                   "press": [
                     {
-                      "action": "core:command",
+                      "action": "com.deckling.core:command",
                       "params": {
                         "command": "pmset displaysleepnow"
                       }
@@ -295,11 +305,11 @@
             "states": [
               {
                 "label": "Previous",
-                "icon": "core:previous-track",
+                "icon": "com.deckling.core:previous-track",
                 "on": {
                   "press": [
                     {
-                      "action": "core:media",
+                      "action": "com.deckling.core:media",
                       "params": {
                         "command": "previous"
                       }
@@ -310,17 +320,17 @@
             ]
           },
           "6": {
-            "app": "core:media"
+            "app": "com.deckling.core:media"
           },
           "7": {
             "states": [
               {
                 "label": "Next",
-                "icon": "core:next-track",
+                "icon": "com.deckling.core:next-track",
                 "on": {
                   "press": [
                     {
-                      "action": "core:media",
+                      "action": "com.deckling.core:media",
                       "params": {
                         "command": "next"
                       }
@@ -347,11 +357,11 @@
             "states": [
               {
                 "label": "Back",
-                "icon": "core:arrow-left",
+                "icon": "com.deckling.core:arrow-left",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+["
                       }
@@ -365,11 +375,11 @@
             "states": [
               {
                 "label": "Forward",
-                "icon": "core:arrow-right",
+                "icon": "com.deckling.core:arrow-right",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+]"
                       }
@@ -383,11 +393,11 @@
             "states": [
               {
                 "label": "Reload",
-                "icon": "core:refresh",
+                "icon": "com.deckling.core:refresh",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+r"
                       }
@@ -395,7 +405,7 @@
                   ],
                   "long": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+shift+r"
                       }
@@ -409,11 +419,11 @@
             "states": [
               {
                 "label": "New tab",
-                "icon": "core:capture",
+                "icon": "com.deckling.core:capture",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+t"
                       }
@@ -430,7 +440,7 @@
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+w"
                       }
@@ -438,7 +448,7 @@
                   ],
                   "long": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+shift+t"
                       }
@@ -449,13 +459,13 @@
             ]
           },
           "5": {
-            "app": "core:sysmon"
+            "app": "com.deckling.core:sysmon"
           },
           "6": {
-            "app": "core:mute"
+            "app": "com.deckling.core:mute"
           },
           "7": {
-            "app": "core:clock"
+            "app": "com.deckling.core:clock"
           }
         }
       }
@@ -472,11 +482,11 @@
             "states": [
               {
                 "label": "Previous",
-                "icon": "core:previous-track",
+                "icon": "com.deckling.core:previous-track",
                 "on": {
                   "press": [
                     {
-                      "action": "core:media",
+                      "action": "com.deckling.core:media",
                       "params": {
                         "command": "previous"
                       }
@@ -487,17 +497,17 @@
             ]
           },
           "1": {
-            "app": "core:media"
+            "app": "com.deckling.core:media"
           },
           "2": {
             "states": [
               {
                 "label": "Next",
-                "icon": "core:next-track",
+                "icon": "com.deckling.core:next-track",
                 "on": {
                   "press": [
                     {
-                      "action": "core:media",
+                      "action": "com.deckling.core:media",
                       "params": {
                         "command": "next"
                       }
@@ -508,17 +518,17 @@
             ]
           },
           "3": {
-            "app": "core:mute"
+            "app": "com.deckling.core:mute"
           },
           "5": {
             "states": [
               {
                 "label": "Vol -",
-                "icon": "core:volume-down",
+                "icon": "com.deckling.core:volume-down",
                 "on": {
                   "down": [
                     {
-                      "action": "core:volume",
+                      "action": "com.deckling.core:volume",
                       "params": {
                         "value": "-5"
                       }
@@ -532,11 +542,11 @@
             "states": [
               {
                 "label": "Vol +",
-                "icon": "core:volume-up",
+                "icon": "com.deckling.core:volume-up",
                 "on": {
                   "down": [
                     {
-                      "action": "core:volume",
+                      "action": "com.deckling.core:volume",
                       "params": {
                         "value": "+5"
                       }
@@ -558,23 +568,23 @@
       "pages": {
         "main": {
           "0": {
-            "app": "core:teams_mute"
+            "app": "com.deckling.teams:mute"
           },
           "1": {
-            "app": "core:teams_camera"
+            "app": "com.deckling.teams:camera"
           },
           "2": {
-            "app": "core:teams_presence"
+            "app": "com.deckling.teams:presence"
           },
           "3": {
             "states": [
               {
                 "label": "Raise hand",
-                "icon": "core:teams-meeting",
+                "icon": "com.deckling.core:teams-meeting",
                 "on": {
                   "press": [
                     {
-                      "action": "core:teams",
+                      "action": "com.deckling.teams:meeting",
                       "params": {
                         "command": "toggle-hand"
                       }
@@ -588,11 +598,11 @@
             "states": [
               {
                 "label": "Leave\n(hold)",
-                "icon": "core:end-call",
+                "icon": "com.deckling.core:end-call",
                 "on": {
                   "long": [
                     {
-                      "action": "core:teams",
+                      "action": "com.deckling.teams:meeting",
                       "params": {
                         "command": "leave-call"
                       }
@@ -606,11 +616,11 @@
             "states": [
               {
                 "label": "Blur",
-                "icon": "core:mode-focus-on",
+                "icon": "com.deckling.core:mode-focus-on",
                 "on": {
                   "press": [
                     {
-                      "action": "core:teams",
+                      "action": "com.deckling.teams:meeting",
                       "params": {
                         "command": "toggle-background-blur"
                       }
@@ -624,11 +634,11 @@
             "states": [
               {
                 "label": "Chat",
-                "icon": "core:teams-chat",
+                "icon": "com.deckling.core:teams-chat",
                 "on": {
                   "press": [
                     {
-                      "action": "core:teams",
+                      "action": "com.deckling.teams:meeting",
                       "params": {
                         "command": "toggle-ui-chat"
                       }
@@ -639,7 +649,7 @@
             ]
           },
           "7": {
-            "app": "core:clock"
+            "app": "com.deckling.core:clock"
           }
         }
       }
@@ -662,17 +672,17 @@
       "pages": {
         "main": {
           "0": {
-            "app": "core:debugger"
+            "app": "com.deckling.jetbrains:debugger"
           },
           "1": {
             "states": [
               {
                 "label": "Run",
-                "icon": "core:play",
+                "icon": "com.deckling.core:play",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "ctrl+r"
                       }
@@ -686,11 +696,11 @@
             "states": [
               {
                 "label": "Stop",
-                "icon": "core:debug-stop",
+                "icon": "com.deckling.core:debug-stop",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+f2"
                       }
@@ -704,11 +714,11 @@
             "states": [
               {
                 "label": "Resume",
-                "icon": "core:timer-start",
+                "icon": "com.deckling.core:timer-start",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+alt+r"
                       }
@@ -722,11 +732,11 @@
             "states": [
               {
                 "label": "Breakpoint",
-                "icon": "core:breakpoint",
+                "icon": "com.deckling.core:breakpoint",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+f8"
                       }
@@ -740,11 +750,11 @@
             "states": [
               {
                 "label": "Step over",
-                "icon": "core:step-over",
+                "icon": "com.deckling.core:step-over",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "f8"
                       }
@@ -758,11 +768,11 @@
             "states": [
               {
                 "label": "Step into",
-                "icon": "core:step-into",
+                "icon": "com.deckling.core:step-into",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "f7"
                       }
@@ -776,11 +786,11 @@
             "states": [
               {
                 "label": "Step out",
-                "icon": "core:step-out",
+                "icon": "com.deckling.core:step-out",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "shift+f8"
                       }
@@ -794,11 +804,11 @@
             "states": [
               {
                 "label": "Evaluate",
-                "icon": "core:calculator",
+                "icon": "com.deckling.core:calculator",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "alt+f8"
                       }
@@ -812,11 +822,11 @@
             "states": [
               {
                 "label": "Find action",
-                "icon": "core:search",
+                "icon": "com.deckling.core:search",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+shift+a"
                       }
@@ -830,11 +840,11 @@
             "states": [
               {
                 "label": "Reformat",
-                "icon": "core:code-editor",
+                "icon": "com.deckling.core:code-editor",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+alt+l"
                       }
@@ -848,11 +858,11 @@
             "states": [
               {
                 "label": "Terminal",
-                "icon": "core:terminal",
+                "icon": "com.deckling.core:terminal",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "alt+f12"
                       }
@@ -866,11 +876,11 @@
             "states": [
               {
                 "label": "Commit",
-                "icon": "core:git-branch",
+                "icon": "com.deckling.core:git-branch",
                 "on": {
                   "press": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+k"
                       }

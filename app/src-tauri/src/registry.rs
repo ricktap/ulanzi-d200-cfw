@@ -146,7 +146,7 @@ impl Files for Embedded {
         PACKAGE_FILES.iter().filter(|(p, _)| p.starts_with(&pre)).map(|(p, _)| p.to_string()).collect()
     }
     fn svg(&self, dir: &str, file: &str) -> Option<String> {
-        if dir != "core/night-signal" {
+        if dir != NIGHT_SIGNAL {
             return None;
         }
         let name = file.strip_suffix(".svg").unwrap_or(file);
@@ -154,12 +154,29 @@ impl Files for Embedded {
     }
 }
 
-/// The registry of the built-in packages.
+/// Night Signal in the embedded files: the icon set of com.deckling.core.
+pub const NIGHT_SIGNAL: &str = "plugins/com.deckling.core/iconset";
+
+/// The plugin that holds the built-in apps and Night Signal. Plain icon names
+/// ("volume-on") and the old `core:` icon ids resolve to it.
+pub const CORE_PLUGIN: &str = "com.deckling.core";
+
+/// The registry of the built-in packages: the fixed core, then every plugin in `plugins/`.
 pub fn builtin() -> &'static Registry {
     static R: OnceLock<Registry> = OnceLock::new();
     R.get_or_init(|| {
         let mut r = Registry::default();
         r.load_plugin(&Embedded, "core");
+        let mut dirs: Vec<String> = Embedded
+            .list("plugins")
+            .into_iter()
+            .filter_map(|p| p.strip_suffix("/deckling.json").map(str::to_string))
+            .filter(|d| d.matches('/').count() == 1)
+            .collect();
+        dirs.sort();
+        for d in dirs {
+            r.load_plugin(&Embedded, &d);
+        }
         for w in &r.warnings {
             eprintln!("packages: {w}");
         }
@@ -275,7 +292,7 @@ impl Registry {
         }
         let svg_dir = sub("svg", "svg/");
         // Every SVG is an icon; without a binding file it only fulfils `button`.
-        let names: Vec<String> = if dir == "core/night-signal" {
+        let names: Vec<String> = if dir == NIGHT_SIGNAL {
             ICONS.iter().map(|(n, _)| format!("{n}.svg")).collect()
         } else {
             files.list(&svg_dir).into_iter().filter_map(|p| p.rsplit('/').next().map(str::to_string)).filter(|n| n.ends_with(".svg")).collect()
@@ -308,10 +325,18 @@ impl Registry {
         self.apps.get(id)
     }
 
-    /// An icon by id; Night Signal names without a namespace are accepted too.
+    /// An icon by id. Night Signal names without a namespace, or with the old `core:`,
+    /// are accepted too (remote keys and cards from Home Assistant send plain names).
     pub fn icon(&self, id: &str) -> Option<&IconDef> {
         let id = id.trim();
-        self.icons.get(id).or_else(|| if id.contains(':') { None } else { self.icons.get(&format!("core:{id}")) })
+        self.icons.get(id).or_else(|| {
+            let name = id.strip_prefix("core:").unwrap_or(id);
+            if name.contains(':') {
+                None
+            } else {
+                self.icons.get(&format!("{CORE_PLUGIN}:{name}"))
+            }
+        })
     }
 
     /// Icons offered for an app: those sharing a role, richest shared role first.
@@ -397,12 +422,19 @@ mod tests {
     fn builtin_packages_load_cleanly() {
         let r = builtin();
         assert!(r.warnings.is_empty(), "{:#?}", r.warnings);
-        assert_eq!(r.plugins[0].id, "core");
-        assert!(r.apps.contains_key("core:clock"));
+        let ids: Vec<&str> = r.plugins.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, ["core", "com.deckling.core", "com.deckling.ha", "com.deckling.jetbrains", "com.deckling.teams"]);
+        assert!(r.apps.contains_key("com.deckling.core:clock"));
+        assert!(r.apps.contains_key("com.deckling.teams:mute"));
+        assert!(r.apps.contains_key("com.deckling.jetbrains:debugger"));
         assert!(r.actions.contains_key("core:page"));
+        assert!(r.actions.contains_key("com.deckling.ha:mqtt"));
+        assert!(r.signals.contains_key("time.second"));
+        assert!(r.signals.contains_key("com.deckling.teams:mic_on"));
         assert_eq!(r.icons.len(), 218);
-        assert_eq!(r.icon("core:light").unwrap().roles, vec!["rgb", "toggle", "button"]);
+        assert_eq!(r.icon("com.deckling.core:light").unwrap().roles, vec!["rgb", "toggle", "button"]);
         assert!(r.icon("volume-on").is_some(), "plain names still resolve");
+        assert!(r.icon("core:volume-on").is_some(), "old core: ids still resolve");
         for a in r.apps.values() {
             if let Some(i) = &a.icon {
                 assert!(r.icon(i).is_some(), "{}: default icon {i} missing", a.id);
@@ -413,8 +445,8 @@ mod tests {
     #[test]
     fn icons_offered_by_shared_role() {
         let r = builtin();
-        let offered = r.icons_for(r.app("core:clock").unwrap());
-        assert_eq!(offered[0].0.id, "core:analog-clock");
+        let offered = r.icons_for(r.app("com.deckling.core:clock").unwrap());
+        assert_eq!(offered[0].0.id, "com.deckling.core:analog-clock");
         assert_eq!(offered[0].1, "clock");
         // plain icons come last, sharing only `button`
         assert_eq!(offered.last().unwrap().1, "button");

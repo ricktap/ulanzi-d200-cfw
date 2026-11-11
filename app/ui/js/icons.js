@@ -15,7 +15,7 @@ const roleName = (r) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-/** Searchable grid of the icon set; `big` shows names (library view). Picks `core:` ids or emoji. */
+/** Searchable grid of the icon set; `big` shows names (library view). Picks `com.deckling.core:` ids or emoji. */
 export function iconPicker(onPick, big = false) {
   const grid = h("div", { class: "igrid" + (big ? " big" : "") });
   const search = h("input", { placeholder: `Search ${iconList().length} icons…`, class: big ? "lib-search" : "" });

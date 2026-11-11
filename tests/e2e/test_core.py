@@ -25,10 +25,10 @@ cfg["settings"]["long_press_ms"] = 400
 cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18830)
 cfg["profiles"][0]["pages"]["main"]["8"] = {"states": [
     {"label": "Off", "bg": "#ff0000", "on": {
-        "down": [{"action": "core:command", "params": {"command": f"touch {mark('D')}"}}],
-        "up": [{"action": "core:command", "params": {"command": f"touch {mark('U')}"}}],
-        "press": [{"action": "core:command", "params": {"command": f"touch {mark('A')}"}}, {"action": "core:state", "params": {"to": "next"}}],
-        "long": [{"action": "core:command", "params": {"command": f"touch {mark('L')}"}}]}},
+        "down": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('D')}"}}],
+        "up": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('U')}"}}],
+        "press": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('A')}"}}, {"action": "core:state", "params": {"to": "next"}}],
+        "long": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('L')}"}}]}},
     {"label": "On", "bg": "#00ff00", "on": {"press": [{"action": "core:state", "params": {"to": "next"}}]}}]}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 

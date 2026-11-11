@@ -1,7 +1,8 @@
 {
-  "id": "core:clock",
+  "id": "com.deckling.core:clock",
   "name": "Clock",
-  "icon": "core:analog-clock",
+  "description": "Press switches between the time and the date.",
+  "icon": "com.deckling.core:analog-clock",
   "face": "clock",
   "config": [
     {

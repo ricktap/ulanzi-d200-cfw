@@ -1,5 +1,5 @@
 {
-  "id": "core:pomodoro",
+  "id": "com.deckling.core:pomodoro",
   "roles": [
     "progress",
     "button"

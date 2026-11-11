@@ -1,0 +1,16 @@
+{
+  "id": "com.deckling.core",
+  "type": "plugin",
+  "name": "Core apps",
+  "version": "1.0.0",
+  "description": "System monitor, mute, weather, clock, pomodoro and media, with the Night Signal icons.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/",
+    "iconset": "iconset/"
+  }
+}

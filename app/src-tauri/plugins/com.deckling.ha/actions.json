@@ -1,0 +1,28 @@
+[
+  {
+    "id": "com.deckling.ha:mqtt",
+    "name": "MQTT publish",
+    "params": [
+      {
+        "key": "topic",
+        "label": "Topic",
+        "type": "text"
+      },
+      {
+        "key": "payload",
+        "label": "Payload",
+        "type": "text"
+      },
+      {
+        "key": "retain",
+        "label": "Retain",
+        "type": "toggle"
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.ha:remote",
+    "name": "Remote page",
+    "params": []
+  }
+]

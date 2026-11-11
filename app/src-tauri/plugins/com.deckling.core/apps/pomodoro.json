@@ -1,0 +1,31 @@
+{
+  "id": "com.deckling.core:pomodoro",
+  "name": "Pomodoro",
+  "description": "Press starts, pauses and resumes. Long press resets. Times in Settings, Pomodoro.",
+  "icon": "com.deckling.core:pomodoro",
+  "face": "pomodoro",
+  "implements": {
+    "progress": {
+      "value": {
+        "bind": "com.deckling.core:pomodoro.progress",
+        "fallback": 0
+      }
+    },
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.core:pomodoro.running",
+        "fallback": false
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "com.deckling.core:pomodoro.remaining",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

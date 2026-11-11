@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "settings": {
     "brightness": 180,
     "long_press_ms": 500,
@@ -28,6 +28,37 @@
       "tls": false,
       "base_topic": "d200",
       "discovery": true
+    },
+    "teams": {
+      "port": 8124,
+      "client_id": "",
+      "tenant": "organizations",
+      "away": "DoNotDisturb"
+    },
+    "screensaver": {
+      "enabled": true,
+      "idle_minutes": 3,
+      "scene": "auto",
+      "southern": false,
+      "motion": true,
+      "fps": 8
+    },
+    "cards": {
+      "email": true,
+      "meetings": true,
+      "steam": true,
+      "printer": true,
+      "hide_content": false
+    },
+    "theme": {
+      "palette": {
+        "active": "#69E0C1",
+        "info": "#B79AF7",
+        "attention": "#FFBF69",
+        "error": "#FF8278",
+        "background": "#11171D"
+      },
+      "widgets": {}
     }
   },
   "status_key": {
@@ -39,10 +70,12 @@
       ],
       "long": [
         {
-          "action": "core:remote"
+          "action": "com.deckling.ha:remote"
         }
       ]
-    }
+    },
+    "app": "profile",
+    "show": "auto"
   },
   "profiles": [
     {
@@ -51,21 +84,15 @@
       "pages": {
         "main": {
           "0": {
-            "app": "core:sysmon",
+            "app": "com.deckling.core:sysmon",
             "states": [
               {
-                "bg": "#0f172a",
-                "on": {
-                  "press": [],
-                  "long": [],
-                  "down": [],
-                  "up": []
-                }
+                "bg": "#0f172a"
               }
             ]
           },
           "1": {
-            "app": "core:mute"
+            "app": "com.deckling.core:mute"
           },
           "5": {
             "states": [
@@ -76,7 +103,7 @@
                 "on": {
                   "press": [
                     {
-                      "action": "core:open",
+                      "action": "com.deckling.core:open",
                       "params": {
                         "target": "Terminal"
                       }
@@ -84,7 +111,7 @@
                   ],
                   "long": [
                     {
-                      "action": "core:keys",
+                      "action": "com.deckling.core:keys",
                       "params": {
                         "combo": "cmd+n"
                       }
@@ -92,7 +119,7 @@
                   ],
                   "down": [
                     {
-                      "action": "core:mqtt",
+                      "action": "com.deckling.ha:mqtt",
                       "params": {
                         "topic": "home/x",
                         "payload": "ON",
@@ -157,7 +184,7 @@
                       "action": "core:back"
                     },
                     {
-                      "action": "core:remote"
+                      "action": "com.deckling.ha:remote"
                     },
                     {
                       "action": "core:page",

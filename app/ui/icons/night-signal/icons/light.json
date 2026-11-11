@@ -1,5 +1,5 @@
 {
-  "id": "core:light",
+  "id": "com.deckling.core:light",
   "roles": [
     "rgb",
     "toggle",

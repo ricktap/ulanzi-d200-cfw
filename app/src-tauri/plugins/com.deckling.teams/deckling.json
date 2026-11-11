@@ -1,0 +1,54 @@
+{
+  "id": "com.deckling.teams",
+  "type": "plugin",
+  "name": "Microsoft Teams",
+  "version": "1.0.0",
+  "description": "Meeting controls over the Teams local API, presence through Microsoft 365.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "config": [
+    {
+      "key": "teams.port",
+      "label": "Teams API port",
+      "type": "number",
+      "default": 8124
+    },
+    {
+      "key": "teams.client_id",
+      "label": "Entra app (client) id",
+      "type": "text"
+    },
+    {
+      "key": "teams.tenant",
+      "label": "Tenant",
+      "type": "text",
+      "default": "organizations"
+    },
+    {
+      "key": "teams.away",
+      "label": "Unavailable means",
+      "type": "select",
+      "default": "DoNotDisturb",
+      "values": [
+        {
+          "label": "Do not disturb",
+          "value": "DoNotDisturb"
+        },
+        {
+          "label": "Busy",
+          "value": "Busy"
+        },
+        {
+          "label": "Away",
+          "value": "Away"
+        }
+      ]
+    }
+  ],
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/"
+  }
+}

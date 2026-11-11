@@ -22,7 +22,7 @@ for scene in ["snow", "pink", "beach", "leaves", "rain"]:
     cfg["settings"]["follow_active_app"] = False
     cfg["settings"]["screensaver"] = {"enabled": True, "idle_minutes": 30, "scene": scene, "southern": False, "motion": True, "fps": 8}
     marker = sim + "/ran"
-    cfg["profiles"][0]["pages"]["main"]["5"]["states"][0]["on"] = {"press": [{"action": "core:command", "params": {"command": f"touch {marker}"}}]}
+    cfg["profiles"][0]["pages"]["main"]["5"]["states"][0]["on"] = {"press": [{"action": "com.deckling.core:command", "params": {"command": f"touch {marker}"}}]}
     json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
     dev = subprocess.Popen([os.environ["D200FW_HOST_BIN"], "--no-kill", "--port", "7397", "--fb", sim + "/fb", "--input", sim + "/kbd"], stderr=subprocess.DEVNULL)
     kbd = open(sim + "/kbd", "wb", buffering=0)

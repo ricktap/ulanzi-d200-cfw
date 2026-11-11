@@ -11,8 +11,9 @@ of `docs/deckling/briefing.md` are in place; 5 to 8 are not.
 | `registry.rs` | Loads packages: plugins (interfaces, signals, actions, apps, embedded icon set) and icon sets. Runs the load-time checks. `catalog()` for the UI |
 | `icons.rs` | `apply_parts` sets resolved bindings into an SVG (`progress`, `visible`, `text`, any attribute); `render_bound` rasterises with resvg |
 | `migrate.rs` | deck.json version 1 to 2, and `legacy_props` for the old `icon_state` objects |
-| `app/src-tauri/core/` | The core plugin as data: `deckling.json`, `interfaces.json`, `signals.json`, `actions.json`, `apps/*.json` |
-| `app/ui/icons/night-signal/` | Night Signal, the core's embedded icon set: `deckling.json`, `svg/`, binding files in `icons/`, interface copies in `interfaces/` |
+| `app/src-tauri/core/` | `core`, what is fixed in the app: primitive interfaces, `time.*` signals, navigation actions, the plain button |
+| `app/src-tauri/plugins/<id>/` | The built-in plugins as data: `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains`, `com.deckling.ha` |
+| `app/ui/icons/night-signal/` | Night Signal, the icon set embedded in `com.deckling.core`: `deckling.json`, `svg/`, binding files in `icons/`, interface copies in `interfaces/` |
 
 ## Icon sets
 
@@ -24,7 +25,7 @@ A binding file:
 
 ```json
 {
-  "id": "core:light",
+  "id": "com.deckling.core:light",
   "roles": ["rgb", "toggle", "button"],
   "file": "light.svg",
   "parts": { "light-glass": { "fill": { "prop": "rgb.color", "fallback": { "tone": "accent" } } } }
@@ -49,17 +50,19 @@ As in the icon workbench report, collected in `Registry.warnings` and shown in t
 - an icon set's interface copy that differs from the installed interface
 - two packages with the same id
 
-## Core signals
+## Signals
 
-Published by the engine every second (`Engine::publish_core`). Types are in
-`app/src-tauri/core/signals.json`.
+Published by the engine every second (`Engine::publish_core`). Types are in each package's
+`signals.json`.
 
-`time.clock`, `time.second`, `time.tick`, `time.hour_angle`, `time.minute_angle`,
-`time.second_angle`, `time.second_progress`, `system.cpu`, `system.ram`, `system.disk`,
-`system.net_down`, `system.net_up`, `audio.muted`, `weather.temperature`, `weather.summary`,
-`pomodoro.progress`, `pomodoro.running`, `pomodoro.phase`, `pomodoro.remaining`,
-`media.playing`, `media.title`, `media.artist`, `media.progress`, `teams.connected`,
-`teams.in_meeting`, `teams.mic_on`, `teams.video`, `presence.availability`, `debugger.active`.
+| Package | Signals |
+|---|---|
+| `core` | `time.clock`, `time.second`, `time.tick`, `time.hour_angle`, `time.minute_angle`, `time.second_angle`, `time.second_progress` |
+| `com.deckling.core` | `system.cpu`, `system.ram`, `system.disk`, `system.net_down`, `system.net_up`, `audio.muted`, `weather.temperature`, `weather.summary`, `pomodoro.progress`, `pomodoro.running`, `pomodoro.phase`, `pomodoro.remaining`, `media.playing`, `media.title`, `media.artist`, `media.progress` |
+| `com.deckling.teams` | `connected`, `in_meeting`, `mic_on`, `video`, `presence` |
+| `com.deckling.jetbrains` | `debugger.active` |
+
+Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckling.teams:mic_on`.
 
 ## Drawing a key
 
@@ -94,8 +97,11 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 - **Settings stay in `settings`.** The core plugin's `config` schema names keys there
   (`long_press_ms`, `screensaver.enabled`, ...). Moving them to `plugins.<id>.config` comes with
   the integrations (work package 5).
-- **Teams, JetBrains and MQTT are still core.** Their apps and signals carry core names
-  (`core:teams_mute`, `teams.mic_on`) until package ids are decided (architecture section 13.1).
+- **The built-in plugins run inside the engine.** `com.deckling.teams`, `com.deckling.jetbrains`
+  and `com.deckling.ha` have their own namespaces and package files, but their code is still
+  called from `engine.rs` (work package 5 moves it behind the plugin interface).
+- **Default icons come from `com.deckling.core`.** The Teams and JetBrains apps use Night Signal
+  icons instead of an icon set of their own.
 - **Built-in widgets stay.** Core apps keep their drawn widgets as the face for the default
   icon. Apps publish signals for every other icon.
 - **App behaviour on press is built in.** Core apps keep their press handling (cycling views,

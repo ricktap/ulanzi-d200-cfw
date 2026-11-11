@@ -1,7 +1,8 @@
 {
-  "id": "core:debugger",
+  "id": "com.deckling.jetbrains:debugger",
   "name": "Debugger",
-  "icon": "core:debug-active",
+  "description": "Lights up while a JetBrains IDE debugs. Press: debug or resume. Long press while debugging: stop.",
+  "icon": "com.deckling.core:debug-active",
   "face": "debugger",
   "config": [
     {
@@ -26,7 +27,7 @@
   "implements": {
     "toggle": {
       "on": {
-        "bind": "debugger.active",
+        "bind": "com.deckling.jetbrains:debugger.active",
         "fallback": false
       }
     }

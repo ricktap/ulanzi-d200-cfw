@@ -23,7 +23,7 @@ fn main() {
     // The core plugin and the Night Signal icon set as package files, parsed at
     // runtime by the package loader (registry.rs): (package path, contents).
     out += "pub static PACKAGE_FILES: &[(&str, &str)] = &[\n";
-    for (root, prefix) in [("core", "core"), ("../ui/icons/night-signal", "core/night-signal")] {
+    for (root, prefix) in [("core", "core"), ("plugins", "plugins"), ("../ui/icons/night-signal", NIGHT_SIGNAL)] {
         println!("cargo:rerun-if-changed={root}");
         let mut files = vec![];
         walk(std::path::Path::new(root), &mut files);
@@ -42,6 +42,9 @@ fn main() {
 
     tauri_build::build()
 }
+
+/// Where Night Signal sits in the package files: the icon set embedded in com.deckling.core.
+const NIGHT_SIGNAL: &str = "plugins/com.deckling.core/iconset";
 
 fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
     for e in std::fs::read_dir(dir).unwrap().flatten() {

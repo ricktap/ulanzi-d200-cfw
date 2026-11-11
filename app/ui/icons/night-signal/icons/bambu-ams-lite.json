@@ -1,5 +1,5 @@
 {
-  "id": "core:bambu-ams-lite",
+  "id": "com.deckling.core:bambu-ams-lite",
   "roles": [
     "com.ricktap.bambu:ams",
     "button"
