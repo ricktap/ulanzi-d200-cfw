@@ -194,6 +194,12 @@ async function listenAll() {
     if (state.pane === "packages" && !typing) renderPackages();
   });
   await listen("teams-signin", (e) => teamsSignedIn(e.payload));
+  // packages were added, removed or reloaded: new catalog, everything redrawn
+  await listen("packages", async () => {
+    await loadCatalog();
+    renderAll();
+    if (state.pane === "packages") renderPackages();
+  });
 }
 
 async function init() {

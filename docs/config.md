@@ -3,20 +3,22 @@
 The app edits this file for you. This page is for hand edits and scripting. The source of truth
 is `app/src-tauri/src/config.rs`; the target model is `docs/deckling/architecture.md`.
 
-The file has a `version`. This app writes version 4. An older file is migrated when it is loaded
+The file has a `version`. This app writes version 5. An older file is migrated when it is loaded
 (`migrate.rs`); the original stays next to it as `deck.v<N>.json`. A newer version, or a file that
 does not parse, is moved to `deck.json.old` and the app starts from `default-config.json`.
 Fields, apps and actions this version does not know are kept when the file is saved.
 
 ```jsonc
 {
-  "version": 4,
+  "version": 5,
   "plugins": {
     "core": { "config": { "long_press_ms": 500, "follow_active_app": true, "mqtt": { ... }, ... } },
     "com.deckling.core": { "config": { "weather": { ... }, "pomodoro": { ... } } },
     "com.deckling.teams": { "enabled": true, "config": { "port": 8124, ... } }
   },
   "status_key": { "app": "profile", "show": "auto", "on": { "press": [{"action": "core:home"}] } },
+  "theme": "com.deckling.amber",                             // optional: a theme of type full
+  "overlays": ["com.deckling.cpu-heat", "com.deckling.rainbow"], // optional: partial themes, later wins
   "profiles": [
     {
       "name": "Default",            // the first profile is the fallback
@@ -33,6 +35,13 @@ Fields, apps and actions this version does not know are kept when the file is sa
   ]
 }
 ```
+
+`theme` names the active theme of type `full`; without it the deck uses Night Signal with the
+palette in `plugins.core.config.theme`. `overlays` are themes of type `partial` in order: when two
+set the same variable, the later one wins. `plugins.core.config.theme.variables` comes last. Themes
+are packages: built in (`com.deckling.amber`, `com.deckling.glacier`, `com.deckling.rainbow`,
+`com.deckling.cpu-heat`) or from the packages folder (see [packages.md](packages.md)). Version 4
+files load unchanged as version 5.
 
 Keys `0`-`12` are the square keys. The wide key (13) is the **status key** and is set up in
 `status_key`.

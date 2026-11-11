@@ -10,7 +10,7 @@
 //! | `prop`   | `<interface>.<property>` of the key's app      | icon              |
 //! | `tone`   | a theme variable                               | icon              |
 //!
-//! then `fallback` (when the value is missing), `steps`, `map`, `prefix`/`suffix`.
+//! then `fallback` (when the value is missing), `steps` (with optional `range`), `map`, `prefix`/`suffix`.
 //! Values in `steps`, `fallback` and theme variables may be bindings themselves.
 
 use serde_json::{Map, Value};
@@ -111,8 +111,15 @@ fn resolve_d(spec: &Value, ctx: &Ctx, reads: &mut Reads, depth: u32) -> Option<V
         return o.get("fallback").and_then(|f| resolve_d(f, ctx, reads, depth + 1));
     };
     if let Some(steps) = o.get("steps").and_then(Value::as_array).filter(|s| !s.is_empty()) {
-        let i = number(&value).unwrap_or(0.0).floor() as i64;
-        let i = i.rem_euclid(steps.len() as i64) as usize;
+        let n = number(&value).unwrap_or(0.0);
+        let len = steps.len() as i64;
+        // With `range: [low, high]` the value picks a step from low to high (clamped);
+        // without, the whole number cycles through the steps (time.tick, time.second).
+        let range = o.get("range").and_then(Value::as_array).and_then(|r| Some((number(r.first()?)?, number(r.get(1)?)?)));
+        let i = match range {
+            Some((lo, hi)) if hi > lo => (((n - lo) / (hi - lo) * len as f64).floor() as i64).clamp(0, len - 1),
+            _ => (n.floor() as i64).rem_euclid(len),
+        } as usize;
         value = resolve_d(&steps[i], ctx, reads, depth + 1)?;
     }
     if let Some(map) = o.get("map").and_then(Value::as_object) {
@@ -302,6 +309,14 @@ mod tests {
         );
         // negative numbers wrap around
         assert_eq!(w.r(json!({"bind": "time.second", "steps": ["a", "b", "c"]})), Some(json!("b")));
+        // with a range the value picks from low to high and is clamped
+        let r = |n: f64| {
+            let mut w = World::new();
+            w.signals.publish("x", json!(n));
+            w.r(json!({"bind": "x", "range": [0, 100], "steps": ["low", "mid", "high"]}))
+        };
+        assert_eq!((r(0.0), r(40.0), r(80.0), r(100.0), r(-5.0), r(250.0)),
+            (Some(json!("low")), Some(json!("mid")), Some(json!("high")), Some(json!("high")), Some(json!("low")), Some(json!("high"))));
     }
 
     #[test]

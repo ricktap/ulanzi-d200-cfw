@@ -5,6 +5,7 @@ import { invoke, listen, currentWebview } from "./api.js";
 import { state, NUM_KEYS, STATUS_KEY, edit, hint, render, goto, profile, keyObj, ensureKey, ensureState, keyKind } from "./store.js";
 import { appAvailable } from "./catalog.js";
 import { placeApp, swapKeys } from "./apps.js";
+import { installPaths } from "./packages.js";
 
 export const keyEl = (k) => document.querySelector(`.key[data-key="${k}"]`);
 
@@ -128,7 +129,12 @@ export function wireDrop() {
   wv.onDragDropEvent((ev) => {
     const p = ev.payload;
     document.querySelectorAll(".key.over").forEach((el) => el.classList.remove("over"));
-    if (state.view.remote) return;
+    if (state.pane === "packages") {
+      document.getElementById("pkg-drop")?.classList.toggle("over", p.type === "over" || p.type === "enter");
+      if (p.type === "drop") installPaths(p.paths || []);
+      return;
+    }
+    if (state.pane !== "deck" || state.view.remote) return;
     if (p.type === "over" || p.type === "enter") {
       const k = keyAt(p.position);
       if (k !== null && k !== STATUS_KEY) keyEl(k).classList.add("over");

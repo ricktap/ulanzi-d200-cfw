@@ -1,0 +1,18 @@
+{
+  "id": "com.deckling.cpu-heat",
+  "type": "theme",
+  "name": "CPU heat",
+  "version": "1.0.0",
+  "description": "The accent follows the CPU load: mint when idle, amber when busy, coral under full load.",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "accent": {
+        "bind": "com.deckling.core:system.cpu",
+        "range": [0, 100],
+        "steps": ["#69E0C1", "#69E0C1", "#FFBF69", "#FF8278"],
+        "fallback": "#69E0C1"
+      }
+    }
+  }
+}

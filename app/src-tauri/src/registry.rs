@@ -12,7 +12,8 @@ use crate::bind;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::icons::{ICONS, PACKAGE_FILES};
 
@@ -34,6 +35,9 @@ pub struct PluginInfo {
     pub config: Vec<Value>,
     #[serde(default)]
     pub runtime: Value,
+    /// Where a package from disk lives; empty for built-in packages.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub path: String,
     #[serde(default)]
     pub contributes: Map<String, Value>,
 }
@@ -125,9 +129,24 @@ pub struct IconDef {
     pub svg: String,
 }
 
-#[derive(Debug, Default)]
+/// A theme package: `full` sets the core variables (exactly one is active), `partial`
+/// sets single variables as an overlay (any number, in the user's order).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeDef {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// "full" or "partial"
+    pub kind: String,
+    pub variables: Map<String, Value>,
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct Registry {
+    /// Every package: plugins, icon sets and themes (`type`), built in or from disk (`path`).
     pub plugins: Vec<PluginInfo>,
+    pub themes: IndexMap<String, ThemeDef>,
     pub interfaces: IndexMap<String, Interface>,
     pub signals: IndexMap<String, SignalDef>,
     pub actions: IndexMap<String, ActionDef>,
@@ -201,11 +220,128 @@ pub fn builtin() -> &'static Registry {
         for d in dirs {
             r.load_plugin(&Embedded, &d);
         }
+        let mut themes: Vec<String> = Embedded
+            .list("themes")
+            .into_iter()
+            .filter_map(|p| p.strip_suffix("/deckling.json").map(str::to_string))
+            .collect();
+        themes.sort();
+        for d in themes {
+            r.load_package(&Embedded, &d, "");
+        }
         for w in &r.warnings {
             eprintln!("packages: {w}");
         }
         r
     })
+}
+
+/// The registry in use: the built-in packages plus those in the packages folder
+/// (`<config dir>/packages/<id>/`). Replaced by `load_disk`.
+pub fn current() -> Arc<Registry> {
+    let cur = CURRENT.read().unwrap().clone();
+    cur.unwrap_or_else(|| {
+        let r = Arc::new(builtin().clone());
+        *CURRENT.write().unwrap() = Some(r.clone());
+        r
+    })
+}
+
+static CURRENT: RwLock<Option<Arc<Registry>>> = RwLock::new(None);
+
+/// Build the registry from the built-in packages and every package folder in `dir`, and
+/// make it current. Plugins from disk are refused (third-party plugins come later).
+pub fn load_disk(dir: &Path) -> Arc<Registry> {
+    let mut r = builtin().clone();
+    let files = Disk(dir.to_path_buf());
+    let mut dirs: Vec<String> = std::fs::read_dir(dir)
+        .map(|rd| rd.flatten().filter(|e| e.path().join("deckling.json").is_file()).filter_map(|e| e.file_name().to_str().map(str::to_string)).collect())
+        .unwrap_or_default();
+    dirs.sort();
+    for d in dirs {
+        r.load_package(&files, &d, &dir.join(&d).display().to_string());
+    }
+    for w in &r.warnings {
+        eprintln!("packages: {w}");
+    }
+    let r = Arc::new(r);
+    *CURRENT.write().unwrap() = Some(r.clone());
+    r
+}
+
+/// Copy the package folder `src` (with its `deckling.json`) into `packages` as
+/// `packages/<id>`. Icon sets and themes only; a built-in id is refused; a package from
+/// disk with the same id is replaced. Returns the id.
+pub fn install_package(src: &Path, packages: &Path) -> Result<String, String> {
+    let text = std::fs::read_to_string(src.join("deckling.json")).map_err(|_| format!("{} has no deckling.json", src.display()))?;
+    let info: PluginInfo = serde_json::from_str(&text).map_err(|e| format!("deckling.json: {e}"))?;
+    if !matches!(info.kind.as_str(), "iconset" | "theme") {
+        return Err(format!("{} is a {}; only icon sets and themes can be added for now", info.id, info.kind));
+    }
+    let id_ok = info.id.contains('.') && info.id.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c));
+    if !id_ok {
+        return Err(format!("{:?} is not a package id like com.example.name", info.id));
+    }
+    if builtin().plugins.iter().any(|p| p.id == info.id) {
+        return Err(format!("{} is built into the app", info.id));
+    }
+    let dest = packages.join(&info.id);
+    if dest.exists() {
+        std::fs::remove_dir_all(&dest).map_err(|e| e.to_string())?;
+    }
+    copy_dir(src, &dest).map_err(|e| e.to_string())?;
+    Ok(info.id)
+}
+
+/// Remove the package `id` from the packages folder (packages from disk only).
+pub fn remove_package(id: &str, packages: &Path) -> Result<(), String> {
+    let dest = packages.join(id);
+    if id.is_empty() || id.contains(['/', '\\']) || id.starts_with('.') || !dest.join("deckling.json").is_file() {
+        return Err(format!("{id} is not a package from disk"));
+    }
+    std::fs::remove_dir_all(dest).map_err(|e| e.to_string())
+}
+
+fn copy_dir(src: &Path, dest: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dest)?;
+    for e in std::fs::read_dir(src)?.flatten() {
+        let to = dest.join(e.file_name());
+        if e.file_type()?.is_dir() {
+            copy_dir(&e.path(), &to)?;
+        } else {
+            std::fs::copy(e.path(), to)?;
+        }
+    }
+    Ok(())
+}
+
+/// Package files in a folder on disk.
+pub struct Disk(pub PathBuf);
+
+impl Files for Disk {
+    fn read(&self, path: &str) -> Option<String> {
+        std::fs::read_to_string(self.0.join(path)).ok()
+    }
+    fn list(&self, dir: &str) -> Vec<String> {
+        fn walk(root: &Path, rel: &str, out: &mut Vec<String>) {
+            let Ok(rd) = std::fs::read_dir(root.join(rel)) else { return };
+            for e in rd.flatten() {
+                let name = format!("{rel}/{}", e.file_name().to_string_lossy());
+                if e.path().is_dir() {
+                    walk(root, &name, out);
+                } else {
+                    out.push(name);
+                }
+            }
+        }
+        let mut out = vec![];
+        walk(&self.0, dir.trim_end_matches('/'), &mut out);
+        out.sort();
+        out
+    }
+    fn svg(&self, dir: &str, file: &str) -> Option<String> {
+        self.read(&format!("{dir}/svg/{file}"))
+    }
 }
 
 fn parse<T: serde::de::DeserializeOwned>(files: &dyn Files, path: &str, warnings: &mut Vec<String>) -> Option<T> {
@@ -285,6 +421,54 @@ impl Registry {
         self.plugins.push(info);
         if let Some(p) = path("iconset") {
             self.load_iconset(files, &p, &id);
+        }
+    }
+
+    /// Load one package folder of any kind; `path` is where it lives on disk (empty: built in).
+    pub fn load_package(&mut self, files: &dyn Files, dir: &str, path: &str) {
+        let Some(mut info) = parse::<PluginInfo>(files, &format!("{dir}/deckling.json"), &mut self.warnings) else {
+            self.warnings.push(format!("{dir}: no deckling.json"));
+            return;
+        };
+        if self.plugins.iter().any(|p| p.id == info.id) {
+            self.warnings.push(format!("{dir}: a package with id {} is already installed", info.id));
+            return;
+        }
+        info.path = path.to_string();
+        match info.kind.as_str() {
+            "iconset" => {
+                self.load_iconset(files, dir, &info.id);
+                self.plugins.push(info);
+            }
+            "theme" => {
+                let raw: Value = files.read(&format!("{dir}/deckling.json")).and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+                let kind = raw["theme"]["type"].as_str().unwrap_or("partial").to_string();
+                let variables = raw["theme"]["variables"].as_object().cloned().unwrap_or_default();
+                if kind == "full" {
+                    for v in ["background", "base", "muted", "accent"] {
+                        if !variables.contains_key(v) {
+                            self.warnings.push(format!("{}: a full theme sets {v}", info.id));
+                        }
+                    }
+                }
+                let mut miss = vec![];
+                bind::missing_fallbacks(&Value::Object(variables.clone()), &info.id, &mut miss);
+                for m in miss {
+                    self.warnings.push(format!("{m}: binding without fallback"));
+                }
+                self.themes.insert(info.id.clone(), ThemeDef { id: info.id.clone(), name: info.name.clone(), description: info.description.clone(), kind, variables });
+                self.plugins.push(info);
+            }
+            "plugin" if !path.is_empty() => {
+                self.warnings.push(format!("{}: plugins from disk are not supported yet", info.id));
+            }
+            _ => {
+                let id = info.id.clone();
+                self.load_plugin(files, dir);
+                if let Some(p) = self.plugins.iter_mut().find(|p| p.id == id) {
+                    p.path = path.to_string();
+                }
+            }
         }
     }
 
@@ -387,6 +571,7 @@ impl Registry {
     pub fn catalog(&self) -> Value {
         json!({
             "plugins": self.plugins,
+            "themes": self.themes.values().collect::<Vec<_>>(),
             "interfaces": self.interfaces,
             "signals": self.signals.values().collect::<Vec<_>>(),
             "actions": self.actions.values().collect::<Vec<_>>(),
@@ -456,7 +641,10 @@ mod tests {
         assert!(r.icon("com.deckling.ha:light").is_some(), "the HA plugin's own icon set");
         assert!(r.app("com.deckling.ha:entity").unwrap().icon.as_ref().unwrap().is_object(), "HA picks the icon per key");
         let ids: Vec<&str> = r.plugins.iter().map(|p| p.id.as_str()).collect();
-        assert_eq!(ids, ["core", "com.deckling.core", "com.deckling.ha", "com.deckling.jetbrains", "com.deckling.teams"]);
+        assert_eq!(ids, [
+            "core", "com.deckling.core", "com.deckling.ha", "com.deckling.jetbrains", "com.deckling.teams",
+            "com.deckling.amber", "com.deckling.cpu-heat", "com.deckling.glacier", "com.deckling.rainbow",
+        ]);
         assert!(r.apps.contains_key("com.deckling.core:clock"));
         assert!(r.apps.contains_key("com.deckling.teams:mute"));
         assert!(r.apps.contains_key("com.deckling.jetbrains:debugger"));
@@ -528,5 +716,53 @@ mod tests {
         assert!(w.contains("part ghost is not in the SVG"), "{w}");
         assert!(w.contains("icon set com.jemand.neon was drawn for another version of com.ricktap.hue:rgb_light"), "{w}");
         assert!(r.icon("com.jemand.neon:bulb").is_some());
+    }
+
+    #[test]
+    fn built_in_themes() {
+        let r = builtin();
+        assert_eq!(r.themes["com.deckling.amber"].kind, "full");
+        assert_eq!(r.themes["com.deckling.rainbow"].kind, "partial");
+        assert!(r.plugins.iter().any(|p| p.id == "com.deckling.cpu-heat" && p.kind == "theme"));
+    }
+
+    #[test]
+    fn packages_from_disk() {
+        let tmp = std::env::temp_dir().join(format!("deck-pkgs-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let src = tmp.join("src");
+        let pk = tmp.join("packages");
+        // an icon set with one bound icon, a partial theme, and a plugin (refused)
+        std::fs::create_dir_all(src.join("neon/svg")).unwrap();
+        std::fs::create_dir_all(src.join("neon/icons")).unwrap();
+        std::fs::write(src.join("neon/deckling.json"), r#"{"id": "com.jemand.neon", "type": "iconset", "name": "Neon"}"#).unwrap();
+        std::fs::write(src.join("neon/svg/dot.svg"), r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle data-part="d" cx="5" cy="5" r="4"/></svg>"#).unwrap();
+        std::fs::write(src.join("neon/icons/dot.json"), r##"{"id": "com.jemand.neon:dot", "roles": ["toggle", "button"], "file": "dot.svg", "parts": {"d": {"fill": {"prop": "toggle.on", "map": {"true": "#fff"}, "fallback": "#000"}}}}"##).unwrap();
+        std::fs::create_dir_all(src.join("blue")).unwrap();
+        std::fs::write(src.join("blue/deckling.json"), r##"{"id": "com.jemand.blue", "type": "theme", "name": "Blue", "theme": {"type": "partial", "variables": {"accent": "#0000FF"}}}"##).unwrap();
+        std::fs::create_dir_all(src.join("plug")).unwrap();
+        std::fs::write(src.join("plug/deckling.json"), r#"{"id": "com.jemand.plug", "type": "plugin", "name": "Plug"}"#).unwrap();
+
+        assert_eq!(install_package(&src.join("neon"), &pk).unwrap(), "com.jemand.neon");
+        assert_eq!(install_package(&src.join("blue"), &pk).unwrap(), "com.jemand.blue");
+        assert!(install_package(&src.join("plug"), &pk).is_err(), "plugins are not installed yet");
+        std::fs::create_dir_all(pk.join("com.jemand.plug")).unwrap();
+        std::fs::copy(src.join("plug/deckling.json"), pk.join("com.jemand.plug/deckling.json")).unwrap();
+
+        let r = load_disk(&pk);
+        assert!(r.icon("com.jemand.neon:dot").is_some_and(|i| i.roles.contains(&"toggle".to_string())));
+        assert_eq!(r.themes["com.jemand.blue"].variables["accent"], "#0000FF");
+        assert!(r.plugins.iter().any(|p| p.id == "com.jemand.neon" && p.path.ends_with("com.jemand.neon")));
+        assert!(r.warnings.iter().any(|w| w.contains("plugins from disk are not supported yet")), "{:?}", r.warnings);
+        assert!(current().themes.contains_key("com.jemand.blue"));
+
+        remove_package("com.jemand.blue", &pk).unwrap();
+        assert!(remove_package("com.deckling.amber", &pk).is_err(), "built-in packages stay");
+        assert!(remove_package("../src", &pk).is_err());
+        let r = load_disk(&pk);
+        assert!(!r.themes.contains_key("com.jemand.blue"));
+        // back to the built-in packages for the other tests
+        load_disk(&tmp.join("none"));
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

@@ -14,18 +14,89 @@ const PALETTE = [
 const BASE = "#F4F1E8";
 const MUTED = "#87909E";
 
+const isHex = (v) => typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v);
+const swatchOf = (cols) => h("span", { class: "swatch" }, cols.map((c) => h("span", { style: `background:${isHex(c) ? c : "#3A4350"}` })));
+
+/** Colours of a theme for its swatch: background, base, accent, muted. */
+function themeColors(th, pal) {
+  if (!th) return [pal.background || "#12151A", BASE, pal.active || "#69E0C1", MUTED];
+  const v = th.variables || {};
+  return [v.background, v.base, v.accent, v.muted];
+}
+
+let themeOpen = false;
+
 export function renderTheme() {
   const t = settingsOf(state.config).theme || {};
   const pal = t.palette || {};
-  const col = (k, d) => pal[k] || d;
-  const swatch = h("span", { class: "swatch" }, [col("background", "#12151A"), BASE, col("active", "#69E0C1"), MUTED].map((c) => h("span", { style: `background:${c}` })));
+  const themes = state.catalog.themes || [];
+  const full = themes.filter((x) => x.kind === "full");
+  const partial = themes.filter((x) => x.kind === "partial");
+  const curId = state.config.theme || null;
+  const cur = full.find((x) => x.id === curId) || null;
+  const row = (th) => h("button", {
+    type: "button", class: "theme-pick" + ((th?.id || null) === (cur?.id || null) ? " on" : ""),
+    onclick: () => {
+      edit(`Theme ${th ? th.name : "Night Signal"}`, (c) => { if (th) c.theme = th.id; else delete c.theme; });
+      themeOpen = false;
+      hint(`Theme ${th ? th.name : "Night Signal"}.`);
+    },
+  }, swatchOf(themeColors(th, pal)), h("div", { class: "grow" }, h("div", {}, th ? th.name : "Night Signal"), h("div", { class: "sub mono" }, th ? th.id : "built in, colours below")));
+  const curRow = h("button", { type: "button", class: "theme-pick", "aria-expanded": themeOpen, onclick: () => { themeOpen = !themeOpen; renderTheme(); } },
+    swatchOf(themeColors(cur, pal)),
+    h("div", { class: "grow" }, h("div", {}, cur ? cur.name : "Night Signal"), h("div", { class: "sub mono" }, cur ? cur.id : "com.deckling.core")),
+    h("span", { class: "sub" }, themeOpen ? "▴" : "▾"));
+  if (curId && !cur) curRow.querySelector(".sub.mono").textContent = `${curId} (missing: Night Signal applies)`;
   put($("theme"),
     h("span", { class: "label" }, "Theme"),
-    h("div", { class: "theme-pick", title: "Built-in theme" }, swatch,
-      h("div", { class: "grow" }, h("div", {}, "Night Signal"), h("div", { class: "sub mono" }, "com.deckling.core"))),
-    h("p", { class: "sub" }, "Partial themes come with theme packages. Until then, the palette and the variables below play their part."),
-    h("div", { class: "colors" }, PALETTE.map(([k, v, d]) => color(k, v, d, pal[k]))),
+    curRow,
+    themeOpen ? h("div", { class: "theme-menu" }, row(null), full.map(row)) : null,
+    overlaysEditor(partial),
+    cur ? null : h("div", { class: "colors" }, PALETTE.map(([k, v, d]) => color(k, v, d, pal[k]))),
     variablesEditor(t.variables || {}));
+}
+
+// ------------------------------------------------------------------ overlays
+
+/** Partial themes: a switch each, in the deck's order (drag or arrows); the lower one wins. */
+function overlaysEditor(partial) {
+  if (!partial.length) return null;
+  const order = state.config.overlays || [];
+  // active ones in their order first, then the others
+  const list = [...order.map((id) => partial.find((p) => p.id === id) || { id, name: id, missing: true }), ...partial.filter((p) => !order.includes(p.id))];
+  const setOrder = (ids, label) => edit(label, (c) => { if (ids.length) c.overlays = ids; else delete c.overlays; });
+  const move = (id, to) => {
+    const ids = order.filter((x) => x !== id);
+    ids.splice(Math.max(0, Math.min(to, ids.length)), 0, id);
+    setOrder(ids, `Overlay order`);
+  };
+  let dragged = null;
+  return h("div", { class: "field" },
+    h("span", { class: "label" }, "Partial themes"),
+    h("p", { class: "sub" }, "Each sets single variables over the theme. When two set the same one, the lower one wins. Drag to change the order."),
+    list.map((th) => {
+      const on = order.includes(th.id);
+      const i = order.indexOf(th.id);
+      const sw = h("input", { type: "checkbox", class: "switch", checked: on, "aria-label": `${th.name} ${on ? "off" : "on"}` });
+      sw.onchange = () => {
+        setOrder(sw.checked ? [...order, th.id] : order.filter((x) => x !== th.id), `${th.name} ${sw.checked ? "on" : "off"}`);
+        hint(`${th.name} is ${sw.checked ? "on" : "off"}.`);
+      };
+      const what = Object.keys(th.variables || {}).map((k) => {
+        const v = th.variables[k];
+        return typeof v === "object" && v?.bind ? `${k} from ${v.bind}` : `${k}`;
+      }).join(", ");
+      return h("div", {
+        class: "overlay" + (on ? " on" : ""), draggable: on,
+        ondragstart: (e) => { dragged = th.id; e.dataTransfer.setData("text/plain", "overlay:" + th.id); },
+        ondragover: (e) => { if (on && dragged) e.preventDefault(); },
+        ondrop: (e) => { e.preventDefault(); if (dragged && dragged !== th.id) move(dragged, i); dragged = null; },
+      },
+      sw,
+      h("div", { class: "grow" }, h("div", {}, th.name + (th.missing ? " (missing)" : "")), h("div", { class: "sub" }, what ? "Sets " + what : th.id)),
+      on && i > 0 ? h("button", { class: "icon-btn", type: "button", title: "Up", onclick: () => move(th.id, i - 1) }, "↑") : null,
+      on && i < order.length - 1 ? h("button", { class: "icon-btn", type: "button", title: "Down", onclick: () => move(th.id, i + 1) }, "↓") : null);
+    }));
 }
 
 // ------------------------------------------------------------------ variables

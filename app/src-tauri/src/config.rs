@@ -591,6 +591,13 @@ pub struct Config {
     pub plugins: IndexMap<String, PluginEntry>,
     #[serde(default)]
     pub status_key: StatusKey,
+    /// The active theme of type `full` (a package id). None: Night Signal with the
+    /// palette in `plugins.core.config.theme`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
+    /// Themes of type `partial` in order; a later one wins when two set the same variable.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overlays: Vec<String>,
     /// The first profile is the default: used when no other profile matches the active app.
     pub profiles: Vec<Profile>,
     #[serde(flatten)]
@@ -598,7 +605,7 @@ pub struct Config {
 }
 
 /// The current deck.json format.
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 
 fn yes() -> bool {
     true
@@ -888,7 +895,7 @@ mod version_tests {
         assert_eq!(k1.states[0].on.press[0].params["value"], "+5");
         assert_eq!(std::fs::read_to_string(dir.join("deck.v1.json")).unwrap(), v1);
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved["version"], 4);
+        assert_eq!(saved["version"], VERSION);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

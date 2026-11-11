@@ -56,6 +56,8 @@ pub enum Ui {
     Preview { profile: usize, page: String, remote: bool, key: usize, reply: Reply<Result<String, String>> },
     Trigger { key: usize, event: KeyEvent },
     Notify(Notification),
+    /// Read the packages folder again; replies with the warnings of the new registry.
+    ReloadPackages(Reply<Vec<String>>),
     /// Graph sign-in finished (Some) or sign-out (None).
     GraphTokens(Option<Tokens>),
     Screensaver(bool),
@@ -265,6 +267,8 @@ impl Engine {
     pub fn spawn(path: PathBuf, emit: Emit, firmware: &'static [u8]) -> Handle {
         let (tx, rx) = mpsc::channel();
         let cfg_dir = base_dir(&path);
+        // icon sets and themes from <config dir>/packages
+        crate::registry::load_disk(&cfg_dir.join("packages"));
         let handle = Handle { tx: tx.clone(), cfg_dir, firmware };
         let connected = Arc::new(AtomicBool::new(false));
 
@@ -1527,6 +1531,15 @@ impl Engine {
         ] {
             m.insert(k.into(), json!(v));
         }
+        let reg = crate::registry::current();
+        // a full theme replaces the palette; overlays follow in order; the deck's own variables last
+        let full = self.cfg.theme.as_deref().and_then(|id| reg.themes.get(id)).filter(|t| t.kind == "full");
+        let overlays = self.cfg.overlays.iter().filter_map(|id| reg.themes.get(id)).filter(|t| t.kind == "partial");
+        for th in full.into_iter().chain(overlays) {
+            for (k, v) in &th.variables {
+                m.insert(k.clone(), v.clone());
+            }
+        }
         for (k, v) in &t.variables {
             m.insert(k.clone(), v.clone());
         }
@@ -1537,7 +1550,7 @@ impl Engine {
     /// so built-in widgets follow them too.
     fn effective_theme(&self, vars: &Map<String, Value>) -> crate::config::Theme {
         let mut t = self.cfg.settings.theme.clone();
-        if t.variables.is_empty() {
+        if t.variables.is_empty() && self.cfg.theme.is_none() && self.cfg.overlays.is_empty() {
             return t;
         }
         let none = Map::new();
@@ -1612,7 +1625,7 @@ impl Engine {
             let key = self.view_key(v, k);
             let pname = self.cfg.profiles.get(v.profile).map(|p| p.name.as_str()).unwrap_or("");
             let path = format!("{pname}/{}/{k}", v.page);
-            let reg = crate::registry::builtin();
+            let reg = crate::registry::current();
             // An app of a switched-off plugin draws like one whose plugin is missing.
             let def = key.app.as_deref().filter(|id| self.plugin_enabled(crate::registry::namespace(id))).and_then(|id| reg.app(id));
             let st0 = key.state(0);
@@ -2112,7 +2125,8 @@ impl Engine {
             Ui::Signals(reply) => {
                 let mut all: Vec<(&String, &Value)> = self.signals.all().collect();
                 all.sort_by(|a, b| a.0.cmp(b.0));
-                let types = &crate::registry::builtin().signals;
+                let reg = crate::registry::current();
+                let types = &reg.signals;
                 let list: Vec<Value> = all
                     .into_iter()
                     .map(|(n, v)| json!({ "name": n, "value": v, "type": types.get(n.as_str()).map(|t| t.kind.as_str()) }))
@@ -2121,7 +2135,7 @@ impl Engine {
             }
             Ui::PreviewIcon { icon, profile, page, key, reply } => {
                 let k = self.cfg.key(profile, &page, key);
-                let reg = crate::registry::builtin();
+                let reg = crate::registry::current();
                 let def = k.app.as_deref().and_then(|id| reg.app(id));
                 let vars = self.theme_vars();
                 let st = k.state(0);
@@ -2143,6 +2157,12 @@ impl Engine {
                         .ok_or_else(|| "could not draw".to_string()),
                 };
                 let _ = reply.send(res);
+            }
+            Ui::ReloadPackages(reply) => {
+                let reg = crate::registry::load_disk(&base_dir(&self.path).join("packages"));
+                self.draw_all();
+                let _ = reply.send(reg.warnings.clone());
+                (self.emit)("packages", json!(null));
             }
             Ui::Screensaver(on) => {
                 if on {

@@ -1,8 +1,7 @@
 # Packages, signals and bindings
 
-How the Deckling model (`docs/deckling/architecture.md`) is built so far. Work packages 1 to 6
-of `docs/deckling/briefing.md` are in place; 7 (packages from disk) and 8 (third-party plugins)
-are not.
+How the Deckling model (`docs/deckling/architecture.md`) is built so far. Work packages 1 to 7
+of `docs/deckling/briefing.md` are in place; 8 (third-party plugins) is not.
 
 ## Pieces
 
@@ -45,6 +44,29 @@ availability, discovery and notifications.
 
 Action parameters may name a key setting: `{"id": "{id}"}` is filled from the key's `config`
 when the action runs. Placeholders that name no setting stay as they are.
+
+## Packages folder
+
+`<config dir>/packages/<id>/` holds icon sets and themes; each folder has a `deckling.json`.
+`build.rs` embeds the built-in packages (`core/`, `plugins/`, `themes/`, Night Signal);
+`registry::builtin()` parses them, `registry::load_disk` adds the folder's packages and makes the
+result current (`registry::current()`). The engine loads the folder at start; the Packages view
+can reload it, add a dropped folder (`install_package`, copied into the folder) and remove a
+package from disk. Every icon set from disk goes through the load-time checks below, including
+the comparison of its interface copies with the installed interfaces.
+
+```json
+{
+  "id": "com.example.ocean",
+  "type": "theme",
+  "name": "Ocean",
+  "theme": { "type": "full", "variables": { "background": "#0A1A2A", "base": "#E0F0FF", "muted": "#335577", "accent": "#33CCFF" } }
+}
+```
+
+Built-in themes: `com.deckling.amber` and `com.deckling.glacier` (full), `com.deckling.rainbow`
+(the accent cycles every second) and `com.deckling.cpu-heat` (the accent follows the CPU load).
+deck.json keeps the choice in `theme` and the overlays in order in `overlays` (version 5).
 
 ## Icon sets
 
@@ -125,9 +147,8 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 
 ## Where this differs from the target model (for now)
 
-- **Packages are built in.** `build.rs` embeds the core plugin and Night Signal as package
-  files; `registry.rs` parses them at runtime through the same loader that will read packages
-  from disk (work package 7). The registry is built once (`registry::builtin()`).
+- **Packages from disk are icon sets and themes.** Plugins in the packages folder are refused
+  with a warning until third-party plugins run in their own process (work package 8).
 - **Signals of type `series`** (`system.history.*`): the last values as a list, for the system
   monitor's graphs. The target model lists `flag`, `percent`, `number`, `color`, `text`.
 - **Plugins run in the engine's thread.** `runtime.kind` `process` (own process, JSON RPC) is
@@ -147,9 +168,11 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
   `clock` has `second_angle` in addition.
 - **`props` on a state** give icons static values on keys without an app, on remote keys and on
   cards. The target model has no such field; it replaces `icon_state`.
-- **Themes as packages, overlays and their order** come with work package 7. Until then,
-  `plugins.core.config.theme.variables` plays the part of one overlay, and the Theme block in
-  the configurator shows Night Signal and edits its palette colours.
+- **Night Signal is the deck's own palette**, not a theme package: with no `theme` set, the
+  palette in `plugins.core.config.theme` applies and the Theme block edits it.
+  `plugins.core.config.theme.variables` comes after the overlays, as the deck's own overlay.
+- **`range` in bindings:** `{"bind": ..., "range": [0, 100], "steps": [...]}` picks a step from
+  low to high (clamped). Without `range`, steps cycle by the whole number (`time.tick`).
 - **Settings schema extras:** a `config` field may have `group` (a heading in the Packages
   view), `min`/`max` (numbers), `placeholder`, `secret` (a password field) and the type `place`
   (a place search for the weather).

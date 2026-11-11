@@ -129,7 +129,7 @@ async fn teams_sign_in(app: AppHandle, h: H<'_>, client_id: String, tenant: Stri
 /// Everything packages contribute: plugins, interfaces, signals, actions, apps, icons.
 #[tauri::command]
 fn catalog() -> Value {
-    registry::builtin().catalog()
+    registry::current().catalog()
 }
 
 /// Values for a `select` field with `{"source": ...}`.
@@ -172,6 +172,44 @@ fn teams_sign_out(h: H<'_>) {
 #[tauri::command]
 fn open_config_dir(h: H<'_>) -> Result<(), String> {
     platform::open(&h.config_dir().display().to_string(), &h.config_dir()).map_err(|e| e.to_string())
+}
+
+/// Read the packages folder again (after adding or removing a package by hand).
+#[tauri::command]
+async fn reload_packages(h: H<'_>) -> Result<Vec<String>, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(Ui::ReloadPackages)).await
+}
+
+/// Add an icon set or theme from a folder (dropped on the Packages view).
+#[tauri::command]
+async fn install_package(h: H<'_>, path: String) -> Result<String, String> {
+    let h = h.inner().clone();
+    blocking(move || {
+        let dir = h.config_dir().join("packages");
+        let id = registry::install_package(std::path::Path::new(&path), &dir)?;
+        h.ask(Ui::ReloadPackages)?;
+        Ok(id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn remove_package(h: H<'_>, id: String) -> Result<(), String> {
+    let h = h.inner().clone();
+    blocking(move || {
+        registry::remove_package(&id, &h.config_dir().join("packages"))?;
+        h.ask(Ui::ReloadPackages)?;
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+fn open_packages_dir(h: H<'_>) -> Result<(), String> {
+    let dir = h.config_dir().join("packages");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    platform::open(&dir.display().to_string(), &dir).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -247,6 +285,10 @@ pub fn run() {
             updater::install_update,
             updater::app_version,
             catalog,
+            reload_packages,
+            install_package,
+            remove_package,
+            open_packages_dir,
             options,
             signals,
             preview_icon,

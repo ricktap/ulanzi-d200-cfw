@@ -37,6 +37,8 @@ pub fn migrate(mut v: Value, target: u32) -> Result<Value, String> {
             1 => v1_to_v2(v),
             2 => v2_to_v3(v),
             3 => v3_to_v4(v),
+            // 4 to 5 adds the optional `theme` and `overlays` (theme packages); nothing moves.
+            4 => v,
             _ => return Err(format!("no migration from version {ver}")),
         };
         ver += 1;
@@ -346,6 +348,7 @@ mod tests {
     #[test]
     fn newer_versions_are_refused() {
         assert!(migrate(json!({"version": 9, "profiles": []}), 4).is_err());
+        assert_eq!(migrate(json!({"version": 4, "x": 1}), 5).unwrap(), json!({"version": 5, "x": 1}));
         assert_eq!(migrate(json!({"version": 4, "x": 1}), 4).unwrap(), json!({"version": 4, "x": 1}));
     }
 }

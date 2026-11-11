@@ -141,11 +141,22 @@ fn invoke(h: &d200_deck_lib::engine::Handle, cmd: &str, a: &Value) -> Result<Val
             h.send(Ui::Notify(n));
             Value::Null
         }
+        "reload_packages" => json!(h.ask(Ui::ReloadPackages)?),
+        "install_package" => {
+            let id = d200_deck_lib::registry::install_package(std::path::Path::new(&arg::<String>(a, "path")?), &h.config_dir().join("packages"))?;
+            h.ask(Ui::ReloadPackages)?;
+            json!(id)
+        }
+        "remove_package" => {
+            d200_deck_lib::registry::remove_package(&arg::<String>(a, "id")?, &h.config_dir().join("packages"))?;
+            h.ask(Ui::ReloadPackages)?;
+            Value::Null
+        }
         "screensaver" => {
             h.send(Ui::Screensaver(arg(a, "on").unwrap_or(false)));
             Value::Null
         }
-        "catalog" => d200_deck_lib::registry::builtin().catalog(),
+        "catalog" => d200_deck_lib::registry::current().catalog(),
         "options" => json!(h.ask(|reply| Ui::Options { source: arg(a, "source").unwrap_or_default(), profile: arg(a, "profile").unwrap_or(0), reply })?),
         "signals" => h.ask(Ui::Signals)?,
         "preview_icon" => json!(h.ask(|reply| Ui::PreviewIcon { icon: arg(a, "icon").unwrap_or_default(), profile: arg(a, "profile").unwrap_or(0), page: arg(a, "page").unwrap_or_default(), key: arg(a, "key").unwrap_or(0), reply })??),

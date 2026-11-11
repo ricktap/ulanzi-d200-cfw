@@ -49,7 +49,7 @@ def check(name, ok, extra=""):
 time.sleep(4.5)
 saved = json.load(open(sim + "/cfg/deck.json"))
 keys = saved["profiles"][0]["pages"]["main"]
-check("migrated to version 4", saved.get("version") == 4, saved.get("version"))
+check("migrated to the current version", saved.get("version") == 5, saved.get("version"))
 check("settings moved to their plugins", "settings" not in saved and saved["plugins"]["core"]["config"]["screensaver"]["enabled"] is False
       and "accent" in saved["plugins"]["core"]["config"]["theme"]["variables"], list(saved))
 check("original kept as deck.v1.json", json.load(open(sim + "/cfg/deck.v1.json")) == v1)

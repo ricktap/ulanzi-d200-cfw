@@ -1,0 +1,19 @@
+{
+  "id": "com.deckling.glacier",
+  "type": "theme",
+  "name": "Glacier",
+  "version": "1.0.0",
+  "description": "Cool dark theme: ice blue on blue-black keys.",
+  "theme": {
+    "type": "full",
+    "variables": {
+      "background": "#0E1620",
+      "base": "#E6F1FA",
+      "muted": "#33475C",
+      "accent": "#7CC4FF",
+      "info": "#B7A6FF",
+      "warning": "#FFC978",
+      "danger": "#FF7A8A"
+    }
+  }
+}

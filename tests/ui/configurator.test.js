@@ -122,6 +122,36 @@ const fs = require('fs');
   ok(acc && typeof acc === 'object' && !!acc.bind, 'accent bound to a signal: ' + JSON.stringify(acc));
   await p.screenshot({ path: OUT + '/11-states-theme.png', fullPage: true });
 
+  // 15. themes: a full theme changes the keys; overlays switch on in order
+  const imgBefore = await p.locator('.key[data-key="0"] img').getAttribute('src');
+  await p.click('#theme .theme-pick'); await wait(300);
+  await p.click('#theme .theme-menu .theme-pick:has-text("Amber")'); await wait(2000);
+  ok(cfg().theme === 'com.deckling.amber', 'theme Amber: ' + cfg().theme);
+  const after = await p.locator('.key[data-key="0"] img').getAttribute('src');
+  ok(imgBefore !== after, 'the keys are drawn in the new theme');
+  await p.locator('#theme .overlay:has-text("Rainbow") input.switch').click(); await wait(800);
+  await p.locator('#theme .overlay:has-text("CPU heat") input.switch').click(); await wait(800);
+  ok(JSON.stringify(cfg().overlays) === '["com.deckling.rainbow","com.deckling.cpu-heat"]', 'overlays in order: ' + JSON.stringify(cfg().overlays));
+  await p.locator('#theme .overlay:has-text("CPU heat") button[title="Up"]').click(); await wait(800);
+  ok(JSON.stringify(cfg().overlays) === '["com.deckling.cpu-heat","com.deckling.rainbow"]', 'overlay moved up: ' + JSON.stringify(cfg().overlays));
+
+  // 16. a theme package from a folder: added, listed, used, removed
+  const pkgSrc = OUT + '/ocean';
+  fs.mkdirSync(pkgSrc, { recursive: true });
+  fs.writeFileSync(pkgSrc + '/deckling.json', JSON.stringify({ id: 'com.test.ocean', type: 'theme', name: 'Ocean', theme: { type: 'full', variables: { background: '#0A1A2A', base: '#E0F0FF', muted: '#335577', accent: '#33CCFF' } } }));
+  await p.click('#side [data-view="packages"]'); await wait();
+  await p.evaluate((path) => window.__TAURI__.core.invoke('install_package', { path }), pkgSrc); await wait(1800);
+  ok(await p.locator('.pkg:has-text("com.test.ocean")').count() === 1, 'the new theme is listed under Packages');
+  await p.locator('.pkg:has-text("com.test.ocean") input.switch').click(); await wait(1000);
+  ok(cfg().theme === 'com.test.ocean', 'the new theme is active');
+  p.once('dialog', () => {});
+  await p.locator('.pkg:has-text("com.test.ocean") button:has-text("Remove")').click(); await wait(400);
+  await p.click('#dlg-prompt #prompt-ok'); await wait(1800);
+  ok(await p.locator('.pkg:has-text("com.test.ocean")').count() === 0, 'the theme is removed');
+  await p.screenshot({ path: OUT + '/12-packages.png', fullPage: true });
+  await p.click('#side [data-view="deck"]'); await wait(1200);
+  ok((await p.locator('#theme .theme-pick').first().textContent()).includes('missing'), 'the deck says the theme is missing');
+
   // narrow window
   await p.setViewportSize({ width: 820, height: 1000 }); await wait(500);
   await p.screenshot({ path: OUT + '/10-narrow.png', fullPage: true });

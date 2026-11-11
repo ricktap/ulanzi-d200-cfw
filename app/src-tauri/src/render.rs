@@ -304,7 +304,8 @@ impl Canvas {
 
     /// Same, resolving the icon's bindings in `env` (without one, the fallbacks draw).
     pub fn set_icon_env(&mut self, name: &str, x: f32, y: f32, w: f32, h: f32, overrides: &[(&str, &str)], env: Option<&IconEnv>) -> bool {
-        let Some(def) = crate::registry::builtin().icon(name) else { return false };
+        let reg = crate::registry::current();
+        let Some(def) = reg.icon(name) else { return false };
         let s = w.min(h).max(1.0);
         let empty = IconEnv::empty();
         let env = env.unwrap_or(&empty);

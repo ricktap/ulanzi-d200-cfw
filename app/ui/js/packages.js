@@ -1,6 +1,6 @@
 // Packages view: every package with its kind, switch, state and settings (built
 // from the package's `config` schema), and the Application card.
-import { $, h, put, toast } from "./dom.js";
+import { $, h, put, toast, ask } from "./dom.js";
 import { invoke, call } from "./api.js";
 import { state, edit, hint, saveNow } from "./store.js";
 import { nsOf } from "./catalog.js";
@@ -29,35 +29,88 @@ const open = new Set(["core"]); // expanded packages
 
 export function renderPackages() {
   const plugins = state.catalog.plugins || [];
-  put($("pkg-list"), plugins.map(pkgCard));
+  const warnings = state.catalog.warnings || [];
+  put($("pkg-list"),
+    h("div", { class: "pkg-tools" },
+      h("button", { class: "btn", type: "button", onclick: () => call("open_packages_dir") }, "Open packages folder"),
+      h("button", { class: "btn", type: "button", onclick: reloadPackages }, "Reload packages")),
+    h("div", { class: "drop-zone", id: "pkg-drop" }, "Drop an icon set or theme folder here to add it. Each package is a folder with a deckling.json; it is copied to the packages folder."),
+    warnings.length ? h("details", { class: "note warn" }, h("summary", {}, `${warnings.length} package warning${warnings.length > 1 ? "s" : ""}`), h("ul", {}, warnings.map((w) => h("li", { class: "sub" }, w)))) : null,
+    plugins.map(pkgCard));
   renderAppCard();
 }
 
-function pkgCard(p) {
-  const on = p.id === "core" || state.config.plugins?.[p.id]?.enabled !== false;
-  const sw = h("input", { type: "checkbox", class: "switch", checked: on, disabled: p.id === "core", "aria-label": `${p.id} ${on ? "off" : "on"}` });
-  sw.onchange = () => {
-    edit(`${p.name} ${sw.checked ? "on" : "off"}`, (c) => {
+/** Read the packages folder again, then the catalog. */
+export async function reloadPackages() {
+  const warnings = await call("reload_packages");
+  hint(warnings.length ? `Packages reloaded, ${warnings.length} warnings.` : "Packages reloaded.");
+}
+
+/** Folders dropped on the Packages view become packages. */
+export async function installPaths(paths) {
+  for (const path of paths) {
+    try {
+      const id = await invoke("install_package", { path });
+      toast(`${id} added`);
+    } catch (e) {
+      toast(String(e), true);
+    }
+  }
+}
+
+/** Is the package switched on? Plugins and icon sets: plugins.<id>.enabled; themes: active or an overlay. */
+function packageOn(p) {
+  if (p.id === "core") return true;
+  if (p.type === "theme") {
+    const th = (state.catalog.themes || []).find((t) => t.id === p.id);
+    return th?.kind === "full" ? state.config.theme === p.id : (state.config.overlays || []).includes(p.id);
+  }
+  return state.config.plugins?.[p.id]?.enabled !== false;
+}
+
+function setPackageOn(p, on) {
+  const th = (state.catalog.themes || []).find((t) => t.id === p.id);
+  edit(`${p.name} ${on ? "on" : "off"}`, (c) => {
+    if (p.type === "theme" && th?.kind === "full") {
+      if (on) c.theme = p.id;
+      else delete c.theme;
+    } else if (p.type === "theme") {
+      const list = (c.overlays || []).filter((x) => x !== p.id);
+      if (on) list.push(p.id);
+      if (list.length) c.overlays = list;
+      else delete c.overlays;
+    } else {
       c.plugins ||= {};
       c.plugins[p.id] ||= {};
-      c.plugins[p.id].enabled = sw.checked;
-    });
-    hint(`${p.name} is ${sw.checked ? "on" : "off"}.`);
-  };
+      c.plugins[p.id].enabled = on;
+    }
+  });
+  hint(`${p.name} is ${on ? "on" : "off"}.`);
+}
+
+function pkgCard(p) {
+  const on = packageOn(p);
+  const sw = h("input", { type: "checkbox", class: "switch", checked: on, disabled: p.id === "core", "aria-label": `${p.id} ${on ? "off" : "on"}` });
+  sw.onchange = () => setPackageOn(p, sw.checked);
+  const th = (state.catalog.themes || []).find((t) => t.id === p.id);
   const isOpen = open.has(p.id);
   const icons = state.catalog.icons.filter((i) => nsOf(i.id) === p.id).length;
   const st = on ? status(p.id) : null;
   return h("div", { class: "pkg" },
     h("div", { class: "pkg-head" },
       h("div", { class: "grow" },
-        h("div", { class: "kind" }, KIND[p.type] || p.type, icons ? ` · icon set with ${icons} icons` : ""),
+        h("div", { class: "kind" }, th?.kind === "partial" ? KIND.partial : KIND[p.type] || p.type, icons ? ` · ${icons} icons` : "", p.path ? " · from the packages folder" : " · built in"),
         h("h3", {}, p.name),
         h("div", { class: "id" }, p.id + (p.version ? ` · ${p.version}` : "")),
         h("p", { class: "sub" }, p.description || ""),
         st ? h("div", { class: "status" }, h("span", { class: "tag " + (st.ok ? "ok" : "warn") }, st.text), st.note ? h("span", { class: "sub" }, st.note) : null) : null),
       h("div", { class: "row" },
         on && (p.config?.length || SETUP[p.id]) ? h("button", { class: "btn small", type: "button", onclick: () => { isOpen ? open.delete(p.id) : open.add(p.id); renderPackages(); } }, isOpen ? "Close" : "Settings") : null,
-        h("label", { class: "switch-row", title: p.id === "core" ? "The core is always on" : "" }, sw, on ? "on" : "off"))),
+        p.path ? h("button", { class: "btn small danger", type: "button", onclick: async () => {
+          if (!(await ask(`Remove ${p.name} (${p.id}) from the packages folder?`, null))) return;
+          await call("remove_package", { id: p.id }).then(() => hint(`${p.name} removed.`)).catch(() => {});
+        } }, "Remove") : null,
+        h("label", { class: "switch-row", title: p.id === "core" ? "The core is always on" : th?.kind === "full" ? "The active theme" : "" }, sw, on ? "on" : "off"))),
     on && isOpen ? h("div", { class: "pkg-body" }, SETUP[p.id]?.(), settings(p)) : null);
 }
 

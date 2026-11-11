@@ -29,7 +29,7 @@ fn main() {
     // The core plugin and the Night Signal icon set as package files, parsed at
     // runtime by the package loader (registry.rs): (package path, contents).
     out += "pub static PACKAGE_FILES: &[(&str, &str)] = &[\n";
-    for (root, prefix) in [("core", "core"), ("plugins", "plugins"), ("../ui/icons/night-signal", NIGHT_SIGNAL)] {
+    for (root, prefix) in [("core", "core"), ("plugins", "plugins"), ("themes", "themes"), ("../ui/icons/night-signal", NIGHT_SIGNAL)] {
         println!("cargo:rerun-if-changed={root}");
         let mut files = vec![];
         // Night Signal's SVGs are in ICONS already; other icon sets bring theirs as package files.
