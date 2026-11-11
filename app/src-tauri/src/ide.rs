@@ -50,6 +50,12 @@ pub fn is_debug_cmd(cmd: &str) -> bool {
     DEBUG_MARKERS.iter().any(|m| c.contains(m))
 }
 
+/// Is this frontmost app a JetBrains IDE (bundle id or name)?
+pub fn is_ide_app(app: &crate::platform::AppInfo) -> bool {
+    let file = app.id.rsplit(['/', '\\']).next().unwrap_or(&app.id);
+    app.id.starts_with("com.jetbrains.") || is_ide_name(&app.name) || is_ide_name(file)
+}
+
 pub fn is_ide_name(name: &str) -> bool {
     let n = name.to_ascii_lowercase();
     IDE_NAMES.iter().any(|i| n == *i || n.starts_with(&format!("{i}.")) || n.contains(&format!("{i}64")))
@@ -125,6 +131,14 @@ impl DebugWatch {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ide_in_front() {
+        let app = |name: &str, id: &str| crate::platform::AppInfo { name: name.into(), id: id.into() };
+        assert!(is_ide_app(&app("WebStorm", "com.jetbrains.WebStorm")));
+        assert!(is_ide_app(&app("idea64.exe", "C:\\Program Files\\JetBrains\\bin\\idea64.exe")));
+        assert!(!is_ide_app(&app("Safari", "com.apple.Safari")));
+    }
 
     #[test]
     fn reads_appmanifest() {

@@ -101,6 +101,12 @@ mod win {
 }
 
 /// The app in front. macOS and Windows; `None` elsewhere.
+/// Can this OS tell the frontmost app? Then scans for games and debuggers run only when
+/// the front app changes or is the one they look for.
+pub fn front_app_supported() -> bool {
+    cfg!(any(target_os = "macos", windows))
+}
+
 pub fn frontmost_app() -> Option<AppInfo> {
     #[cfg(target_os = "macos")]
     return mac::frontmost();

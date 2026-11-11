@@ -44,11 +44,15 @@ pub struct Host<'a> {
     sender: Option<Sender>,
     /// Errors to show in the UI when the call returns.
     pub errors: Vec<String>,
+    /// The frontmost app, as the core sees it; `front_known` is false where the OS
+    /// cannot tell (then plugins fall back to polling).
+    pub front: Option<crate::platform::AppInfo>,
+    pub front_known: bool,
 }
 
 impl<'a> Host<'a> {
     pub fn new(id: &'static str, signals: &'a mut Signals, base: String) -> Host<'a> {
-        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None, errors: vec![] }
+        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None, errors: vec![], front: None, front_known: false }
     }
 
     pub fn with_engine(mut self, dir: PathBuf, sender: Sender) -> Host<'a> {

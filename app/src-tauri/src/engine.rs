@@ -177,6 +177,8 @@ pub struct Engine {
 
 
     dbg: Option<DebugWatch>,
+    /// The front app at the last Steam scan.
+    steam_front: Option<String>,
 
     mail_seen: Option<Option<String>>,
     /// Teams pairing as last seen, for the "Paired with Teams" card.
@@ -254,19 +256,39 @@ impl Engine {
         {
             let tx = tx.clone();
             let connected = connected.clone();
+            // Without a device it waits for adb to report one (`adb track-devices`)
+            // instead of starting adb every few seconds.
+            let (wake_tx, wake) = mpsc::channel::<()>();
+            let direct = std::env::var_os("D200_DIRECT").is_some();
+            if let (false, Some(adb)) = (direct, device::adb_path()) {
+                device::track_devices(adb, move || wake_tx.send(()).is_ok());
+            }
             std::thread::spawn(move || {
                 let next_id = AtomicU64::new(1);
                 loop {
-                    if !connected.load(Ordering::SeqCst) {
+                    // connected: only watch the flag (cheap), to notice a drop quickly
+                    let up = connected.load(Ordering::SeqCst);
+                    let mut wait = Duration::from_secs(if up { 2 } else { 30 });
+                    if !up {
                         let msg = match try_connect(next_id.fetch_add(1, Ordering::SeqCst), dtx.clone()) {
                             Ok(dev) => Msg::DevUp(Arc::new(dev)),
-                            Err(st) => Msg::Conn(st),
+                            Err(st) => {
+                                // the D200 is there but d200fw does not answer yet: retry soon
+                                if st.device_seen || direct {
+                                    wait = Duration::from_secs(if direct { 2 } else { 5 });
+                                }
+                                Msg::Conn(st)
+                            }
                         };
                         if tx.send(msg).is_err() {
                             return;
                         }
                     }
-                    std::thread::sleep(Duration::from_secs(2));
+                    // a device change, or the time (no adb watcher: just the time)
+                    if let Err(mpsc::RecvTimeoutError::Disconnected) = wake.recv_timeout(wait) {
+                        std::thread::sleep(wait);
+                    }
+                    while wake.try_recv().is_ok() {}
                 }
             });
         }
@@ -326,6 +348,7 @@ impl Engine {
             art_busy: false,
             profile_flash: None,
             dbg: None,
+            steam_front: None,
             mail_seen: None,
             paired_seen: None,
             pomo_seen: None,
@@ -507,9 +530,16 @@ impl Engine {
         self.plugin_cards();
         let app = self.cfg.status_key.app.clone();
         self.meeting_cards();
-        if self.ticks % 3 == 1 && (self.cfg.settings.cards.steam || app == "steam") {
-            let game = self.dbg.get_or_insert_with(DebugWatch::new).steam_game();
-            self.on_game(game);
+        if self.cfg.settings.cards.steam || app == "steam" {
+            // A game comes to the front when it starts and leaves it when it ends: scan
+            // when the front app changes. Without a front app (Linux), every 3 s.
+            let front = self.status.active_app.as_ref().map(|a| a.id.clone());
+            let due = if platform::front_app_supported() { front != self.steam_front } else { self.ticks % 3 == 1 };
+            if due {
+                self.steam_front = front;
+                let game = self.dbg.get_or_insert_with(DebugWatch::new).steam_game();
+                self.on_game(game);
+            }
         }
         if self.ticks % 30 == 0 && self.dev.is_some() {
             self.publish_availability(true); // heals a stale retained "offline"
@@ -1804,6 +1834,8 @@ impl Engine {
             let dir = base_dir(&self.path);
             let sender = crate::plugins::Sender::new(p.id(), self.tx.clone());
             let mut host = Host::new(p.id(), &mut self.signals, base).with_engine(dir, sender);
+            host.front = self.status.active_app.clone();
+            host.front_known = platform::front_app_supported();
             let r = f(p.as_mut(), &mut host, &self.cfg);
             (r, host.mqtt_out, host.errors)
         };

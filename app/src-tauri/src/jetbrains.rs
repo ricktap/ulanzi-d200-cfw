@@ -33,6 +33,10 @@ impl Plugin for JetBrains {
         if !self.wanted || ticks % 2 != 0 {
             return;
         }
+        // Scan the processes only while an IDE is in front; keep the last state otherwise.
+        if host.front_known && !host.front.as_ref().is_some_and(crate::ide::is_ide_app) {
+            return;
+        }
         let active = self.watch.get_or_insert_with(DebugWatch::new).active();
         host.publish("debugger.active", json!(active.is_some()));
         match active {

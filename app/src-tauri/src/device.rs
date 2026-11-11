@@ -67,6 +67,39 @@ pub fn adb(adb: &Path, args: &[&str]) -> Result<String, String> {
 }
 
 /// True when a device is attached and authorised.
+/// Run `adb track-devices` and call `changed` whenever the device list changes (also
+/// once at start). Restarts it if adb goes away. Runs until `changed` returns false.
+pub fn track_devices(adb_bin: PathBuf, changed: impl Fn() -> bool + Send + 'static) {
+    use std::io::Read;
+    std::thread::spawn(move || loop {
+        let child = Command::new(&adb_bin)
+            .arg("track-devices")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+        if let Ok(mut child) = child {
+            if let Some(mut out) = child.stdout.take() {
+                // messages: 4 hex digits of length, then that many bytes of "serial\tstate\n" lines
+                let mut len = [0u8; 4];
+                while out.read_exact(&mut len).is_ok() {
+                    let n = std::str::from_utf8(&len).ok().and_then(|h| usize::from_str_radix(h, 16).ok()).unwrap_or(0);
+                    let mut body = vec![0u8; n];
+                    if out.read_exact(&mut body).is_err() || !changed() {
+                        let _ = child.kill();
+                        return;
+                    }
+                }
+            }
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        if !changed() {
+            return;
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    });
+}
+
 pub fn adb_device_present(adb_bin: &Path) -> bool {
     adb(adb_bin, &["get-state"]).map(|s| s.trim() == "device").unwrap_or(false)
 }
