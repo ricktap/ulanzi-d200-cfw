@@ -234,7 +234,8 @@ const SETUP = {
     const base = state.config.plugins?.core?.config?.mqtt?.base_topic || "d200";
     return h("div", { class: "steps" },
       h("p", { class: "sub" }, "The connection to the broker is part of the core (Deck, MQTT). With discovery on, Home Assistant gets a Ulanzi D200 device with button triggers, a notify entity, a profile select and brightness."),
-      h("p", { class: "sub" }, `Keys: put the app Home Assistant entity on a key and choose an id. Home Assistant describes it on ${base}/ha/<id>/set (label, value, on, color, icon). Presses come back on ${base}/ha/<id>/action.`));
+      h("p", { class: "sub" }, "In Home Assistant, add the integration D200 Deck (custom_components/d200_deck in this repository, or through HACS) and pick the entities for the deck. Then put the app Home Assistant on a key and choose the entity's id. A press runs its default action."),
+      h("p", { class: "sub" }, `Without the integration, Home Assistant describes a key on ${base}/ha/<id>/set (label, value, on, color, icon); presses come back on ${base}/ha/<id>/action.`));
   },
 };
 

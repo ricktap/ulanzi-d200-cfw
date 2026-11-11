@@ -1,0 +1,13 @@
+{
+  "domain": "d200_deck",
+  "name": "D200 Deck",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["mqtt"],
+  "documentation": "https://github.com/ricktap/ulanzi-d200-cfw/blob/main/docs/home-assistant.md",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/ricktap/ulanzi-d200-cfw/issues",
+  "requirements": [],
+  "version": "0.8.0"
+}

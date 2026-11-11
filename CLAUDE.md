@@ -8,6 +8,8 @@ Custom software for the Ulanzi D200 stream controller:
 
 - `device/`: `d200fw`, a Rust replacement for the stock app on the device (ARMv7 Linux). Its
   only dependency is `scene/`, the screensaver scenes (tiny-skia), shared with the app.
+- `custom_components/d200_deck/`: the Home Assistant integration (HACS), the deck's counterpart
+  over MQTT. `payload.py` is plain Python; tests in `tests/ha/` (`tests/ha/run.sh`).
 - `app/`: D200 Deck, a Tauri v2 desktop app. The Rust engine is in `app/src-tauri/src/`, the
   plain HTML/JS UI in `app/ui/`. It draws all keys and runs the actions.
 

@@ -13,7 +13,8 @@ Custom software for the **Ulanzi D200 / D200H** stream controller, in two parts:
   - built-in live widgets
   - notification cards on the wide key
   - a seasonal screensaver
-  - Home Assistant over MQTT
+  - Home Assistant over MQTT, with a Home Assistant integration (`custom_components/d200_deck`,
+    HACS) that puts entities on keys and runs their default action on a press
 
 ## Install (macOS)
 
@@ -103,7 +104,7 @@ git tag v1.2.3 && git push origin v1.2.3            # v1.2.3-rc.1 makes a pre-re
 |---|---|
 | [docs/app.md](docs/app.md) | Using the app: design, keys, widgets, integrations, platform notes |
 | [docs/config.md](docs/config.md) | `deck.json` reference |
-| [docs/home-assistant.md](docs/home-assistant.md) | MQTT topics and Home Assistant examples |
+| [docs/home-assistant.md](docs/home-assistant.md) | The Home Assistant integration, MQTT topics and examples |
 | [docs/firmware.md](docs/firmware.md) | Try, install and uninstall on the device, safety and recovery |
 | [docs/hardware.md](docs/hardware.md) | What is known about the D200 hardware |
 | [docs/protocol.md](docs/protocol.md) | The d200fw line protocol |

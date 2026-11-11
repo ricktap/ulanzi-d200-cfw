@@ -16,6 +16,71 @@ Home Assistant gets a **Ulanzi D200** device:
 
 The entity ids above are what HA usually generates. Check yours in the device page.
 
+## The integration (recommended)
+
+`custom_components/d200_deck` is the counterpart in Home Assistant. It needs the MQTT
+integration, connected to the same broker as D200 Deck.
+
+**Install:**
+- With HACS: add this repository as a custom repository of type Integration, install
+  **D200 Deck**, restart Home Assistant.
+- By hand: copy `custom_components/d200_deck` into the `custom_components` folder of your
+  Home Assistant configuration, then restart.
+
+**Set up:** Settings, Devices & services, Add integration, **D200 Deck**. Enter the base topic
+(`d200` unless you changed it in D200 Deck) and pick the entities to put on the deck. Change
+the list later under the integration's Configure.
+
+What it does:
+- **Every chosen entity becomes a key id** (its entity id, e.g. `light.kitchen`). In D200 Deck,
+  put the app **Home Assistant** on a key and pick the id. The key follows the entity: label,
+  icon by domain, on/off, a light's colour and brightness, a sensor's value, a cover's position,
+  a thermostat's temperature. Taking an entity off the list removes it from the deck.
+- **A press runs the entity's default action:** toggle (lights, switches, fans, covers, media
+  players, automations, climate), turn on (scenes, scripts), press (buttons), lock or unlock,
+  start or send home (vacuums). Switch this off under Configure to only use automations.
+- **Every press fires the event `d200_deck_press`** with `id`, `entity_id`, `event`
+  (`press` or `long_press`) and `base_topic`, for your own automations.
+- **When a computer takes the D200** (`online` on `d200/availability`), every key is sent again.
+
+Services:
+
+| Service | Does |
+|---|---|
+| `d200_deck.notify` | a notification on the wide key: `message`, `title`, `icon`, `color`, `duration`, `critical` |
+| `d200_deck.set_key` | a key by id without an entity: `key_id`, `label`, `kind`, `icon`, `value`, `on`, `color`, `progress`, `background` |
+| `d200_deck.clear_key` | removes a key id |
+| `d200_deck.show_remote_page` | shows (`show: true`) or leaves the remote page |
+
+All take `base_topic` to address one deck when there are several.
+
+A long press dims the kitchen light:
+
+```yaml
+automation:
+  - alias: "D200: kitchen long press"
+    triggers:
+      - trigger: event
+        event_type: d200_deck_press
+        event_data: { id: light.kitchen, event: long_press }
+    actions:
+      - action: light.turn_on
+        target: { entity_id: light.kitchen }
+        data: { brightness_pct: 20 }
+```
+
+A doorbell key without an entity:
+
+```yaml
+      - action: d200_deck.set_key
+        data: { key_id: doorbell, label: Door, kind: presence, value: "ringing", on: true }
+```
+
+Tests: `tests/ha/run.sh` (needs `pip install -r tests/ha/requirements.txt`) runs the integration
+in Home Assistant's test harness.
+
+The sections below describe the MQTT topics themselves, for setups without the integration.
+
 ## Entities on any key
 
 Home Assistant describes a key by id, and you put the app **Home Assistant**

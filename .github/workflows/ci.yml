@@ -112,6 +112,24 @@ jobs:
           path: ${{ runner.temp }}/e2e
           retention-days: 7
 
+  ha:
+    name: Home Assistant integration
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tests/ha/requirements.txt
+      - name: Home Assistant test harness
+        run: pip install -r tests/ha/requirements.txt
+      - name: Tests
+        run: tests/ha/run.sh
+      - name: hassfest-style checks
+        run: python3 -c "import json; m = json.load(open('custom_components/d200_deck/manifest.json')); k = list(m); assert k[:2] == ['domain', 'name'] and k[2:] == sorted(k[2:]), k"
+
   device:
     name: Device binary (armv7)
     timeout-minutes: 40
@@ -224,7 +242,7 @@ jobs:
     name: GitHub release
     timeout-minutes: 40
     if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
-    needs: [test, device, app]
+    needs: [test, ha, device, app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
