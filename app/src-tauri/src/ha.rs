@@ -35,39 +35,7 @@ impl Ha {
             return;
         }
         let v: Value = serde_json::from_str(text).unwrap_or_else(|_| json!({ "label": text }));
-        let s = |f: &str| {
-            v.get(f).and_then(|x| match x {
-                Value::String(s) => Some(s.clone()),
-                Value::Number(n) => Some(n.to_string()),
-                Value::Bool(b) => Some(b.to_string()),
-                _ => None,
-            })
-        };
-        let state = v.get("icon_state").cloned().unwrap_or(Value::Null);
-        let label = s("label").unwrap_or_default();
-        host.publish(&format!("{id}.present"), json!(true));
-        host.publish(&format!("{id}.label"), json!(label));
-        if let Some(x) = s("value").or_else(|| state.get("temperature").map(crate::bind::text)) {
-            host.publish(&format!("{id}.value"), json!(x));
-        }
-        if let Some(on) = v.get("on").or_else(|| state.get("on")).filter(|x| !x.is_null()) {
-            host.publish(&format!("{id}.on"), json!(crate::bind::truthy(on)));
-        }
-        // `color`: the entity's colour (a light), shown by icons with the rgb role.
-        if let Some(c) = s("color").or_else(|| state.get("color").and_then(Value::as_str).map(str::to_string)) {
-            host.publish(&format!("{id}.color"), json!(c));
-        }
-        // `background` (old: `bg`): the key's background.
-        if let Some(c) = s("background").or_else(|| s("bg")) {
-            host.publish(&format!("{id}.background"), json!(c));
-        }
-        if let Some(p) = v.get("progress").or_else(|| state.get("progress")).and_then(crate::bind::number) {
-            host.publish(&format!("{id}.progress"), json!(p.clamp(0.0, 100.0)));
-        }
-        if let Some(k) = s("kind") {
-            host.publish(&format!("{id}.kind"), json!(k));
-        }
-        host.publish(&format!("{id}.icon"), json!(icon_for(s("icon").as_deref(), s("kind").as_deref())));
+        let label = describe(id, &v, host);
         self.ids.insert(id.to_string(), label);
     }
 
@@ -94,6 +62,46 @@ impl Ha {
             }
         }
     }
+}
+
+/// Publish key `id` as signals `<plugin>:<id>.<field>` (present, label, value, on, color,
+/// background, progress, kind, icon) from a key description; returns the label. Shared by
+/// the Home Assistant and web plugins.
+pub fn describe(id: &str, v: &Value, host: &mut Host) -> String {
+    let s = |f: &str| {
+        v.get(f).and_then(|x| match x {
+            Value::String(s) => Some(s.clone()),
+            Value::Number(n) => Some(n.to_string()),
+            Value::Bool(b) => Some(b.to_string()),
+            _ => None,
+        })
+    };
+    let state = v.get("icon_state").cloned().unwrap_or(Value::Null);
+    let label = s("label").unwrap_or_default();
+    host.publish(&format!("{id}.present"), json!(true));
+    host.publish(&format!("{id}.label"), json!(label));
+    if let Some(x) = s("value").or_else(|| state.get("temperature").map(crate::bind::text)) {
+        host.publish(&format!("{id}.value"), json!(x));
+    }
+    if let Some(on) = v.get("on").or_else(|| state.get("on")).filter(|x| !x.is_null()) {
+        host.publish(&format!("{id}.on"), json!(crate::bind::truthy(on)));
+    }
+    // `color`: the entity's colour (a light), shown by icons with the rgb role.
+    if let Some(c) = s("color").or_else(|| state.get("color").and_then(Value::as_str).map(str::to_string)) {
+        host.publish(&format!("{id}.color"), json!(c));
+    }
+    // `background` (old: `bg`): the key's background.
+    if let Some(c) = s("background").or_else(|| s("bg")) {
+        host.publish(&format!("{id}.background"), json!(c));
+    }
+    if let Some(p) = v.get("progress").or_else(|| state.get("progress")).and_then(crate::bind::number) {
+        host.publish(&format!("{id}.progress"), json!(p.clamp(0.0, 100.0)));
+    }
+    if let Some(k) = s("kind") {
+        host.publish(&format!("{id}.kind"), json!(k));
+    }
+    host.publish(&format!("{id}.icon"), json!(icon_for(s("icon").as_deref(), s("kind").as_deref())));
+    label
 }
 
 /// The icon to show: own set by `icon` or `kind`, else Night Signal, else as given.

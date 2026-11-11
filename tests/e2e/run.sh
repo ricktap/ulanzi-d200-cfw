@@ -14,7 +14,7 @@ mkdir -p "$WORK/fakeide"
 cc -o "$WORK/fakeide/webstorm" "$ROOT/tests/e2e/fakeide/webstorm.c"
 export D200FW_HOST_BIN="$ROOT/device/target/$HOST/release/d200fw"
 fail=0
-for t in ${*:-test_core test_integrations test_screensaver test_wide_display test_packages}; do
+for t in ${*:-test_core test_integrations test_screensaver test_wide_display test_packages test_web}; do
     echo "== $t"
     python3 -I "$ROOT/tests/e2e/$t.py" "$ROOT" "$WORK" || fail=1
     pkill -f 'inspect=127.0.0.1:0' 2>/dev/null || true

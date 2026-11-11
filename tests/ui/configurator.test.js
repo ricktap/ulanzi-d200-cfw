@@ -152,6 +152,21 @@ const fs = require('fs');
   await p.click('#side [data-view="deck"]'); await wait(1200);
   ok((await p.locator('#theme .theme-pick').first().textContent()).includes('missing'), 'the deck says the theme is missing');
 
+  // 17. web API: generate a token, switch the server on, see where it listens
+  await p.click('#side [data-view="packages"]'); await wait();
+  await p.locator('.pkg:has-text("com.deckling.web") button:has-text("Settings")').click(); await wait(500);
+  await p.locator('.pkg:has-text("com.deckling.web") button:has-text("Generate")').click(); await wait(1200);
+  const tok = cfg().plugins['com.deckling.web']?.config?.token || '';
+  ok(/^[0-9a-f]{32}$/.test(tok), 'token generated: ' + tok.length + ' hex digits');
+  await p.locator('.pkg:has-text("com.deckling.web") label:has-text("Run the web server") input').click(); await wait(2500);
+  ok(cfg().plugins['com.deckling.web'].config.serve === true, 'web server switched on');
+  await p.click('#side [data-view="deck"]'); await wait(300);
+  await p.click('#side [data-view="packages"]'); await wait(800);
+  const st = await p.locator('.pkg:has-text("com.deckling.web") .status').textContent();
+  ok(/Listening on port \d+/.test(st), 'status: ' + st.slice(0, 60));
+  await p.locator('.pkg:has-text("com.deckling.web") label:has-text("Run the web server") input').click(); await wait(800);
+  await p.screenshot({ path: OUT + '/13-web.png', fullPage: true });
+
   // narrow window
   await p.setViewportSize({ width: 820, height: 1000 }); await wait(500);
   await p.screenshot({ path: OUT + '/10-narrow.png', fullPage: true });

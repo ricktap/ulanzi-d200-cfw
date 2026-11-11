@@ -61,6 +61,7 @@ The engine owns all state. It decides what each key shows and sends only the key
 | `ha.rs` | plugin `com.deckling.ha`: Home Assistant entities, the remote page, printer |
 | `teams_plugin.rs` | plugin `com.deckling.teams`: meeting link, presence, mail, calendar as signals |
 | `jetbrains.rs` | plugin `com.deckling.jetbrains`: debugger state |
+| `web.rs` | plugin `com.deckling.web`: the HTTP API (its own server thread, requests handled in the engine's thread) |
 | `core_plugin.rs` | plugin `com.deckling.core`: system, mute and volume, weather, Pomodoro, media, commands |
 | `teams.rs` | Teams local WebSocket API (meetings) and Microsoft Graph (presence, mail, calendar) |
 | `media.rs` | Spotify / Music through AppleScript |

@@ -28,6 +28,7 @@ key and sees no key presses.
 | `com.deckling.ha` (`ha.rs`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
 | `com.deckling.teams` (`teams_plugin.rs`, protocol in `teams.rs`) | meeting link, pairing, Microsoft 365 sign-in, presence, mail, calendar, `meeting` and `presence` actions | |
 | `com.deckling.jetbrains` (`jetbrains.rs`) | debugger detection | |
+| `com.deckling.web` (`web.rs`) | the HTTP API ([web-api.md](web-api.md)): keys by id, signals, notifications, presses, actions; the app `Web key` | |
 | `com.deckling.core` (`core_plugin.rs`) | system monitor, mute and volume, weather, Pomodoro, media, commands, open, shortcuts | |
 
 A plugin's calls: `mqtt_topics`/`on_mqtt`, `on_action`, `options`, `configure` (at start and
@@ -116,6 +117,7 @@ every plugin publishes its own. Types are in each package's
 | `com.deckling.teams` | `connected`, `paired`, `error`, `in_meeting`, `mic_on`, `video`, `meeting.muted`, `meeting.hand_raised`, `meeting.blurred`, `meeting.recording`, `meeting.sharing`, `meeting.can_toggle_mute`, `meeting.can_toggle_video`, `signed_in`, `account`, `presence`, `presence.activity`, `presence.error`, `mail.unread`, `mail.latest.id`, `mail.latest.from`, `mail.latest.subject`, `mail.latest.link`, `mail.error`, `calendar.count`, `calendar.<n>.id`, `.subject`, `.start`, `.end`, `.join`, `.teams` (next 10 events) |
 | `com.deckling.jetbrains` | `debugger.active`, `debugger.name` |
 | `com.deckling.ha` | `<id>.label`, `.value`, `.on`, `.color`, `.background`, `.progress`, `.kind`, `.icon`, `.present`; `printer.*` |
+| `com.deckling.web` | `<id>.label` … `.icon` as for HA, `<id>.pressed`; any `<name>` a script sets |
 
 Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckling.teams:mic_on`.
 

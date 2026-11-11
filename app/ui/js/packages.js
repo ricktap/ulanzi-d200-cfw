@@ -131,12 +131,35 @@ function settings(p) {
 function field(p, f) {
   const read = () => getPath(conf(state.config, p.id), f.key);
   if (f.type === "place") return placeField(p, f, read);
+  if (f.type === "token") return tokenField(p, f, read);
   const shown = { ...f, type: f.secret ? "password" : f.type };
   return schemaField(shown, read, (v, typing) => {
     if (f.type === "number" && v !== undefined) v = Math.min(f.max ?? Infinity, Math.max(f.min ?? -Infinity, v));
     edit(`${p.name} · ${f.label || f.key}`, (c) => setPath(conf(c, p.id), f.key, v === undefined ? f.default : v),
       { redraw: false, coalesce: typing ? `pkg:${p.id}:${f.key}` : null });
   }, { labelled: true });
+}
+
+/** A secret token: hidden, with Generate (random, 32 hex digits) and Copy. */
+function tokenField(p, f, read) {
+  const input = h("input", { type: "password", autocomplete: "off", value: read() || "", placeholder: "Generate one" });
+  const save = (v, label) => edit(`${p.name} · ${f.label}`, (c) => setPath(conf(c, p.id), f.key, v || undefined), { redraw: false, coalesce: label ? null : `pkg:${p.id}:${f.key}` });
+  input.oninput = () => save(input.value.trim());
+  const generate = () => {
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    input.value = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+    save(input.value, "generate");
+    hint("New token. Scripts using the old one stop working.");
+    renderPackages();
+  };
+  return h("div", { class: "field" },
+    h("span", { class: "label" }, f.label),
+    input,
+    h("div", { class: "row" },
+      h("button", { class: "btn small", type: "button", onclick: generate }, "Generate"),
+      h("button", { class: "btn small", type: "button", onclick: () => { input.type = input.type === "password" ? "text" : "password"; } }, "Show"),
+      h("button", { class: "btn small", type: "button", onclick: () => navigator.clipboard.writeText(input.value).then(() => toast("Token copied")) }, "Copy")));
 }
 
 /** A place for the weather: search by name (Open-Meteo), store {name, lat, lon}. */
@@ -182,6 +205,13 @@ function status(id) {
     const t = i.teams || {};
     const step = !t.connected ? "Setup needed" : !i.signedIn ? "Meeting controls ready" : "Connected";
     return { ok: !!t.connected, text: step, note: i.signedIn && i.account ? `Signed in as ${i.account}` : "" };
+  }
+  if (id === "com.deckling.web") {
+    const w = i.web || {};
+    const c = state.config.plugins?.[id]?.config || {};
+    if (w.listening) return { ok: true, text: `Listening on port ${w.listening}`, note: (w.addresses || []).join("  ·  ") };
+    if (w.error) return { ok: false, text: "Not running", note: w.error };
+    return { ok: false, text: c.serve ? "Starting" : "Off", note: c.serve ? "" : "Switch on Run the web server in its settings." };
   }
   if (id === "com.deckling.jetbrains") return { ok: true, text: i.debugging ? `Debugging in ${i.debugging}` : "Watching", note: "Looks while a JetBrains IDE is in front." };
   if (id === "com.deckling.core") return i.playing ? { ok: true, text: i.playing.playing ? "Playing" : "Paused", note: `${i.playing.title || ""} ${i.playing.artist ? "· " + i.playing.artist : ""}` } : null;
@@ -229,6 +259,30 @@ const SETUP = {
             ? h("button", { class: "btn small", type: "button", onclick: () => call("teams_sign_out") }, "Sign out")
             : h("button", { class: "btn small primary", type: "button", disabled: !cfg.client_id, onclick: signIn }, "Sign in")),
         deviceCode && !i.signedIn ? h("p", { class: "sub" }, deviceCode) : null));
+  },
+  "com.deckling.web": () => {
+    const w = state.snap?.integrations?.web || {};
+    const c = state.config.plugins?.["com.deckling.web"]?.config || {};
+    const url = (w.addresses || [])[1] || (w.addresses || [])[0] || `http://<this computer>:${c.port || 8765}/api`;
+    const base = url.replace(/\/api$/, "");
+    return h("div", { class: "steps" },
+      h("p", { class: "sub" }, "Anyone on the network with the token can drive the deck. Keep the token secret; generate a new one to lock out old scripts. Actions that start programs or type are refused unless you allow them below."),
+      h("pre", { class: "code" }, `# a key: put the app "Web key" on a key and pick the id "build"
+curl -X PUT -H "Authorization: Bearer $TOKEN" \\
+  -d '{"label": "Build", "kind": "sensor", "value": "green", "on": true}' \\
+  ${base}/api/keys/build
+
+# a notification on the wide key
+curl -X POST -H "Authorization: Bearer $TOKEN" \\
+  -d '{"title": "Deploy", "text": "done"}' ${base}/api/notify
+
+# a signal that themes and icons can bind to: com.deckling.web:ci.status
+curl -X PUT -H "Authorization: Bearer $TOKEN" -d '"failed"' ${base}/api/signals/ci.status
+
+# press key 3, run an action, read every signal
+curl -X POST -H "Authorization: Bearer $TOKEN" ${base}/api/keys/3/press
+curl -X POST -H "Authorization: Bearer $TOKEN" -d '{"params": {"page": "main"}}' ${base}/api/actions/core:page
+curl -H "Authorization: Bearer $TOKEN" ${base}/api/signals`));
   },
   "com.deckling.ha": () => {
     const base = state.config.plugins?.core?.config?.mqtt?.base_topic || "d200";

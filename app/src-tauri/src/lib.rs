@@ -11,6 +11,7 @@ pub mod ha;
 pub mod icons;
 pub mod ide;
 pub mod jetbrains;
+pub mod web;
 pub mod media;
 pub mod migrate;
 pub mod teams;

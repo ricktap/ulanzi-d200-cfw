@@ -31,6 +31,17 @@ impl Sender {
     }
 }
 
+/// Something a plugin asks the core to do once its call returns (the web API).
+#[derive(Debug, Clone)]
+pub enum HostRequest {
+    /// Run an action of any package, like a key would.
+    Action(crate::config::ActionRef),
+    /// Show a notification: text or the JSON of MQTT `notify`.
+    Notify(String),
+    /// Press a key of the page on the device.
+    Press { key: usize, event: crate::config::KeyEvent },
+}
+
 /// What a plugin may touch while it handles one call.
 pub struct Host<'a> {
     id: &'static str,
@@ -48,11 +59,13 @@ pub struct Host<'a> {
     /// cannot tell (then plugins fall back to polling).
     pub front: Option<crate::platform::AppInfo>,
     pub front_known: bool,
+    /// Requests to the core, handled when the call returns.
+    pub requests: Vec<HostRequest>,
 }
 
 impl<'a> Host<'a> {
     pub fn new(id: &'static str, signals: &'a mut Signals, base: String) -> Host<'a> {
-        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None, errors: vec![], front: None, front_known: false }
+        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None, errors: vec![], front: None, front_known: false, requests: vec![] }
     }
 
     pub fn with_engine(mut self, dir: PathBuf, sender: Sender) -> Host<'a> {
@@ -97,6 +110,16 @@ impl<'a> Host<'a> {
         for n in names {
             self.signals.clear(&n);
         }
+    }
+
+    /// Every signal of every package, read only (the web API shows them).
+    pub fn all_signals(&self) -> Vec<(String, Value)> {
+        self.signals.all().map(|(n, v)| (n.clone(), v.clone())).collect()
+    }
+
+    /// Ask the core to do something when this call returns.
+    pub fn request(&mut self, r: HostRequest) {
+        self.requests.push(r);
     }
 
     /// Publish to `<base>/<topic>` over the app's MQTT connection.

@@ -370,6 +370,7 @@ impl Engine {
                 Some(Box::new(crate::ha::Ha::default())),
                 Some(Box::new(crate::teams_plugin::Teams::default())),
                 Some(Box::new(crate::jetbrains::JetBrains::default())),
+                Some(Box::new(crate::web::Web::default())),
             ],
             mqtt: None,
             mqtt_gen: 0,
@@ -1877,18 +1878,7 @@ impl Engine {
         match rest {
             "availability" => self.avail_owner = text,
             "notify" => {
-                let v: Option<Value> = if text.starts_with('{') { serde_json::from_str(&text).ok() } else { None };
-                let card = match v {
-                    // A full card: {"kind": "push", "source": ..., "title": ..., "detail": ...}
-                    Some(v) if v.get("kind").is_some() || v.get("source").is_some() || v.get("detail").is_some() => {
-                        serde_json::from_value::<Card>(v).ok()
-                    }
-                    Some(v) => serde_json::from_value::<Notification>(v).ok().map(|n| Card::from(&n)),
-                    None => Some(Card::from(&Notification::simple(&text, Some("notification"), None))),
-                };
-                if let Some(c) = card.filter(|c| !c.title.is_empty() || c.source.is_some()) {
-                    self.show_card(c);
-                }
+                self.notify_text(&text);
             }
             "remote/show" => {
                 let on = !matches!(text.to_ascii_lowercase().as_str(), "off" | "0" | "false" | "hide");
@@ -1941,14 +1931,14 @@ impl Engine {
         let i = self.plugins.iter().position(|p| p.as_ref().is_some_and(|p| p.id() == id))?;
         let mut p = self.plugins[i].take()?;
         let base = self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into());
-        let (r, out, errors) = {
+        let (r, out, errors, reqs) = {
             let dir = base_dir(&self.path);
             let sender = crate::plugins::Sender::new(p.id(), self.tx.clone());
             let mut host = Host::new(p.id(), &mut self.signals, base).with_engine(dir, sender);
             host.front = self.status.active_app.clone();
             host.front_known = platform::front_app_supported();
             let r = f(p.as_mut(), &mut host, &self.cfg);
-            (r, host.mqtt_out, host.errors)
+            (r, host.mqtt_out, host.errors, host.requests)
         };
         self.plugins[i] = Some(p);
         for e in errors {
@@ -1960,8 +1950,47 @@ impl Engine {
                 _ => (self.emit)("error", json!({ "message": "MQTT is not connected" })),
             }
         }
+        self.host_requests(reqs);
         self.redraw_changed();
         Some(r)
+    }
+
+    /// A notification as text or JSON (MQTT `notify`, the web API): plain text, a
+    /// notification `{title, text, icon, ...}` or a full card `{kind, source, title, ...}`.
+    /// False when it shows nothing.
+    fn notify_text(&mut self, text: &str) -> bool {
+        let v: Option<Value> = if text.trim_start().starts_with('{') { serde_json::from_str(text).ok() } else { None };
+        let card = match v {
+            // A full card: {"kind": "push", "source": ..., "title": ..., "detail": ...}
+            Some(v) if v.get("kind").is_some() || v.get("source").is_some() || v.get("detail").is_some() => serde_json::from_value::<Card>(v).ok(),
+            Some(v) => serde_json::from_value::<Notification>(v).ok().map(|n| Card::from(&n)),
+            None => Some(Card::from(&Notification::simple(text, Some("notification"), None))),
+        };
+        match card.filter(|c| !c.title.is_empty() || c.source.is_some()) {
+            Some(c) => {
+                self.show_card(c);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// What a plugin asked the core to do during a call.
+    fn host_requests(&mut self, reqs: Vec<crate::plugins::HostRequest>) {
+        use crate::plugins::HostRequest;
+        for r in reqs {
+            match r {
+                HostRequest::Action(a) => self.run_ref(&a, None),
+                HostRequest::Notify(text) => {
+                    self.notify_text(&text);
+                }
+                HostRequest::Press { key, event } => {
+                    if key < NUM_KEYS {
+                        self.fire(key, event);
+                    }
+                }
+            }
+        }
     }
 
     /// The printer card follows the printer signals of com.deckling.ha.

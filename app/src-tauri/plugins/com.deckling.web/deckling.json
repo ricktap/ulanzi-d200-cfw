@@ -1,0 +1,54 @@
+{
+  "id": "com.deckling.web",
+  "type": "plugin",
+  "name": "Web API",
+  "version": "1.0.0",
+  "description": "An HTTP API on the local network: scripts and other tools set keys, signals and notifications, press keys and run actions. Every request needs the token.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "config": [
+    {
+      "key": "serve",
+      "label": "Run the web server",
+      "type": "toggle",
+      "default": false,
+      "group": "Server"
+    },
+    {
+      "key": "port",
+      "label": "Port",
+      "type": "number",
+      "default": 8765,
+      "min": 1024,
+      "max": 65535,
+      "group": "Server"
+    },
+    {
+      "key": "token",
+      "label": "Token",
+      "type": "token",
+      "secret": true,
+      "group": "Server"
+    },
+    {
+      "key": "allow_programs",
+      "label": "Allow actions that start programs or type (command, open, keys)",
+      "type": "toggle",
+      "default": false,
+      "group": "Permissions"
+    },
+    {
+      "key": "webhook",
+      "label": "Webhook for presses (URL)",
+      "type": "text",
+      "placeholder": "http://ci.local:8080/d200",
+      "group": "Presses"
+    }
+  ],
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/"
+  }
+}
