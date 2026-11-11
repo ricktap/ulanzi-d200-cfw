@@ -24,9 +24,11 @@ on:
         required: false
         default: ""
 
+# A new push to a branch cancels that branch's older run; releases (tags, or runs
+# started with a release version) are never cancelled and do not cancel others.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}-${{ inputs.release || 'build' }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   contents: read
