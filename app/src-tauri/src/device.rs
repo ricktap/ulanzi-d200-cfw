@@ -252,6 +252,21 @@ impl Device {
         Ok(rects)
     }
 
+    /// d200fw 0.3+ takes run-length coded images (`IMGR`, `BLITR`).
+    pub fn rle(&self) -> bool {
+        !crate::updater::newer("0.3.0", &self.version)
+    }
+
+    /// Run-length coded RGB888 for key `key` (d200fw 0.3+).
+    pub fn image_rle(&self, key: usize, data: &[u8]) -> Result<(), String> {
+        self.cmd(&format!("IMGR {key} {}", data.len()), data).map(|_| ())
+    }
+
+    /// Run-length coded RGB888 for a rectangle (d200fw 0.3+).
+    pub fn blit_rle(&self, x: usize, y: usize, w: usize, h: usize, data: &[u8]) -> Result<(), String> {
+        self.cmd(&format!("BLITR {x} {y} {w} {h} {}", data.len()), data).map(|_| ())
+    }
+
     /// RGB888 for a rectangle anywhere on the 1280x720 screen (landscape coordinates).
     pub fn blit(&self, x: usize, y: usize, w: usize, h: usize, rgb: &[u8]) -> Result<(), String> {
         self.cmd(&format!("BLIT {x} {y} {w} {h}"), rgb).map(|_| ())
@@ -288,6 +303,83 @@ impl Drop for Device {
     fn drop(&mut self) {
         if let Ok(g) = self.inner.lock() {
             let _ = g.w.shutdown(Shutdown::Both);
+        }
+    }
+}
+
+/// Run-length code RGB888 for `IMGR`/`BLITR` (decoder: device/src/rle.rs). A control byte
+/// `c`: `0..=127` copies the next `c + 1` pixels; `128..=255` repeats the next pixel
+/// `c - 126` times.
+pub fn rle_encode(rgb: &[u8]) -> Vec<u8> {
+    let px: Vec<&[u8]> = rgb.chunks_exact(3).collect();
+    let n = px.len();
+    let mut out = Vec::with_capacity(rgb.len() / 8);
+    let mut i = 0;
+    while i < n {
+        let mut run = 1;
+        while i + run < n && run < 129 && px[i + run] == px[i] {
+            run += 1;
+        }
+        if run >= 2 {
+            out.push((run + 126) as u8);
+            out.extend_from_slice(px[i]);
+            i += run;
+            continue;
+        }
+        // literals until the next run of two (or 128 pixels)
+        let start = i;
+        while i < n && i - start < 128 && !(i + 1 < n && px[i + 1] == px[i]) {
+            i += 1;
+        }
+        if i == start {
+            i += 1; // single pixel before a run boundary at the end
+        }
+        out.push((i - start - 1) as u8);
+        for p in &px[start..i] {
+            out.extend_from_slice(p);
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod rle_tests {
+    use super::rle_encode;
+
+    /// The device's decoder, as in device/src/rle.rs.
+    fn decode(src: &[u8]) -> Vec<u8> {
+        let (mut out, mut i) = (vec![], 0);
+        while i < src.len() {
+            let c = src[i] as usize;
+            i += 1;
+            if c < 128 {
+                out.extend_from_slice(&src[i..i + (c + 1) * 3]);
+                i += (c + 1) * 3;
+            } else {
+                for _ in 0..c - 126 {
+                    out.extend_from_slice(&src[i..i + 3]);
+                }
+                i += 3;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn round_trip() {
+        let mut img = vec![];
+        for i in 0..5000u32 {
+            let v = if i % 300 < 200 { [11, 12, 13] } else { [(i % 251) as u8, (i % 7) as u8, 1] };
+            img.extend_from_slice(&v);
+        }
+        let enc = rle_encode(&img);
+        assert_eq!(decode(&enc), img);
+        assert!(enc.len() * 3 < img.len(), "{} vs {}", enc.len(), img.len());
+        for len in [0usize, 1, 2, 3, 129, 130, 257] {
+            let flat = vec![5u8; len * 3];
+            assert_eq!(decode(&rle_encode(&flat)), flat, "flat {len}");
+            let noise: Vec<u8> = (0..len * 3).map(|i| (i * 37 % 256) as u8).collect();
+            assert_eq!(decode(&rle_encode(&noise)), noise, "noise {len}");
         }
     }
 }

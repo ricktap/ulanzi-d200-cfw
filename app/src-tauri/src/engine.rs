@@ -1738,8 +1738,13 @@ impl Engine {
                     let o = (row * w as usize + bx) * 3;
                     part.extend_from_slice(&rgb[o..o + bw * 3]);
                 }
-                dev.blit(x + bx, y + by, bw, bh, &part)
+                if dev.rle() {
+                    dev.blit_rle(x + bx, y + by, bw, bh, &device::rle_encode(&part))
+                } else {
+                    dev.blit(x + bx, y + by, bw, bh, &part)
+                }
             }
+            _ if dev.rle() => dev.image_rle(k, &device::rle_encode(&rgb)),
             _ => dev.image(k, &rgb),
         };
         match res {
