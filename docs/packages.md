@@ -23,10 +23,21 @@ fields from a `source`, and reads and writes MQTT through the app's connection: 
 relative to the base topic and publishes through the host. It never draws, sets no colour on a
 key and sees no key presses.
 
-| Plugin | In `plugins.rs` | Still in the engine |
+| Plugin | Behind the plugin interface | Still in the engine |
 |---|---|---|
 | `com.deckling.ha` (`ha.rs`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
-| `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains` | | everything (work package 5, next) |
+| `com.deckling.teams` (`teams_plugin.rs`, protocol in `teams.rs`) | meeting link, pairing, Microsoft 365 sign-in, presence, mail, calendar, `meeting` and `presence` actions | |
+| `com.deckling.jetbrains` (`jetbrains.rs`) | debugger detection | |
+| `com.deckling.core` | | everything: system, weather, Pomodoro, media, volume, commands |
+
+A plugin's calls: `mqtt_topics`/`on_mqtt`, `on_action`, `options`, `configure` (at start and
+after every config change), `tick` (once a second), `on_message` (results of its own background
+threads, sent with `Host::sender`) and `status` (merged into the UI's `integrations` event).
+
+The cards on the wide key and the built-in Teams and debugger widgets are part of the core.
+They read the plugins' signals back (`teams_plugin::mail`, `events`, `meeting`, `presence`,
+`jetbrains::active`): a new mail, a meeting starting soon and pairing with Teams are seen as
+signal changes.
 
 MQTT itself is part of `core`: the connection, key events, profile, brightness, page,
 availability, discovery and notifications.
@@ -71,15 +82,17 @@ As in the icon workbench report, collected in `Registry.warnings` and shown in t
 
 ## Signals
 
-Published by the engine every second (`Engine::publish_core`). Types are in each package's
+`core` and `com.deckling.core` signals are published by the engine every second
+(`Engine::publish_core`); the other plugins publish their own. Types are in each package's
 `signals.json`.
 
 | Package | Signals |
 |---|---|
 | `core` | `time.clock`, `time.second`, `time.tick`, `time.hour_angle`, `time.minute_angle`, `time.second_angle`, `time.second_progress` |
 | `com.deckling.core` | `system.cpu`, `system.ram`, `system.disk`, `system.net_down`, `system.net_up`, `audio.muted`, `weather.temperature`, `weather.summary`, `pomodoro.progress`, `pomodoro.running`, `pomodoro.phase`, `pomodoro.remaining`, `media.playing`, `media.title`, `media.artist`, `media.progress` |
-| `com.deckling.teams` | `connected`, `in_meeting`, `mic_on`, `video`, `presence` |
-| `com.deckling.jetbrains` | `debugger.active` |
+| `com.deckling.teams` | `connected`, `paired`, `error`, `in_meeting`, `mic_on`, `video`, `meeting.muted`, `meeting.hand_raised`, `meeting.blurred`, `meeting.recording`, `meeting.sharing`, `meeting.can_toggle_mute`, `meeting.can_toggle_video`, `signed_in`, `account`, `presence`, `presence.activity`, `presence.error`, `mail.unread`, `mail.latest.id`, `mail.latest.from`, `mail.latest.subject`, `mail.latest.link`, `mail.error`, `calendar.count`, `calendar.<n>.id`, `.subject`, `.start`, `.end`, `.join`, `.teams` (next 10 events) |
+| `com.deckling.jetbrains` | `debugger.active`, `debugger.name` |
+| `com.deckling.ha` | `<id>.label`, `.value`, `.on`, `.color`, `.background`, `.progress`, `.kind`, `.icon`, `.present`; `printer.*` |
 
 Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckling.teams:mic_on`.
 
@@ -114,11 +127,14 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
   files; `registry.rs` parses them at runtime through the same loader that will read packages
   from disk (work package 7). The registry is built once (`registry::builtin()`).
 - **Settings stay in `settings`.** The core plugin's `config` schema names keys there
-  (`long_press_ms`, `screensaver.enabled`, ...). Moving them to `plugins.<id>.config` comes with
-  the integrations (work package 5).
-- **The built-in plugins run inside the engine.** `com.deckling.teams`, `com.deckling.jetbrains`
-  and `com.deckling.ha` have their own namespaces and package files, but their code is still
-  called from `engine.rs` (work package 5 moves it behind the plugin interface).
+  (`long_press_ms`, `screensaver.enabled`, ...), and the plugins read `settings.teams` and
+  `settings.mqtt`. Moving them to `plugins.<id>.config` goes with the Packages view of the new
+  configurator (work package 6).
+- **`com.deckling.core` still runs inside the engine.** Its apps (system monitor, weather,
+  Pomodoro, media) are drawn by `apps.rs` and fed from engine state; Teams, JetBrains and Home
+  Assistant are behind the plugin interface.
+- **Plugins run in the engine's thread.** `runtime.kind` `process` (own process, JSON RPC) is
+  work package 8.
 - **Default icons come from `com.deckling.core`.** The Teams and JetBrains apps use Night Signal
   icons instead of an icon set of their own.
 - **Built-in widgets stay.** Core apps keep their drawn widgets as the face for the default

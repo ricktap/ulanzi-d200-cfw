@@ -35,7 +35,8 @@ message:
 - MQTT messages
 - ticks
 - UI commands
-- updates from the pollers: media, Teams, Graph, debugger, Steam
+- updates from the pollers: media, Steam
+- results from the built-in plugins' background work (`Msg::Plugin`: Teams, Graph)
 
 The engine owns all state. It decides what each key shows and sends only the keys that changed.
 
@@ -54,9 +55,13 @@ The engine owns all state. It decides what each key shows and sends only the key
 | `icons.rs` | Night Signal SVGs compiled in (`build.rs` → `icons_gen.rs`), resvg rendering, `apply_parts` for bound icons |
 | `device.rs` | adb detection, pushing the binary, port forwarding, the protocol client |
 | `mqtt.rs` | rumqttc client, topics, Home Assistant discovery |
+| `plugins.rs` | the interface for built-in plugins (signals, actions, options, MQTT, ticks, background results) |
+| `ha.rs` | plugin `com.deckling.ha`: Home Assistant entities, the remote page, printer |
+| `teams_plugin.rs` | plugin `com.deckling.teams`: meeting link, presence, mail, calendar as signals |
+| `jetbrains.rs` | plugin `com.deckling.jetbrains`: debugger state |
 | `teams.rs` | Teams local WebSocket API (meetings) and Microsoft Graph (presence, mail, calendar) |
 | `media.rs` | Spotify / Music through AppleScript |
-| `ide.rs` | debugger detection (process scan) and the Steam game currently running |
+| `ide.rs` | debugger detection (process scan, used by `jetbrains.rs`) and the Steam game currently running |
 | `platform.rs` | front app, keyboard shortcuts, volume, open, per OS |
 
 The UI (`app/ui/`) is plain HTML/CSS/JS with `withGlobalTauri`, so there is no build step. It

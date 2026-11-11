@@ -2,5 +2,9 @@
   {
     "name": "com.deckling.jetbrains:debugger.active",
     "type": "flag"
+  },
+  {
+    "name": "com.deckling.jetbrains:debugger.name",
+    "type": "text"
   }
 ]

@@ -2,7 +2,7 @@
 //! notifications) and reacts to messages. Independent of Tauri; the app passes
 //! an `emit` callback for UI events and talks to it through `Handle`.
 
-use crate::apps::{self, PomoEvent, Pomodoro, SysStats, TeamsLinkState, Weather};
+use crate::apps::{self, PomoEvent, Pomodoro, SysStats, Weather};
 use crate::bind::{self, Ctx, Reads, Signals};
 use crate::render::IconEnv;
 use crate::plugins::{Host, Plugin};
@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use crate::ide::DebugWatch;
 use crate::screensaver::{Scene, Season};
 use crate::media::{self, NowPlaying};
-use crate::teams::{self, Meeting, Presence, TeamsEvent, TeamsLink, Tokens};
+use crate::teams::{self, Tokens};
 use image::DynamicImage;
 use crate::config::{Action, AppKind, Config, Key, KeyEvent, NUM_KEYS, STATUS_KEY};
 use crate::device::{self, DevEvent, Device};
@@ -75,10 +75,8 @@ pub enum Msg {
     Error(String),
     Media(Option<NowPlaying>),
     Art(String, Option<DynamicImage>),
-    Teams(u64, TeamsEvent),
-    Presence(Result<(Presence, Option<Tokens>), String>),
-    Mail(Result<(teams::Mail, Option<Tokens>), String>),
-    Events(Result<(Vec<teams::CalEvent>, Option<Tokens>), String>),
+    /// A built-in plugin's background work reporting back (see plugins.rs).
+    Plugin(&'static str, crate::plugins::PluginMsg),
     SteamCover(u32, Option<DynamicImage>),
 }
 
@@ -190,25 +188,13 @@ pub struct Engine {
     art_busy: bool,
     profile_flash: Option<Instant>,
 
-    teams: Option<TeamsLink>,
-    teams_gen: u64,
-    teams_state: TeamsLinkState,
-    meeting: Option<Meeting>,
-    graph: Option<Tokens>,
-    presence: Option<Presence>,
-    presence_err: Option<String>,
-    presence_busy: bool,
 
     dbg: Option<DebugWatch>,
-    debug_active: Option<String>,
 
-    mail: Option<teams::Mail>,
-    mail_err: Option<String>,
-    mail_busy: bool,
     mail_seen: Option<Option<String>>,
+    /// Teams pairing as last seen, for the "Paired with Teams" card.
+    paired_seen: Option<bool>,
     mail_dismissed: Option<String>,
-    events: Vec<teams::CalEvent>,
-    events_busy: bool,
     announced: HashSet<String>,
     meeting_dismissed: Option<String>,
     game: Option<crate::ide::Game>,
@@ -343,7 +329,11 @@ impl Engine {
             notes: VecDeque::new(),
             note: None,
             next_frame: now,
-            plugins: vec![Some(Box::new(crate::ha::Ha::default()))],
+            plugins: vec![
+                Some(Box::new(crate::ha::Ha::default())),
+                Some(Box::new(crate::teams_plugin::Teams::default())),
+                Some(Box::new(crate::jetbrains::JetBrains::default())),
+            ],
             mqtt: None,
             mqtt_gen: 0,
             mqtt_up: false,
@@ -355,23 +345,10 @@ impl Engine {
             art: None,
             art_busy: false,
             profile_flash: None,
-            teams: None,
-            teams_gen: 0,
-            teams_state: TeamsLinkState::default(),
-            meeting: None,
-            graph: None,
-            presence: None,
-            presence_err: None,
-            presence_busy: false,
             dbg: None,
-            debug_active: None,
-            mail: None,
-            mail_err: None,
-            mail_busy: false,
             mail_seen: None,
+            paired_seen: None,
             mail_dismissed: None,
-            events: vec![],
-            events_busy: false,
             announced: HashSet::new(),
             meeting_dismissed: None,
             game: None,
@@ -386,16 +363,12 @@ impl Engine {
             signals: Signals::default(),
             reads: vec![Reads::default(); NUM_KEYS],
         };
-        e.graph = std::fs::read_to_string(e.file("teams-auth.json")).ok().and_then(|s| serde_json::from_str(&s).ok());
         e.restart_mqtt();
-        e.ensure_teams();
+        e.configure_plugins();
         e.poll_mute();
         e
     }
 
-    fn file(&self, name: &str) -> PathBuf {
-        base_dir(&self.path).join(name)
-    }
 
     fn run(&mut self, rx: Receiver<Msg>) {
         loop {
@@ -547,63 +520,13 @@ impl Engine {
                     self.draw_status();
                 }
             }
-            Msg::Teams(gen, ev) if gen == self.teams_gen => self.on_teams(ev),
-            Msg::Teams(..) => {}
-            Msg::Mail(r) => {
-                self.mail_busy = false;
-                match r {
-                    Ok((m, tokens)) => {
-                        if let Some(t) = tokens {
-                            self.save_graph(Some(t));
-                        }
-                        let latest = m.latest.as_ref().map(|l| l.id.clone());
-                        let first = self.mail_seen.is_none();
-                        let new_mail = !first && latest.is_some() && self.mail_seen.as_ref() != Some(&latest);
-                        if new_mail && self.cfg.settings.cards.email {
-                            if let Some(c) = self.mail_card(&m, true) {
-                                self.show_card(c);
-                            }
-                        }
-                        self.mail_seen = Some(latest);
-                        self.mail = Some(m);
-                        self.mail_err = None;
-                    }
-                    Err(e) => self.mail_err = Some(e),
-                }
+            Msg::Plugin(id, m) => {
+                self.call_plugin(id, |p, h, _| p.on_message(m, h));
+                self.plugin_cards();
                 self.emit_integrations();
-            }
-            Msg::Events(r) => {
-                self.events_busy = false;
-                match r {
-                    Ok((ev, tokens)) => {
-                        if let Some(t) = tokens {
-                            self.save_graph(Some(t));
-                        }
-                        self.events = ev;
-                    }
-                    Err(e) => eprintln!("calendar: {e}"),
-                }
             }
             Msg::SteamCover(id, img) => {
                 self.game_cover = Some((id, img.map(Arc::new)));
-            }
-            Msg::Presence(r) => {
-                self.presence_busy = false;
-                match r {
-                    Ok((p, tokens)) => {
-                        if let Some(t) = tokens {
-                            self.save_graph(Some(t));
-                        }
-                        self.presence = Some(p);
-                        self.presence_err = None;
-                    }
-                    Err(e) => {
-                        eprintln!("presence: {e}");
-                        self.presence_err = Some(e);
-                    }
-                }
-                self.draw_apps(Some(AppKind::TeamsPresence));
-                self.emit_integrations();
             }
         }
     }
@@ -671,28 +594,15 @@ impl Engine {
         if self.ticks % 2 == 0 && self.needs_media() {
             self.poll_media();
         }
-        if self.ticks % 30 == 1 && self.graph.is_some() && self.cfg.uses(&[AppKind::TeamsPresence], |_| false) {
-            self.poll_presence(None);
+        let ticks = self.ticks;
+        for id in self.plugin_ids() {
+            self.call_plugin(id, |p, h, c| p.tick(ticks, c, h));
         }
-        let graph = self.graph.is_some();
         let app = self.cfg.status_key.app.clone();
-        if graph && !self.mail_busy && self.ticks % 60 == 3 && (self.cfg.settings.cards.email || app == "email") {
-            self.poll_graph(true);
-        }
-        if graph && !self.events_busy && self.ticks % 120 == 5 && (self.cfg.settings.cards.meetings || app == "meeting") {
-            self.poll_graph(false);
-        }
         self.meeting_cards();
         if self.ticks % 3 == 1 && (self.cfg.settings.cards.steam || app == "steam") {
             let game = self.dbg.get_or_insert_with(DebugWatch::new).steam_game();
             self.on_game(game);
-        }
-        if self.ticks % 2 == 0 && self.visible_app(AppKind::Debugger) {
-            let active = self.dbg.get_or_insert_with(DebugWatch::new).active();
-            if active != self.debug_active {
-                self.debug_active = active;
-                self.draw_apps(Some(AppKind::Debugger));
-            }
         }
         if self.ticks % 30 == 0 && self.dev.is_some() {
             self.publish_availability(true); // heals a stale retained "offline"
@@ -737,6 +647,16 @@ impl Engine {
                 self.draw_key(k);
             }
         }
+        // built-in widgets that read plugin state (Teams, debugger), only when it changed
+        let from = |ns: &str| changed.iter().any(|n| n.starts_with(ns));
+        if from("com.deckling.teams:") {
+            for kind in [AppKind::TeamsMute, AppKind::TeamsCamera, AppKind::TeamsPresence] {
+                self.draw_apps(Some(kind));
+            }
+        }
+        if from("com.deckling.jetbrains:") {
+            self.draw_apps(Some(AppKind::Debugger));
+        }
     }
 
     /// The key shown at `k` in view `v`. On the remote page that is the Home Assistant
@@ -754,8 +674,8 @@ impl Engine {
         key
     }
 
-    /// Signals of the core (`time.*`) and of the built-in plugins that still run inside
-    /// the engine (com.deckling.core, com.deckling.teams, com.deckling.jetbrains).
+    /// Signals of the core (`time.*`) and of com.deckling.core, whose code is still in
+    /// the engine. Teams, JetBrains and Home Assistant publish their own (plugins.rs).
     fn publish_core(&mut self) {
         use chrono::Timelike;
         let now = chrono::Local::now();
@@ -784,12 +704,6 @@ impl Engine {
             ("com.deckling.core:pomodoro.phase", Some(json!(format!("{:?}", self.pomo.phase).to_lowercase()))),
             ("com.deckling.core:pomodoro.remaining", Some(json!(format!("{}:{:02}", rem / 60, rem % 60)))),
             ("com.deckling.core:pomodoro.progress", Some(json!(if len == 0 || self.pomo.phase == apps::Phase::Idle { 0.0 } else { ((len - rem.min(len)) as f64 * 100.0 / len as f64).round() }))),
-            ("com.deckling.teams:connected", Some(json!(self.teams_state.connected))),
-            ("com.deckling.teams:in_meeting", self.meeting.as_ref().map(|x| json!(x.in_meeting))),
-            ("com.deckling.teams:mic_on", self.meeting.as_ref().map(|x| json!(x.in_meeting && !x.muted))),
-            ("com.deckling.teams:video", self.meeting.as_ref().map(|x| json!(x.video_on))),
-            ("com.deckling.teams:presence", self.presence.as_ref().map(|x| json!(x.availability))),
-            ("com.deckling.jetbrains:debugger.active", Some(json!(self.debug_active.is_some()))),
         ];
         let np = self.np_now();
         out.push(("com.deckling.core:media.playing", np.as_ref().map(|n| json!(n.playing))));
@@ -949,7 +863,7 @@ impl Engine {
             return self.run_action(&a, key);
         }
         let (plugin, name) = r.action.split_once(':').unwrap_or(("core", ""));
-        let res = self.call_plugin(plugin, |p, h| p.on_action(name, &r.params, h)).flatten();
+        let res = self.call_plugin(plugin, |p, h, _| p.on_action(name, &r.params, h)).flatten();
         let msg = match res {
             Some(Ok(())) => return,
             Some(Err(e)) => e,
@@ -990,14 +904,14 @@ impl Engine {
             }
             (AppKind::Media, KeyEvent::Press) => self.run_action(&Action::Media { command: "playpause".into() }, None),
             (AppKind::Media, KeyEvent::Long) => self.run_action(&Action::Media { command: "next".into() }, None),
-            (AppKind::TeamsMute, KeyEvent::Press) => self.run_action(&Action::Teams { command: "toggle-mute".into() }, None),
-            (AppKind::TeamsCamera, KeyEvent::Press) => self.run_action(&Action::Teams { command: "toggle-video".into() }, None),
-            (AppKind::TeamsPresence, KeyEvent::Press) => self.run_action(&Action::Presence { to: "toggle".into() }, None),
-            (AppKind::TeamsPresence, KeyEvent::Long) => self.run_action(&Action::Presence { to: "auto".into() }, None),
+            (AppKind::TeamsMute, KeyEvent::Press) => self.run_plugin_action("com.deckling.teams:meeting", json!({ "command": "toggle-mute" })),
+            (AppKind::TeamsCamera, KeyEvent::Press) => self.run_plugin_action("com.deckling.teams:meeting", json!({ "command": "toggle-video" })),
+            (AppKind::TeamsPresence, KeyEvent::Press) => self.run_plugin_action("com.deckling.teams:presence", json!({ "to": "toggle" })),
+            (AppKind::TeamsPresence, KeyEvent::Long) => self.run_plugin_action("com.deckling.teams:presence", json!({ "to": "auto" })),
             (AppKind::Debugger, KeyEvent::Press) | (AppKind::Debugger, KeyEvent::Long) => {
                 let key = self.key_cfg(k);
                 let pick = |name: &str, def: &str| key.cfg_str(name).unwrap_or(def).to_string();
-                let combo = match (self.debug_active.is_some(), ev) {
+                let combo = match (crate::jetbrains::active(&self.signals).is_some(), ev) {
                     (true, KeyEvent::Press) => pick("active_keys", "cmd+alt+r"),
                     (true, _) => pick("stop_keys", "cmd+f2"),
                     (false, KeyEvent::Press) => pick("idle_keys", "ctrl+d"),
@@ -1126,15 +1040,6 @@ impl Engine {
                     let _ = tx.send(Msg::Media(media::poll()));
                 });
             }
-            Action::Teams { command } => match &self.teams {
-                Some(link) if self.teams_state.connected => link.send(command),
-                Some(_) => err(self
-                    .teams_state
-                    .error
-                    .clone()
-                    .unwrap_or_else(|| "Teams is not connected".into())),
-                None => err("Teams is not set up".into()),
-            },
             Action::Volume { value } => {
                 let value = value.clone();
                 let tx = self.tx.clone();
@@ -1144,13 +1049,6 @@ impl Engine {
                     }
                     let _ = tx.send(Msg::Mute(platform::get_muted()));
                 });
-            }
-            Action::Presence { to } => {
-                if self.graph.is_none() {
-                    err("Sign in to Microsoft 365 under Settings → Teams first".into());
-                } else {
-                    self.poll_presence(Some(to.clone()));
-                }
             }
         }
     }
@@ -1180,120 +1078,57 @@ impl Engine {
         Some(np)
     }
 
-    fn ensure_teams(&mut self) {
-        let wanted = self.cfg.uses(&[AppKind::TeamsMute, AppKind::TeamsCamera], |a| matches!(a, Action::Teams { .. }));
-        if wanted == self.teams.is_some() {
-            return;
-        }
-        if let Some(t) = self.teams.take() {
-            t.stop();
-        }
-        self.teams_gen += 1;
-        self.teams_state = TeamsLinkState::default();
-        self.meeting = None;
-        if wanted {
-            let token = std::fs::read_to_string(self.file("teams.json"))
-                .ok()
-                .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-                .and_then(|v| v["token"].as_str().map(str::to_string));
-            self.teams_state.paired = token.is_some();
-            let tx = self.tx.clone();
-            let gen = self.teams_gen;
-            self.teams = Some(TeamsLink::start(self.cfg.settings.teams.port, token, move |ev| {
-                let _ = tx.send(Msg::Teams(gen, ev));
-            }));
-        }
-        self.emit_integrations();
-    }
-
-    fn on_teams(&mut self, ev: TeamsEvent) {
-        match ev {
-            TeamsEvent::Link { connected, paired, error } => {
-                self.teams_state = TeamsLinkState { connected, paired, error };
-                if !connected {
-                    self.meeting = None;
-                }
-            }
-            TeamsEvent::Meeting(m) => self.meeting = Some(m),
-            TeamsEvent::Token(t) => {
-                let _ = crate::config::write_private(&self.file("teams.json"), &json!({ "token": t }).to_string());
-                self.teams_state.paired = true;
-                self.notify(Notification::simple("Paired with Teams", Some("check"), Some("#4f46e5")));
-            }
-        }
-        self.draw_apps(Some(AppKind::TeamsMute));
-        self.draw_apps(Some(AppKind::TeamsCamera));
-        self.emit_integrations();
-    }
-
-    fn save_graph(&mut self, t: Option<Tokens>) {
-        let path = self.file("teams-auth.json");
-        match &t {
-            Some(t) => {
-                let _ = crate::config::write_private(&path, &serde_json::to_string(t).unwrap_or_default());
-            }
-            None => {
-                let _ = std::fs::remove_file(&path);
-            }
-        }
-        self.graph = t;
-    }
-
-    /// Refresh presence; with `change`, first set it ("toggle", "auto" or an availability).
-    fn poll_presence(&mut self, change: Option<String>) {
-        if self.presence_busy && change.is_none() {
-            return;
-        }
-        let Some(tokens) = self.graph.clone() else { return };
-        self.presence_busy = true;
-        let tc = self.cfg.settings.teams.clone();
-        let current = self.presence.clone();
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            let r = (|| {
-                let (token, newer) = teams::access(&tc.client_id, &tc.tenant, &tokens)?;
-                if let Some(to) = change {
-                    let target = match to.as_str() {
-                        "auto" => None,
-                        "toggle" => {
-                            let now = match current {
-                                Some(p) => p,
-                                None => teams::get_presence(&token)?,
-                            };
-                            if now.availability.starts_with("Available") {
-                                Some(tc.away.clone())
-                            } else {
-                                None
-                            }
-                        }
-                        other => Some(other.to_string()),
-                    };
-                    teams::set_presence(&token, target.as_deref())?;
-                    std::thread::sleep(Duration::from_millis(800));
-                }
-                Ok((teams::get_presence(&token)?, newer))
-            })();
-            let _ = tx.send(Msg::Presence(r));
-        });
-    }
-
     fn integrations(&self) -> Value {
-        json!({
-            "teams": self.teams_state,
-            "teamsOn": self.teams.is_some(),
-            "meeting": self.meeting,
-            "signedIn": self.graph.is_some(),
-            "account": self.graph.as_ref().map(|g| g.account.clone()),
-            "presence": self.presence.as_ref().map(|p| p.availability.clone()),
-            "presenceError": self.presence_err,
+        let mut v = json!({
             "playing": self.np.as_ref().map(|n| json!({ "player": n.player, "title": n.title, "artist": n.artist, "playing": n.playing })),
-            "unread": self.mail.as_ref().map(|m| m.unread),
-            "mailError": self.mail_err,
-            "meetings": self.events.len(),
             "game": self.game.as_ref().map(|g| g.name.clone()),
             "printer": self.printer.as_ref().map(|p| p.state.clone()),
-            "debugging": self.debug_active,
-        })
+            "debugging": crate::jetbrains::active(&self.signals),
+        });
+        // what the plugins report about their connections
+        for p in self.plugins.iter().flatten() {
+            if let (Value::Object(st), Some(out)) = (p.status(), v.as_object_mut()) {
+                out.extend(st);
+            }
+        }
+        v
+    }
+
+    /// Run a plugin action from built-in app behaviour (a press on a Teams key).
+    fn run_plugin_action(&mut self, id: &str, params: Value) {
+        let r = crate::config::ActionRef { action: id.into(), params: params.as_object().cloned().unwrap_or_default(), ..Default::default() };
+        self.run_ref(&r, None);
+    }
+
+    fn plugin_ids(&self) -> Vec<&'static str> {
+        self.plugins.iter().flatten().map(|p| p.id()).collect()
+    }
+
+    /// After a config change (and at start): every plugin starts or stops what it needs.
+    fn configure_plugins(&mut self) {
+        for id in self.plugin_ids() {
+            self.call_plugin(id, |p, h, c| p.configure(c, h));
+        }
+        self.emit_integrations();
+    }
+
+    /// Cards that follow plugin signals: pairing with Teams, a new mail.
+    fn plugin_cards(&mut self) {
+        let paired = crate::teams_plugin::link_state(&self.signals).paired;
+        if self.paired_seen == Some(false) && paired {
+            self.notify(Notification::simple("Paired with Teams", Some("check"), Some("#4f46e5")));
+        }
+        self.paired_seen = Some(paired);
+        if let Some(m) = crate::teams_plugin::mail(&self.signals) {
+            let latest = m.latest.as_ref().map(|l| l.id.clone());
+            let first = self.mail_seen.is_none();
+            if !first && latest.is_some() && self.mail_seen.as_ref() != Some(&latest) && self.cfg.settings.cards.email {
+                if let Some(c) = self.mail_card(&m, true) {
+                    self.show_card(c);
+                }
+            }
+            self.mail_seen = Some(latest);
+        }
     }
 
     fn emit_integrations(&self) {
@@ -1448,15 +1283,14 @@ impl Engine {
             return;
         }
         let now = chrono::Utc::now().timestamp();
-        let due: Vec<(String, teams::CalEvent)> = self
-            .events
-            .iter()
+        let due: Vec<(String, teams::CalEvent)> = crate::teams_plugin::events(&self.signals)
+            .into_iter()
             .filter_map(|e| {
                 let d = e.start - now;
                 if d > 0 && d <= 300 {
-                    Some((format!("{}:soon", e.id), e.clone()))
+                    Some((format!("{}:soon", e.id), e))
                 } else if d <= 0 && d > -120 {
-                    Some((format!("{}:live", e.id), e.clone()))
+                    Some((format!("{}:live", e.id), e))
                 } else {
                     None
                 }
@@ -1550,22 +1384,24 @@ impl Engine {
                 None => Card { kind: Kind::Media, source: Some("Media".into()), title: "Nothing playing".into(), icon: Some("now-playing".into()), ..Default::default() },
             }),
             "meeting" => {
-                if self.graph.is_none() {
+                if !crate::teams_plugin::signed_in(&self.signals) {
                     return Some(signed_out());
                 }
                 let now = chrono::Utc::now().timestamp();
-                let next = self.events.iter().find(|e| e.end > now && self.meeting_dismissed.as_ref() != Some(&e.id));
+                let events = crate::teams_plugin::events(&self.signals);
+                let next = events.iter().find(|e| e.end > now && self.meeting_dismissed.as_ref() != Some(&e.id));
                 Some(match next {
                     Some(e) => self.meeting_card(e, now),
                     None => Card { kind: Kind::Meeting, source: Some("Calendar".into()), title: "No meetings".into(), detail: Some("Nothing in the next 12 hours".into()), ..Default::default() },
                 })
             }
             "email" => {
-                if self.graph.is_none() {
+                if !crate::teams_plugin::signed_in(&self.signals) {
                     return Some(signed_out());
                 }
-                match (&self.mail, &self.mail_err) {
-                    (Some(m), _) => self.mail_card(m, false),
+                let mail_err = self.signals.get("com.deckling.teams:mail.error").and_then(Value::as_str).map(str::to_string);
+                match (crate::teams_plugin::mail(&self.signals), &mail_err) {
+                    (Some(m), _) => self.mail_card(&m, false),
                     (None, Some(e)) => Some(Card { kind: Kind::Email, source: Some("Mail".into()), title: "Unavailable".into(), detail: Some(e.clone()), color: Some("#87909E".into()), ..Default::default() }),
                     _ => Some(Card { kind: Kind::Email, source: Some("Mail".into()), title: "—".into(), detail: Some("Loading".into()), ..Default::default() }),
                 }
@@ -1622,14 +1458,14 @@ impl Engine {
                 }
                 ("meeting", KeyEvent::Long) => {
                     let now = chrono::Utc::now().timestamp();
-                    self.meeting_dismissed = self.events.iter().find(|e| e.end > now).map(|e| e.id.clone());
+                    self.meeting_dismissed = crate::teams_plugin::events(&self.signals).into_iter().find(|e| e.end > now).map(|e| e.id);
                 }
                 ("email", KeyEvent::Press) => {
-                    let url = self.mail.as_ref().and_then(|m| m.latest.as_ref()).and_then(|l| l.link.clone());
+                    let url = crate::teams_plugin::mail(&self.signals).and_then(|m| m.latest).and_then(|l| l.link);
                     let _ = platform::open(url.as_deref().unwrap_or("Microsoft Outlook"), &dir);
                 }
                 ("email", KeyEvent::Long) => {
-                    self.mail_dismissed = self.mail.as_ref().and_then(|m| m.latest.as_ref()).map(|l| l.id.clone());
+                    self.mail_dismissed = crate::teams_plugin::mail(&self.signals).and_then(|m| m.latest).map(|l| l.id);
                 }
                 ("steam", KeyEvent::Press) => {
                     let url = self.game.as_ref().and_then(|g| g.appid).map(|id| format!("steam://nav/games/details/{id}"));
@@ -1641,26 +1477,6 @@ impl Engine {
         }
         self.draw_status();
         true
-    }
-
-    fn poll_graph(&mut self, mail: bool) {
-        let Some(tokens) = self.graph.clone() else { return };
-        if mail {
-            self.mail_busy = true;
-        } else {
-            self.events_busy = true;
-        }
-        let tc = self.cfg.settings.teams.clone();
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            let r = teams::access(&tc.client_id, &tc.tenant, &tokens);
-            let msg = if mail {
-                Msg::Mail(r.and_then(|(t, n)| teams::get_mail(&t).map(|m| (m, n))))
-            } else {
-                Msg::Events(r.and_then(|(t, n)| teams::get_events(&t).map(|e| (e, n))))
-            };
-            let _ = tx.send(msg);
-        });
     }
 
     // -------------------------------------------------------------- screensaver
@@ -1920,16 +1736,19 @@ impl Engine {
                             });
                             apps::media_face(f, np.as_ref(), art, bg, fg)
                         }
-                        AppKind::TeamsMute => apps::teams_face(f, "mute", &self.teams_state, self.meeting.as_ref(), bg),
-                        AppKind::TeamsCamera => apps::teams_face(f, "camera", &self.teams_state, self.meeting.as_ref(), bg),
+                        AppKind::TeamsMute | AppKind::TeamsCamera => {
+                            let which = if kind == AppKind::TeamsMute { "mute" } else { "camera" };
+                            let s = &self.signals;
+                            apps::teams_face(f, which, &crate::teams_plugin::link_state(s), crate::teams_plugin::meeting(s).as_ref(), bg)
+                        }
                         AppKind::TeamsPresence => apps::presence_face(
                             f,
-                            self.presence.as_ref(),
-                            self.graph.is_some(),
-                            self.presence_err.as_deref(),
+                            crate::teams_plugin::presence(&self.signals).as_ref(),
+                            crate::teams_plugin::signed_in(&self.signals),
+                            crate::teams_plugin::presence_error(&self.signals).as_deref(),
                             bg,
                         ),
-                        AppKind::Debugger => apps::debugger_face(f, self.debug_active.as_deref(), bg, fg),
+                        AppKind::Debugger => apps::debugger_face(f, crate::jetbrains::active(&self.signals).as_deref(), bg, fg),
                     }
                 }
                 _ if key.app.is_some() && def.is_none() => render::missing_plugin(f, key.app.as_deref().unwrap_or(""), size),
@@ -2139,7 +1958,7 @@ impl Engine {
                     .map(|p| p.id())
                     .collect();
                 for id in ids {
-                    self.call_plugin(id, |p, h| p.on_mqtt(rest, &text, h));
+                    self.call_plugin(id, |p, h, _| p.on_mqtt(rest, &text, h));
                 }
                 if rest == "printer" {
                     self.on_printer();
@@ -2153,13 +1972,15 @@ impl Engine {
 
     /// Run `f` on plugin `id` with a host bound to this engine, then send what it
     /// published over MQTT and redraw keys whose signals changed.
-    fn call_plugin<R>(&mut self, id: &str, f: impl FnOnce(&mut dyn Plugin, &mut Host) -> R) -> Option<R> {
+    fn call_plugin<R>(&mut self, id: &str, f: impl FnOnce(&mut dyn Plugin, &mut Host, &Config) -> R) -> Option<R> {
         let i = self.plugins.iter().position(|p| p.as_ref().is_some_and(|p| p.id() == id))?;
         let mut p = self.plugins[i].take()?;
         let base = self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into());
         let (r, out) = {
-            let mut host = Host::new(p.id(), &mut self.signals, base);
-            let r = f(p.as_mut(), &mut host);
+            let dir = base_dir(&self.path);
+            let sender = crate::plugins::Sender::new(p.id(), self.tx.clone());
+            let mut host = Host::new(p.id(), &mut self.signals, base).with_engine(dir, sender);
+            let r = f(p.as_mut(), &mut host, &self.cfg);
             (r, host.mqtt_out)
         };
         self.plugins[i] = Some(p);
@@ -2375,14 +2196,7 @@ impl Engine {
                 }
             }
             Ui::GraphTokens(t) => {
-                let signed_in = t.is_some();
-                self.save_graph(t);
-                self.presence = None;
-                self.presence_err = None;
-                if signed_in {
-                    self.poll_presence(None);
-                }
-                self.draw_apps(Some(AppKind::TeamsPresence));
+                self.call_plugin(crate::teams_plugin::ID, |p, h, _| p.on_message(Box::new(crate::teams_plugin::TeamsMsg::SignedIn(t)), h));
                 self.emit_integrations();
             }
         }
@@ -2415,12 +2229,7 @@ impl Engine {
         if old.settings.brightness != self.cfg.settings.brightness {
             self.set_brightness(self.cfg.settings.brightness, false);
         }
-        if old.settings.teams.port != self.cfg.settings.teams.port {
-            if let Some(t) = self.teams.take() {
-                t.stop();
-            }
-        }
-        self.ensure_teams();
+        self.configure_plugins();
         if old.settings.screensaver != self.cfg.settings.screensaver && self.saver.is_some() {
             self.saver = None;
             self.start_saver();

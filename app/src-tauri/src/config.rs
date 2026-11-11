@@ -88,19 +88,14 @@ pub enum Action {
     Remote,
     /// Spotify / Music: "playpause", "next", "previous", "play", "pause".
     Media { command: String },
-    /// Teams meeting: "toggle-mute", "toggle-video", "toggle-hand",
-    /// "toggle-background-blur", "leave-call", "toggle-ui-chat".
-    Teams { command: String },
     /// System output volume: "+5" / "-5" (percent steps), "40" (set), "mute", "unmute", "toggle-mute".
     Volume { value: String },
-    /// Teams presence: "toggle", "auto", or "Available", "Busy", "DoNotDisturb",
-    /// "BeRightBack", "Away", "Offline".
-    Presence { to: String },
 }
 
-/// Built-in actions: (action id, `Action` type). `core:` is what is fixed in the app;
-/// the rest belong to the built-in plugins.
-pub const ACTION_IDS: [(&str, &str); 16] = [
+/// Actions the engine runs itself: (action id, `Action` type). `core:` is what is fixed
+/// in the app; the others belong to built-in plugins whose code is still in the engine.
+/// Actions of plugins in `plugins.rs` (Teams, Home Assistant presses) are not listed.
+pub const ACTION_IDS: [(&str, &str); 14] = [
     ("core:page", "page"),
     ("core:back", "back"),
     ("core:home", "home"),
@@ -113,8 +108,6 @@ pub const ACTION_IDS: [(&str, &str); 16] = [
     ("com.deckling.core:keys", "keys"),
     ("com.deckling.core:volume", "volume"),
     ("com.deckling.core:media", "media"),
-    ("com.deckling.teams:meeting", "teams"),
-    ("com.deckling.teams:presence", "presence"),
     ("com.deckling.ha:mqtt", "mqtt"),
     ("com.deckling.ha:remote", "remote"),
 ];
@@ -678,6 +671,12 @@ impl Config {
             k.kind().is_some_and(|kd| kinds.contains(&kd))
                 || k.states.iter().any(|s| s.on.all().filter_map(ActionRef::parse).any(|a| act(&a)))
         })
+    }
+
+    /// Does any key (or the status key) carry action `id`?
+    pub fn uses_action(&self, id: &str) -> bool {
+        self.status_key.on.all().any(|a| a.action == id)
+            || self.profiles.iter().flat_map(|p| p.pages.values()).flat_map(|pg| pg.values()).any(|k| k.states.iter().any(|s| s.on.all().any(|a| a.action == id)))
     }
 
     pub fn profile_index(&self, name: &str) -> Option<usize> {

@@ -7,7 +7,29 @@
 //! it reads (relative to the base topic) and may publish through the host.
 
 use crate::bind::Signals;
+use crate::config::Config;
 use serde_json::{Map, Value};
+use std::any::Any;
+use std::path::PathBuf;
+
+/// A message a plugin's background work sends back to it (delivered to `on_message`).
+pub type PluginMsg = Box<dyn Any + Send>;
+
+/// Hands results from a plugin's threads back to the engine thread.
+#[derive(Clone)]
+pub struct Sender {
+    id: &'static str,
+    tx: std::sync::mpsc::Sender<crate::engine::Msg>,
+}
+
+impl Sender {
+    pub fn new(id: &'static str, tx: std::sync::mpsc::Sender<crate::engine::Msg>) -> Sender {
+        Sender { id, tx }
+    }
+    pub fn send(&self, msg: impl Any + Send) {
+        let _ = self.tx.send(crate::engine::Msg::Plugin(self.id, Box::new(msg)));
+    }
+}
 
 /// What a plugin may touch while it handles one call.
 pub struct Host<'a> {
@@ -17,11 +39,29 @@ pub struct Host<'a> {
     pub base: String,
     /// (absolute topic, payload, retain) to publish when the call returns.
     pub mqtt_out: Vec<(String, String, bool)>,
+    /// The app's data folder (next to deck.json), for tokens and the like.
+    pub dir: PathBuf,
+    sender: Option<Sender>,
 }
 
 impl<'a> Host<'a> {
     pub fn new(id: &'static str, signals: &'a mut Signals, base: String) -> Host<'a> {
-        Host { id, signals, base, mqtt_out: vec![] }
+        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None }
+    }
+
+    pub fn with_engine(mut self, dir: PathBuf, sender: Sender) -> Host<'a> {
+        self.dir = dir;
+        self.sender = Some(sender);
+        self
+    }
+
+    /// For background threads: what they send arrives in `on_message`.
+    pub fn sender(&self) -> Option<Sender> {
+        self.sender.clone()
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.signals.get(&self.full(name))
     }
 
     fn full(&self, name: &str) -> String {
@@ -79,6 +119,20 @@ pub trait Plugin: Send {
     /// Values for a `select` with `{"source": "<plugin id>:<name>"}`.
     fn options(&self, _name: &str) -> Option<Vec<Value>> {
         None
+    }
+
+    /// At start and after every config change: start or stop what the deck needs.
+    fn configure(&mut self, _cfg: &Config, _host: &mut Host) {}
+
+    /// Once a second.
+    fn tick(&mut self, _ticks: u64, _cfg: &Config, _host: &mut Host) {}
+
+    /// A result from this plugin's own background work (see `Host::sender`).
+    fn on_message(&mut self, _msg: PluginMsg, _host: &mut Host) {}
+
+    /// Connection state for the UI (merged into the `integrations` event).
+    fn status(&self) -> Value {
+        Value::Null
     }
 }
 
