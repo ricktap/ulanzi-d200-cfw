@@ -15,6 +15,16 @@ Custom software for the **Ulanzi D200 / D200H** stream controller, in two parts:
   - a seasonal screensaver
   - Home Assistant over MQTT
 
+## Install (macOS)
+
+```sh
+curl -fsSL https://github.com/ricktap/ulanzi-d200-cfw/releases/latest/download/install.sh | sh
+```
+
+This installs the latest release to `/Applications` and starts it (Intel and Apple Silicon,
+macOS 11 or newer). From then on the app updates itself. You also need `adb` for the USB
+connection: `brew install android-platform-tools`. Details: [Install on macOS](#install-on-macos).
+
 ![Main page on the device](docs/img/device-main.png)
 
 ## Repository layout
@@ -30,7 +40,7 @@ Custom software for the **Ulanzi D200 / D200H** stream controller, in two parts:
 | `host/` | The first Python prototype (v1 config format). Kept for reference only |
 | `docs/` | Documentation, see below |
 
-## Quick start (macOS)
+## Quick start (development, macOS)
 
 ```sh
 brew install android-platform-tools                 # adb
@@ -45,7 +55,7 @@ lasts until the next reboot. It draws your deck. To have it start at boot, see
 ## Install on macOS
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ricktap/ulanzi-d200-cfw/main/install.sh | sh
+curl -fsSL https://github.com/ricktap/ulanzi-d200-cfw/releases/latest/download/install.sh | sh
 ```
 
 `install.sh` downloads the latest release (or `sh install.sh v0.5.0` for a given one), puts

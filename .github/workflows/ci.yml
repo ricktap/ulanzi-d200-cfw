@@ -217,7 +217,7 @@ jobs:
             echo 'macOS (Intel and Apple Silicon, macOS 11+):'
             echo
             echo '```sh'
-            echo "curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${RELEASE_TAG}/install.sh | sh"
+            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/install.sh | sh"
             echo '```'
             echo
             echo 'An installed D200 Deck offers new releases itself (Update button in the header).'
@@ -234,6 +234,7 @@ jobs:
           cp dist/d200-deck-macos/dmg/*.dmg dist/d200-deck-macos/pkg/*.pkg out/
           echo "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || { echo "not a semver tag: $RELEASE_TAG"; exit 1; }
           cp dist/d200fw/d200fw "out/d200fw-${RELEASE_TAG}-armv7"
+          cp install.sh out/  # releases/latest/download/install.sh is always the newest
           # updater: the signed package and latest.json (the app reads it from releases/latest)
           VERSION="${RELEASE_TAG#v}"
           TAR=$(ls dist/d200-deck-macos/macos/*.app.tar.gz 2>/dev/null | head -1 || true)

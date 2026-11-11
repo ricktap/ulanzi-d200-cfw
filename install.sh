@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install or update D200 Deck on macOS from the GitHub releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/ricktap/ulanzi-d200-cfw/main/install.sh | sh
+#   curl -fsSL https://github.com/ricktap/ulanzi-d200-cfw/releases/latest/download/install.sh | sh
 #   sh install.sh v0.5.0        # a given version
 #
 # Downloads the universal DMG of the latest release (or the given tag), puts the app in
