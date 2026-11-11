@@ -136,10 +136,34 @@ jobs:
         working-directory: app
         run: npx tauri build --target universal-apple-darwin
 
+      # Not notarised: the app is signed ad hoc (tauri.conf.json, signingIdentity "-"),
+      # so it runs on Apple Silicon. The .pkg installs it to /Applications and clears the
+      # quarantine flag, so only the installer needs the Gatekeeper exception.
+      - name: Installer (.pkg)
+        run: |
+          set -e
+          BUNDLE=app/src-tauri/target/universal-apple-darwin/release/bundle
+          VERSION=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          codesign --verify --verbose "$BUNDLE/macos/D200 Deck.app"
+          mkdir -p "$BUNDLE/pkg" stage
+          cp -R "$BUNDLE/macos/D200 Deck.app" stage/
+          # always install to /Applications, even if a copy exists elsewhere
+          pkgbuild --analyze --root stage component.plist
+          plutil -replace 0.BundleIsRelocatable -bool NO component.plist
+          pkgbuild --root stage --component-plist component.plist \
+            --install-location /Applications \
+            --scripts packaging/macos/scripts \
+            --identifier dev.d200fw.deck \
+            --version "$VERSION" \
+            "$BUNDLE/pkg/D200 Deck_${VERSION}_universal.pkg"
+          ls -l "$BUNDLE/dmg" "$BUNDLE/pkg"
+
       - uses: actions/upload-artifact@v4
         with:
           name: d200-deck-macos
-          path: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          path: |
+            app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            app/src-tauri/target/universal-apple-darwin/release/bundle/pkg/*.pkg
           if-no-files-found: error
 
   release:
@@ -157,7 +181,7 @@ jobs:
       - name: Collect files
         run: |
           mkdir out
-          cp dist/d200-deck-macos/*.dmg out/
+          cp dist/d200-deck-macos/dmg/*.dmg dist/d200-deck-macos/pkg/*.pkg out/
           cp dist/d200fw/d200fw "out/d200fw-${GITHUB_REF_NAME}-armv7"
           (cd out && sha256sum * > SHA256SUMS)
           ls -l out

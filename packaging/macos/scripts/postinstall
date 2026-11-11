@@ -1,0 +1,7 @@
+#!/bin/sh
+# Runs after the installer has copied the app. The app is not notarised, so drop the
+# quarantine flag; Gatekeeper then opens it without asking again.
+APP="$2/D200 Deck.app"
+[ -d "$APP" ] || APP="/Applications/D200 Deck.app"
+/usr/bin/xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
+exit 0

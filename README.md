@@ -42,6 +42,25 @@ Plug the D200 in over USB. The app finds it over adb and pushes `d200fw` to `/tm
 lasts until the next reboot. It draws your deck. To have it start at boot, see
 [docs/firmware.md](docs/firmware.md).
 
+## Install on macOS (without signing)
+
+The app is not notarised by Apple. CI builds two files (the `d200-deck-macos` artifact of a
+run, or a release):
+
+- **`D200 Deck_<version>_universal.pkg`** (recommended): installs to `/Applications` and clears
+  the quarantine flag, so macOS only asks once, for the installer. Double-click it; when macOS
+  refuses, open **System Settings → Privacy & Security** and click **Open Anyway** next to the
+  message (macOS 14 and older: right-click the .pkg → Open). Then follow the installer.
+- **`D200 Deck_<version>_universal.dmg`**: drag the app to Applications. Before the first start,
+  run once in Terminal:
+
+  ```sh
+  xattr -dr com.apple.quarantine "/Applications/D200 Deck.app"
+  ```
+
+Both run on Intel and Apple Silicon (macOS 11 or newer). The app is signed ad hoc, which Apple
+Silicon needs to run it at all.
+
 ## Build and test
 
 ```sh
