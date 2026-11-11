@@ -153,6 +153,13 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 - **Settings schema extras:** a `config` field may have `group` (a heading in the Packages
   view), `min`/`max` (numbers), `placeholder`, `secret` (a password field) and the type `place`
   (a place search for the weather).
-- **Not in the configurator yet** (briefing 6.4, no agreed design): editing several states per
-  key (a key that has them shows tabs to pick which one to edit), changing the order of
-  overlays, the cards on the wide key beyond their switches.
+- **Configurator additions over the click dummy** (briefing 6.4):
+  - Buttons can have several states ("+ State"): each has its own icon, label, colours and
+    actions; new states get "Change state" (next) on press.
+  - A bound icon on a button (no app feeds it) gets fixed values under "Icon values",
+    stored as the state's `props`.
+  - Buttons and app keys can have their own background colour (buttons also a text colour);
+    without one the key follows the theme.
+  - The Theme block edits the palette and `theme.variables`: a variable is a colour or bound
+    to a signal, with a fallback and optional steps.
+  - Not built: changing the order of overlays (there are no theme packages yet).

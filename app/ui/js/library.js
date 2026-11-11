@@ -63,7 +63,7 @@ function appsTab() {
 // ------------------------------------------------------------------ actions
 
 function actionsTab() {
-  const groups = byNamespace(state.catalog.actions.filter((a) => a.id !== "core:state"));
+  const groups = byNamespace(state.catalog.actions);
   return [
     h("p", { class: "sub" }, "Actions are what a plugin can do. Tapping one adds it to the section marked as target in the inspector."),
     groups.map((g) => h("div", { class: "group" },
@@ -82,6 +82,7 @@ function actionsTab() {
 // ------------------------------------------------------------------ icons
 
 let query = "";
+const EMOJI = "💻 🧭 📸 🎵 🔊 🔇 🎙 📞 💡 🏠 🔒 🌡 ☕ 🍅 ⏱ 📅 ✉️ 💬 📝 📁 ⚙️ ✅ ❌ ⭐ ❤️ 🔥 🚀 🎮 🎬 📺 🌙 ☀ 🔔 👋".split(" ");
 
 function iconsTab() {
   const why = canPlace();
@@ -125,6 +126,9 @@ function iconsTab() {
       h("span", { class: "grow" }, h("span", { class: "name" }, "Default icon"), h("span", { class: "meta" }, app.icon || "drawn by the app"))) : null,
     search,
     grid,
+    app ? null : h("div", { class: "group" },
+      h("div", { class: "group-title" }, "Emoji"),
+      h("div", { class: "emoji-grid" }, EMOJI.map((e) => h("button", { type: "button", class: cur === e ? "on" : "", onclick: () => pickIcon(k, kind, e) }, e)))),
     h("div", { class: "box" },
       h("span", { class: "label" }, "Whole page"),
       h("div", { class: "row" }, setSel, h("button", { class: "btn", type: "button", onclick: () => applySet(setSel.value) }, "Apply set")),

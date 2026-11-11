@@ -29,7 +29,10 @@ three views.
     values. "Apply set" and "Restore default icons" work on the whole page.
   - Above the device: the profile, "+ Profile" and "Edit profile". The editor sets the name,
     the programs that switch to the profile, and the pages.
-  - Below it: the pages, a line that says what just happened, brightness and the Theme block.
+  - Below it: the pages, a line that says what just happened, brightness and the Theme block
+    (palette colours and theme variables, also bound to a signal).
+  - A button can have several states, each with its own icon, label, colours and actions; the
+    action Change state switches between them. Emoji work as icons.
 - **Packages**: every plugin with its switch, its state and its settings (from the plugin's
   `config` schema). `core` holds the deck's global settings, including MQTT. Teams has a guided
   setup. The Application card has autostart, export and import, and updates.

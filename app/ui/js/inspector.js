@@ -1,8 +1,8 @@
 // The inspector for the selected key: app, its settings, icon and label, the
 // action sections, test press and clear.
-import { $, h, put } from "./dom.js";
+import { $, h, put, ask } from "./dom.js";
 import {
-  state, STATUS_KEY, edit, render, profile, keyObj, ensureKey, ensureState, keyKind, settingsOf } from "./store.js";
+  state, STATUS_KEY, edit, hint, render, profile, keyObj, ensureKey, ensureState, keyKind, settingsOf } from "./store.js";
 import { appDef, iconDef, withNs, shortRole, pluginOn, nsOf } from "./catalog.js";
 import { schemaField } from "./fields.js";
 import { textField } from "./controls.js";
@@ -53,8 +53,10 @@ export function renderInspector() {
     head(k, `Key ${k}`, app ? app.name : "Button"),
     appBox(key, app),
     app ? settingsBox(k, key, app) : null,
+    app ? null : statesBox(k, key),
     iconBox(k, key, app),
-    statesNote(k, key, kind),
+    app ? null : propsBox(k, key),
+    coloursBox(k, key, app),
     actionSections(keyHolder(k), { where: keyWhere(k) }),
     h("div", { class: "row wrap" },
       h("button", { class: "btn", type: "button", onclick: testPress }, "Test press"),
@@ -110,16 +112,104 @@ function iconBox(k, key, app) {
     app ? null : textField("Image", read, holder, "image", { ph: "Path to a PNG or JPEG; fills the key", name: "Image", where, dropEmpty: true }));
 }
 
-/** Several states per key have no design in the new configurator yet: show them, edit the chosen one. */
-function statesNote(k, key, kind) {
-  const n = key.states?.length || 0;
-  if (kind === "app" || n < 2) return null;
+// ------------------------------------------------------------------ buttons: states, icon values, colours
+
+const isNext = (a) => a.action === "core:state";
+
+/** A button can have several states; each has its own look and actions. "Change state" switches. */
+function statesBox(k, key) {
+  const n = Math.max(1, key.states?.length || 0);
   if (state.selState >= n) state.selState = 0;
+  const add = () => {
+    edit(`Add state · key ${k}`, () => {
+      const key = ensureKey(k);
+      ensureState(key, 0);
+      key.states.push(structuredClone(key.states[state.selState] || {}));
+      // every state switches to the next on a press, unless it already changes state
+      for (const st of key.states) {
+        st.on ||= {};
+        const all = Object.values(st.on).flat();
+        if (!all.some(isNext)) (st.on.press ||= []).push({ action: "core:state", params: { to: "next" } });
+      }
+      state.selState = key.states.length - 1;
+    });
+    hint(`Key ${k} has ${n + 1} states now. A press switches to the next one.`);
+  };
+  const remove = async () => {
+    if (!(await ask(`Remove state ${state.selState + 1} of key ${k}?`, null))) return;
+    edit(`Remove state · key ${k}`, () => {
+      const key = ensureKey(k);
+      key.states.splice(state.selState, 1);
+      state.selState = Math.max(0, state.selState - 1);
+    });
+  };
   return h("div", { class: "box" },
-    h("span", { class: "label" }, `This key has ${n} states. You edit state ${state.selState + 1}.`),
-    h("div", { class: "tabs" }, key.states.map((_, i) => h("button", {
-      type: "button", class: i === state.selState ? "on" : "", onclick: () => { state.selState = i; render("inspector", "library"); },
-    }, `State ${i + 1}`))));
+    h("div", { class: "head" }, h("span", { class: "label grow" }, n > 1 ? `States: you edit state ${state.selState + 1} of ${n}` : "States"),
+      h("button", { class: "btn small", type: "button", onclick: add }, "+ State")),
+    n > 1 ? h("div", { class: "tabs" }, Array.from({ length: n }, (_, i) => h("button", {
+      type: "button", class: i === state.selState ? "on" : "", onclick: () => { state.selState = i; state.slot = "press"; render("inspector", "library"); },
+    }, `${i + 1}${i === 0 ? " · start" : ""}`))) : h("p", { class: "sub" }, "Add a state for a key that toggles, e.g. On and Off. Each state has its own icon, label and actions."),
+    n > 1 ? h("div", { class: "row wrap" },
+      h("span", { class: "sub grow" }, "The action Change state switches between them."),
+      h("button", { class: "btn small danger", type: "button", onclick: remove }, "Remove this state")) : null);
+}
+
+const PROP_TYPE = { flag: "toggle", percent: "number", number: "number", color: "color", text: "text" };
+
+/** Values for a bound icon on a button (no app feeds it): one field per property of its roles. */
+function propsBox(k, key) {
+  const idx = state.selState;
+  const st = key.states?.[idx];
+  const icon = st?.icon ? iconDef(withNs(st.icon)) : null;
+  if (!icon || !icon.bound) return null;
+  const fields = [];
+  for (const role of icon.roles) {
+    const props = state.catalog.interfaces?.[role] || {};
+    for (const [prop, type] of Object.entries(props)) {
+      const name = `${role}.${prop}`;
+      const f = { key: name, label: `${shortRole(role)} ${prop}`, type: PROP_TYPE[type] || "text" };
+      const read = () => keyObj(k)?.states?.[idx]?.props?.[name];
+      const write = (v, typing) => edit(`Icon value ${name} · key ${k}`, () => {
+        const s = ensureState(ensureKey(k), idx);
+        if (v === undefined || v === "") {
+          if (s.props) delete s.props[name];
+          if (s.props && !Object.keys(s.props).length) delete s.props;
+        } else (s.props ||= {})[name] = v;
+      }, { redraw: false, coalesce: typing ? `prop:${k}:${idx}:${name}` : null });
+      fields.push(f.type === "color" ? colorInput(f.label, read(), (v) => write(v, true), () => write(undefined)) : schemaField(f, read, write, { labelled: true }));
+    }
+  }
+  if (!fields.length) return null;
+  return h("div", { class: "box" },
+    h("span", { class: "label" }, "Icon values"),
+    h("p", { class: "sub" }, "No app feeds this key, so the icon shows these fixed values."),
+    fields);
+}
+
+/** Background and text colour of the key (state 0 for an app key). Empty: the theme decides. */
+function coloursBox(k, key, app) {
+  const idx = app ? 0 : state.selState;
+  const st = key.states?.[idx] || {};
+  const set = (field, label) => (v) => edit(`${label} · key ${k}`, () => {
+    const s = ensureState(ensureKey(k), idx);
+    if (v === undefined) delete s[field];
+    else s[field] = v;
+  }, { redraw: false, coalesce: v === undefined ? null : `colour:${k}:${idx}:${field}` });
+  return h("div", { class: "box" },
+    h("span", { class: "label" }, "Colours"),
+    h("div", { class: "colors" },
+      colorInput("Background", st.bg, set("bg", "Background"), () => { set("bg", "Background")(undefined); render("inspector"); }),
+      app ? null : colorInput("Text and icon", st.fg, set("fg", "Text colour"), () => { set("fg", "Text colour")(undefined); render("inspector"); })),
+    h("p", { class: "sub" }, "Without a colour of its own, the key follows the theme."));
+}
+
+/** A colour field with "theme" when unset and "reset" when set. */
+export function colorInput(label, cur, onInput, onReset) {
+  const input = h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(cur || "") ? cur : "#12151A" });
+  const tail = h("button", { type: "button", class: "link" }, cur ? "reset" : "theme");
+  input.oninput = () => { onInput(input.value); tail.textContent = "reset"; };
+  tail.onclick = () => { if (tail.textContent === "reset") onReset(); };
+  return h("div", { class: "field" }, h("span", { class: "label" }, label), input, tail);
 }
 
 function missing(k, key, installed) {

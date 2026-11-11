@@ -141,6 +141,10 @@ fn invoke(h: &d200_deck_lib::engine::Handle, cmd: &str, a: &Value) -> Result<Val
             h.send(Ui::Notify(n));
             Value::Null
         }
+        "screensaver" => {
+            h.send(Ui::Screensaver(arg(a, "on").unwrap_or(false)));
+            Value::Null
+        }
         "catalog" => d200_deck_lib::registry::builtin().catalog(),
         "options" => json!(h.ask(|reply| Ui::Options { source: arg(a, "source").unwrap_or_default(), profile: arg(a, "profile").unwrap_or(0), reply })?),
         "signals" => h.ask(Ui::Signals)?,

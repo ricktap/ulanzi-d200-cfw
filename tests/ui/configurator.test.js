@@ -100,6 +100,28 @@ const fs = require('fs');
   ok(Object.keys(cfg().profiles.at(-1).pages).length === 2, 'page added');
   await p.screenshot({ path: OUT + '/9-newprofile.png' });
 
+  // 13. a button with two states, emoji, colours
+  await p.click('#sel-profile'); await p.selectOption('#sel-profile', '0'); await wait(1200);
+  await p.click('.key[data-key="12"]'); await wait(300);
+  await p.click('#lib-tabs [data-tab="apps"]'); await wait(300);
+  await p.click('.item:has-text("Button")'); await wait();
+  await p.click('#insp button:has-text("+ State")'); await wait();
+  const k12 = () => page0()['12'];
+  ok((k12()?.states || []).length === 2, 'button has two states');
+  ok((k12()?.states || []).every(st => JSON.stringify(st.on || {}).includes('core:state')), 'both states switch to the next');
+  await p.click('#lib-tabs [data-tab="icons"]'); await wait(800);
+  await p.click('.emoji-grid button >> nth=3'); await wait();
+  ok(k12()?.states?.[1]?.icon === '🎵', 'emoji on state 2: ' + k12()?.states?.[1]?.icon);
+  await p.locator('#insp .box:has-text("Colours") input[type=color]').first().evaluate((el) => { el.value = '#334455'; el.dispatchEvent(new Event('input')); }); await wait(1200);
+  ok(k12()?.states?.[1]?.bg === '#334455', 'background colour of state 2');
+
+  // 14. a theme variable bound to a signal
+  await p.selectOption('#theme select >> nth=-1', 'accent'); await wait(800);
+  await p.locator('#theme .box:has-text("accent") select').first().selectOption('signal'); await wait(1200);
+  const acc = cfg().plugins.core.config.theme.variables.accent;
+  ok(acc && typeof acc === 'object' && !!acc.bind, 'accent bound to a signal: ' + JSON.stringify(acc));
+  await p.screenshot({ path: OUT + '/11-states-theme.png', fullPage: true });
+
   // narrow window
   await p.setViewportSize({ width: 820, height: 1000 }); await wait(500);
   await p.screenshot({ path: OUT + '/10-narrow.png', fullPage: true });

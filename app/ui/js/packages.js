@@ -2,7 +2,7 @@
 // from the package's `config` schema), and the Application card.
 import { $, h, put, toast } from "./dom.js";
 import { invoke, call } from "./api.js";
-import { state, edit, hint } from "./store.js";
+import { state, edit, hint, saveNow } from "./store.js";
 import { nsOf } from "./catalog.js";
 import { schemaField } from "./fields.js";
 import { checkUpdate } from "./updates.js";
@@ -139,6 +139,14 @@ let deviceCode = "";
 
 /** Guided setup in steps, for plugins that need one. */
 const SETUP = {
+  core: () => h("div", { class: "row wrap" },
+    h("button", { class: "btn small", type: "button", onclick: async () => {
+      await saveNow();
+      await call("screensaver", { on: true });
+      hint("Screensaver on the device. Press any key to wake it.");
+    } }, "Preview screensaver"),
+    h("button", { class: "btn small", type: "button", onclick: () => $("btn-notify").click() }, "Test notification"),
+    h("button", { class: "btn small", type: "button", onclick: () => call("start_firmware").then((m) => toast(m)) }, "Start d200fw on the device")),
   "com.deckling.teams": () => {
     const i = state.snap?.integrations || {};
     const t = i.teams || {};
