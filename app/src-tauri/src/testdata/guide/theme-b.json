@@ -11,7 +11,8 @@
       "accent": "#FF9F43",
       "com.ricktap.bambu:ams.led": {
         "bind": "time.second",
-        "steps": ["#FF4D4D", "#3DDC84"]
+        "steps": ["#FF4D4D", "#3DDC84"],
+        "fallback": "#FF4D4D"
       }
     }
   }

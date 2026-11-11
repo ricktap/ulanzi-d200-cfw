@@ -7,7 +7,8 @@
     "variables": {
       "accent": {
         "bind": "time.tick",
-        "steps": ["#FF5C7A", "#FF9F43", "#FFD84D", "#69E0C1", "#5B8DEF", "#B79AF7"]
+        "steps": ["#FF5C7A", "#FF9F43", "#FFD84D", "#69E0C1", "#5B8DEF", "#B79AF7"],
+        "fallback": "#FF9F43"
       }
     }
   }

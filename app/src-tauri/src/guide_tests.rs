@@ -61,9 +61,8 @@ fn examples_resolve_like_the_reference() {
     assert!(checked > 100, "only {checked} values compared");
 }
 
-/// The page's icons pass the load-time checks against the page's interfaces.
-/// Its apps bind without `fallback`, which architecture rule 7 requires: listed here
-/// so a fix to the examples shows up.
+/// The page's icons pass the load-time checks against the page's interfaces, and every
+/// binding in its apps and themes has a `fallback` (architecture rule 7).
 #[test]
 fn example_packages_pass_the_checks() {
     let mut interfaces: IndexMap<String, Interface> = IndexMap::new();
@@ -82,6 +81,8 @@ fn example_packages_pass_the_checks() {
         let app = fixture(&format!("{a}.json"));
         bind::missing_fallbacks(&app["implements"], app["id"].as_str().unwrap(), &mut missing);
     }
-    // every app binding on the page: hue 5, clock 3, AMS 8, media 6
-    assert_eq!(missing.len(), 22, "{missing:#?}");
+    for t in ["theme-a", "theme-b", "theme-casing", "theme-rainbow", "theme-huesync"] {
+        bind::missing_fallbacks(&fixture(&format!("{t}.json"))["theme"]["variables"], t, &mut missing);
+    }
+    assert_eq!(missing, Vec::<String>::new());
 }

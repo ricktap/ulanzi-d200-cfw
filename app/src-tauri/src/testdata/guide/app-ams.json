@@ -13,14 +13,14 @@
   ],
   "implements": {
     "com.ricktap.bambu:ams": {
-      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining" },
-      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color" },
-      "slot2_remaining": { "bind": "com.ricktap.bambu:{unit}.slot2.remaining" },
-      "slot2_color": { "bind": "com.ricktap.bambu:{unit}.slot2.color" },
-      "slot3_remaining": { "bind": "com.ricktap.bambu:{unit}.slot3.remaining" },
-      "slot3_color": { "bind": "com.ricktap.bambu:{unit}.slot3.color" },
-      "slot4_remaining": { "bind": "com.ricktap.bambu:{unit}.slot4.remaining" },
-      "slot4_color": { "bind": "com.ricktap.bambu:{unit}.slot4.color" }
+      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining", "fallback": 0 },
+      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color", "fallback": "#87909E" },
+      "slot2_remaining": { "bind": "com.ricktap.bambu:{unit}.slot2.remaining", "fallback": 0 },
+      "slot2_color": { "bind": "com.ricktap.bambu:{unit}.slot2.color", "fallback": "#87909E" },
+      "slot3_remaining": { "bind": "com.ricktap.bambu:{unit}.slot3.remaining", "fallback": 0 },
+      "slot3_color": { "bind": "com.ricktap.bambu:{unit}.slot3.color", "fallback": "#87909E" },
+      "slot4_remaining": { "bind": "com.ricktap.bambu:{unit}.slot4.remaining", "fallback": 0 },
+      "slot4_color": { "bind": "com.ricktap.bambu:{unit}.slot4.color", "fallback": "#87909E" }
     }
   }
 }

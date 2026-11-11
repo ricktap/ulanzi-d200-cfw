@@ -332,15 +332,15 @@ ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 
   "icon": "com.ricktap.hue:bulb",
   "implements": {
     "com.ricktap.hue:rgb_light": {
-      "on": { "bind": "com.ricktap.hue:lamp.power" },
-      "color": { "bind": "com.ricktap.hue:lamp.color" },
-      "brightness": { "bind": "com.ricktap.hue:lamp.brightness" }
+      "on": { "bind": "com.ricktap.hue:lamp.power", "fallback": false },
+      "color": { "bind": "com.ricktap.hue:lamp.color", "fallback": "#87909E" },
+      "brightness": { "bind": "com.ricktap.hue:lamp.brightness", "fallback": 0 }
     },
     "rgb": {
-      "color": { "bind": "com.ricktap.hue:lamp.color" }
+      "color": { "bind": "com.ricktap.hue:lamp.color", "fallback": "#87909E" }
     },
     "toggle": {
-      "on": { "bind": "com.ricktap.hue:lamp.power" }
+      "on": { "bind": "com.ricktap.hue:lamp.power", "fallback": false }
     }
   },
   "on": {
@@ -365,9 +365,9 @@ ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 
   ],
   "implements": {
     "clock": {
-      "time": { "bind": "time.clock" },
-      "hour_angle": { "bind": "time.hour_angle" },
-      "minute_angle": { "bind": "time.minute_angle" },
+      "time": { "bind": "time.clock", "fallback": "" },
+      "hour_angle": { "bind": "time.hour_angle", "fallback": 0 },
+      "minute_angle": { "bind": "time.minute_angle", "fallback": 0 },
       "style": { "config": "display" }
     }
   }
@@ -395,14 +395,14 @@ ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 
   ],
   "implements": {
     "com.ricktap.bambu:ams": {
-      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining" },
-      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color" },
-      "slot2_remaining": { "bind": "com.ricktap.bambu:{unit}.slot2.remaining" },
-      "slot2_color": { "bind": "com.ricktap.bambu:{unit}.slot2.color" },
-      "slot3_remaining": { "bind": "com.ricktap.bambu:{unit}.slot3.remaining" },
-      "slot3_color": { "bind": "com.ricktap.bambu:{unit}.slot3.color" },
-      "slot4_remaining": { "bind": "com.ricktap.bambu:{unit}.slot4.remaining" },
-      "slot4_color": { "bind": "com.ricktap.bambu:{unit}.slot4.color" }
+      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining", "fallback": 0 },
+      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color", "fallback": "#87909E" },
+      "slot2_remaining": { "bind": "com.ricktap.bambu:{unit}.slot2.remaining", "fallback": 0 },
+      "slot2_color": { "bind": "com.ricktap.bambu:{unit}.slot2.color", "fallback": "#87909E" },
+      "slot3_remaining": { "bind": "com.ricktap.bambu:{unit}.slot3.remaining", "fallback": 0 },
+      "slot3_color": { "bind": "com.ricktap.bambu:{unit}.slot3.color", "fallback": "#87909E" },
+      "slot4_remaining": { "bind": "com.ricktap.bambu:{unit}.slot4.remaining", "fallback": 0 },
+      "slot4_color": { "bind": "com.ricktap.bambu:{unit}.slot4.color", "fallback": "#87909E" }
     }
   }
 }</script>
@@ -420,16 +420,16 @@ ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 
   "icon": "com.ricktap.media:disc",
   "implements": {
     "com.ricktap.media:player": {
-      "playing": { "bind": "com.ricktap.media:playing" },
-      "progress": { "bind": "com.ricktap.media:progress" },
-      "title": { "bind": "com.ricktap.media:title" },
-      "color": { "bind": "com.ricktap.media:color" }
+      "playing": { "bind": "com.ricktap.media:playing", "fallback": false },
+      "progress": { "bind": "com.ricktap.media:progress", "fallback": 0 },
+      "title": { "bind": "com.ricktap.media:title", "fallback": "" },
+      "color": { "bind": "com.ricktap.media:color", "fallback": "#87909E" }
     },
     "progress": {
-      "value": { "bind": "com.ricktap.media:progress" }
+      "value": { "bind": "com.ricktap.media:progress", "fallback": 0 }
     },
     "toggle": {
-      "on": { "bind": "com.ricktap.media:playing" }
+      "on": { "bind": "com.ricktap.media:playing", "fallback": false }
     }
   },
   "on": {
@@ -651,7 +651,8 @@ ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 
       "accent": "#FF9F43",
       "com.ricktap.bambu:ams.led": {
         "bind": "time.second",
-        "steps": ["#FF4D4D", "#3DDC84"]
+        "steps": ["#FF4D4D", "#3DDC84"],
+        "fallback": "#FF4D4D"
       }
     }
   }
@@ -676,7 +677,8 @@ ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 
     "variables": {
       "accent": {
         "bind": "time.tick",
-        "steps": ["#FF5C7A", "#FF9F43", "#FFD84D", "#69E0C1", "#5B8DEF", "#B79AF7"]
+        "steps": ["#FF5C7A", "#FF9F43", "#FFD84D", "#69E0C1", "#5B8DEF", "#B79AF7"],
+        "fallback": "#FF9F43"
       }
     }
   }

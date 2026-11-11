@@ -4,15 +4,15 @@
   "icon": "com.ricktap.hue:bulb",
   "implements": {
     "com.ricktap.hue:rgb_light": {
-      "on": { "bind": "com.ricktap.hue:lamp.power" },
-      "color": { "bind": "com.ricktap.hue:lamp.color" },
-      "brightness": { "bind": "com.ricktap.hue:lamp.brightness" }
+      "on": { "bind": "com.ricktap.hue:lamp.power", "fallback": false },
+      "color": { "bind": "com.ricktap.hue:lamp.color", "fallback": "#87909E" },
+      "brightness": { "bind": "com.ricktap.hue:lamp.brightness", "fallback": 0 }
     },
     "rgb": {
-      "color": { "bind": "com.ricktap.hue:lamp.color" }
+      "color": { "bind": "com.ricktap.hue:lamp.color", "fallback": "#87909E" }
     },
     "toggle": {
-      "on": { "bind": "com.ricktap.hue:lamp.power" }
+      "on": { "bind": "com.ricktap.hue:lamp.power", "fallback": false }
     }
   },
   "on": {

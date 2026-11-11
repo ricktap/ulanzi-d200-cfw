@@ -154,8 +154,8 @@ An app is the translation of signals and settings into properties.
   ],
   "implements": {
     "com.ricktap.bambu:ams": {
-      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining" },
-      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color" }
+      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining", "fallback": 0 },
+      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color", "fallback": "#87909E" }
     }
   },
   "on": { "press": [], "long": [] }
@@ -257,7 +257,7 @@ The core should run the same checks when it loads an icon set.
       "base": "#FFE6C2",
       "muted": "#5A4A3A",
       "accent": "#FF9F43",
-      "com.ricktap.bambu:ams.led": { "bind": "time.second", "steps": ["#FF4D4D", "#3DDC84"] }
+      "com.ricktap.bambu:ams.led": { "bind": "time.second", "steps": ["#FF4D4D", "#3DDC84"], "fallback": "#FF4D4D" }
     }
   }
 }
