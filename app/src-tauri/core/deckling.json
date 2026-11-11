@@ -2,7 +2,7 @@
   "id": "core",
   "type": "core",
   "name": "Deck",
-  "description": "What is fixed in the app: keys, pages, profiles, the primitive interfaces and the clock signals.",
+  "description": "What is fixed in the app: keys, pages, profiles, the primitive interfaces, the clock signals and the MQTT connection. Its settings are the deck's global settings.",
   "version": "1.0.0",
   "runtime": {
     "kind": "builtin"
@@ -37,6 +37,47 @@
       "label": "Screensaver after (min)",
       "type": "number",
       "default": 3
+    },
+    {
+      "key": "mqtt.enabled",
+      "label": "Connect",
+      "type": "toggle",
+      "default": false
+    },
+    {
+      "key": "mqtt.host",
+      "label": "Host",
+      "type": "text",
+      "default": "homeassistant.local"
+    },
+    {
+      "key": "mqtt.port",
+      "label": "Port",
+      "type": "number",
+      "default": 1883
+    },
+    {
+      "key": "mqtt.username",
+      "label": "User",
+      "type": "text"
+    },
+    {
+      "key": "mqtt.password",
+      "label": "Password",
+      "type": "text",
+      "secret": true
+    },
+    {
+      "key": "mqtt.base_topic",
+      "label": "Base topic",
+      "type": "text",
+      "default": "d200"
+    },
+    {
+      "key": "mqtt.discovery",
+      "label": "Discovery",
+      "type": "toggle",
+      "default": true
     }
   ],
   "contributes": {

@@ -108,8 +108,8 @@ Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckl
 The engine remembers what each key's icon read and redraws a plain button when one of those
 signals changes. App keys redraw every second as before.
 
-Theme variables come from `settings.theme`: the palette gives `background`, `accent`, `info`,
-`warning`, `danger`, plus fixed `base` and `muted`; `settings.theme.variables` adds or overrides
+Theme variables come from `plugins.core.config.theme`: the palette gives `background`, `accent`, `info`,
+`warning`, `danger`, plus fixed `base` and `muted`; `plugins.core.config.theme.variables` adds or overrides
 any variable, also with bindings. Built-in widgets use the resolved palette colours.
 
 ## Tauri commands
@@ -117,6 +117,7 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 | Command | Returns |
 |---|---|
 | `catalog` | plugins, interfaces, signals (with types), actions (with parameter schema), apps (with roles), icons (id, roles), warnings |
+| `save_config(config)` | the deck; settings are read from `plugins.<id>.config` (`Config::settings` is the engine's typed view of them, written back by `Config::sync`) |
 | `options(source, profile)` | values for a `select` with `{"source": ...}`: `core:pages`, `core:profiles` |
 | `signals` | every signal with its current value and type |
 | `preview_icon(icon, profile, page, key)` | the icon drawn with the live values of the key's app, as a data URL |
@@ -126,10 +127,6 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 - **Packages are built in.** `build.rs` embeds the core plugin and Night Signal as package
   files; `registry.rs` parses them at runtime through the same loader that will read packages
   from disk (work package 7). The registry is built once (`registry::builtin()`).
-- **Settings stay in `settings`.** The core plugin's `config` schema names keys there
-  (`long_press_ms`, `screensaver.enabled`, ...), and the plugins read `settings.teams` and
-  `settings.mqtt`. Moving them to `plugins.<id>.config` goes with the Packages view of the new
-  configurator (work package 6).
 - **Signals of type `series`** (`system.history.*`): the last values as a list, for the system
   monitor's graphs. The target model lists `flag`, `percent`, `number`, `color`, `text`.
 - **Plugins run in the engine's thread.** `runtime.kind` `process` (own process, JSON RPC) is
@@ -150,4 +147,4 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
 - **`props` on a state** give icons static values on keys without an app, on remote keys and on
   cards. The target model has no such field; it replaces `icon_state`.
 - **Themes as packages, overlays and their order** come with work package 7. Until then,
-  `settings.theme.variables` plays the part of one overlay.
+  `plugins.core.config.theme.variables` plays the part of one overlay.

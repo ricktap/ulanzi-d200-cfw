@@ -191,3 +191,26 @@ export function* allActions() {
         for (const s of key.states || []) for (const list of Object.values(s.on || {})) if (Array.isArray(list)) yield* list;
   for (const list of Object.values(c.status_key?.on || {})) if (Array.isArray(list)) yield* list;
 }
+
+/**
+ * The deck's settings as one object, stored per plugin in `plugins.<id>.config`:
+ * `weather` and `pomodoro` live in com.deckling.core, `teams` is the whole
+ * com.deckling.teams config, everything else is in `core`.
+ */
+const SETTINGS_HOME = { weather: "com.deckling.core", pomodoro: "com.deckling.core" };
+export function settingsOf(c) {
+  const conf = (id) => {
+    c.plugins ||= {};
+    c.plugins[id] ||= {};
+    c.plugins[id].config ||= {};
+    return c.plugins[id].config;
+  };
+  return new Proxy({}, {
+    get: (_, k) => (k === "teams" ? conf("com.deckling.teams") : conf(SETTINGS_HOME[k] || "core")[k]),
+    set: (_, k, v) => {
+      if (k === "teams") c.plugins["com.deckling.teams"].config = v;
+      else conf(SETTINGS_HOME[k] || "core")[k] = v;
+      return true;
+    },
+  });
+}

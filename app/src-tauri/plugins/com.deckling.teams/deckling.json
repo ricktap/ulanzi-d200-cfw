@@ -9,24 +9,24 @@
   },
   "config": [
     {
-      "key": "teams.port",
+      "key": "port",
       "label": "Teams API port",
       "type": "number",
       "default": 8124
     },
     {
-      "key": "teams.client_id",
+      "key": "client_id",
       "label": "Entra app (client) id",
       "type": "text"
     },
     {
-      "key": "teams.tenant",
+      "key": "tenant",
       "label": "Tenant",
       "type": "text",
       "default": "organizations"
     },
     {
-      "key": "teams.away",
+      "key": "away",
       "label": "Unavailable means",
       "type": "select",
       "default": "DoNotDisturb",

@@ -724,6 +724,7 @@ impl Engine {
         let msg = match res {
             Some(Ok(())) => return,
             Some(Err(e)) => e,
+            None if !self.plugin_enabled(plugin) => format!("{}: plugin {plugin} is switched off", r.action),
             None if self.plugins.iter().flatten().any(|p| p.id() == plugin) || plugin == "core" => format!("bad action {}", r.action),
             None => format!("{}: plugin {plugin} is not installed", r.action),
         };
@@ -873,6 +874,11 @@ impl Engine {
         self.run_ref(&r, None);
     }
 
+    /// `plugins.<id>.enabled` in deck.json; plugins are on unless switched off.
+    fn plugin_enabled(&self, id: &str) -> bool {
+        self.cfg.plugins.get(id).is_none_or(|p| p.enabled)
+    }
+
     fn plugin_ids(&self) -> Vec<&'static str> {
         self.plugins.iter().flatten().map(|p| p.id()).collect()
     }
@@ -880,8 +886,18 @@ impl Engine {
     /// After a config change (and at start): every plugin starts or stops what it needs.
     fn configure_plugins(&mut self) {
         for id in self.plugin_ids() {
-            self.call_plugin(id, |p, h, c| p.configure(c, h));
+            if self.plugin_enabled(id) {
+                self.call_plugin(id, |p, h, c| p.configure(c, h));
+            } else {
+                // a plugin switched off leaves nothing behind
+                let prefix = format!("{id}:");
+                let names: Vec<String> = self.signals.all().map(|(n, _)| n.clone()).filter(|n| n.starts_with(&prefix)).collect();
+                for n in names {
+                    self.signals.clear(&n);
+                }
+            }
         }
+        self.redraw_changed();
         self.emit_integrations();
     }
 
@@ -945,6 +961,7 @@ impl Engine {
 
     fn set_brightness(&mut self, v: u8, save: bool) {
         self.cfg.settings.brightness = v;
+        self.cfg.sync();
         if let Some(d) = &self.dev {
             let _ = d.brightness(v);
         }
@@ -1777,6 +1794,9 @@ impl Engine {
     /// Run `f` on plugin `id` with a host bound to this engine, then send what it
     /// published over MQTT and redraw keys whose signals changed.
     fn call_plugin<R>(&mut self, id: &str, f: impl FnOnce(&mut dyn Plugin, &mut Host, &Config) -> R) -> Option<R> {
+        if !self.plugin_enabled(id) {
+            return None;
+        }
         let i = self.plugins.iter().position(|p| p.as_ref().is_some_and(|p| p.id() == id))?;
         let mut p = self.plugins[i].take()?;
         let base = self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into());

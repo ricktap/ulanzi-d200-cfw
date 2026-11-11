@@ -27,9 +27,9 @@ lib = sim + "/Steam/steamapps"; os.makedirs(lib + "/common/No Man's Sky/Binaries
 open(lib + "/appmanifest_275850.acf", "w").write('"AppState"\n{\n\t"appid"\t\t"275850"\n\t"name"\t\t"No Man\'s Sky"\n\t"installdir"\t\t"No Man\'s Sky"\n}\n')
 shutil.copy(S + "/fakeide/webstorm", lib + "/common/No Man's Sky/Binaries/NMS")
 cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-cfg["settings"]["follow_active_app"] = False
-cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18831)
-cfg["settings"]["screensaver"]["enabled"] = False
+cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+cfg["plugins"]["core"]["config"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18831)
+cfg["plugins"]["core"]["config"]["screensaver"]["enabled"] = False
 cfg["status_key"]["app"] = "media"
 cfg["profiles"][0]["name"] = "Work"
 pg = cfg["profiles"][0]["pages"]["main"]

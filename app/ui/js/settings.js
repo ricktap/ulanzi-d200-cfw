@@ -2,7 +2,7 @@
 // wide key & screensaver, theme). Saving it is one undo step.
 import { $, h, put, toast } from "./dom.js";
 import { invoke, call } from "./api.js";
-import { state, edit, saveNow, render } from "./store.js";
+import { state, edit, saveNow, render, settingsOf } from "./store.js";
 
 function mqttHelp(base) {
   const rows = [
@@ -23,7 +23,7 @@ let pendingLocation;
 let themeDraft = null; // edited copy of settings.theme; applied on Save
 
 export async function openSettings() {
-  const s = state.config.settings;
+  const s = settingsOf(state.config);
   const snap = state.snap;
   $("s-long").value = s.long_press_ms;
   $("s-follow").checked = s.follow_active_app;
@@ -64,7 +64,7 @@ export function showThemeWidget(wid) {
 async function saveSettings() {
   const num = (id, lo, hi) => Math.min(hi, Math.max(lo, parseInt($(id).value, 10) || lo));
   edit("Settings", (c) => {
-    const s = c.settings;
+    const s = settingsOf(c);
     s.long_press_ms = num("s-long", 150, 5000);
     s.follow_active_app = $("s-follow").checked;
     s.weather.location = pendingLocation || null;

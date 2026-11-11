@@ -1,7 +1,7 @@
 // Small dialogs: test notification and import / export.
 import { $, toast } from "./dom.js";
 import { invoke, call } from "./api.js";
-import { state, load } from "./store.js";
+import { state, load, settingsOf } from "./store.js";
 
 export function wireDialogs() {
   const n = () => ({
@@ -10,7 +10,7 @@ export function wireDialogs() {
   });
   const upd = () => {
     $("n-json").textContent = JSON.stringify(n());
-    $("n-topic").textContent = (state.config.settings.mqtt.base_topic || "d200") + "/notify";
+    $("n-topic").textContent = (settingsOf(state.config).mqtt.base_topic || "d200") + "/notify";
   };
   for (const id of ["n-title", "n-text", "n-icon", "n-color", "n-style", "n-dur", "n-prio"]) $(id).addEventListener("input", upd);
   $("btn-notify").onclick = () => { upd(); $("dlg-notify").showModal(); };

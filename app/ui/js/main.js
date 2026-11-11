@@ -4,8 +4,7 @@
 import { $, h, put, toast, initials } from "./dom.js";
 import { invoke, listen, call } from "./api.js";
 import {
-  state, on, edit, undo, canUndo, undoLabel, load, goto, profile,
-} from "./store.js";
+  state, on, edit, undo, canUndo, undoLabel, load, goto, profile, settingsOf } from "./store.js";
 import { loadCatalog } from "./catalog.js";
 import { buildGrid, renderPreviews, select, keyEl, startLiveFaces, wireDrop } from "./deck.js";
 import { renderInspector, renderHeader } from "./inspector.js";
@@ -53,7 +52,7 @@ function setSaved(busy, failed = false) {
 }
 
 function renderBrightness() {
-  const b = state.config.settings.brightness;
+  const b = settingsOf(state.config).brightness;
   $("brightness").value = b;
   $("brightness-val").textContent = Math.round((b / 255) * 100) + "%";
 }
@@ -70,7 +69,7 @@ function renderToolbar() {
   put(pg, Object.keys(profile().pages).map((n, i) => h("option", { value: n }, (i === 0 ? "⌂ " : "") + n)));
   pg.value = view.page;
   pg.disabled = view.remote;
-  $("follow").checked = config.settings.follow_active_app;
+  $("follow").checked = settingsOf(config).follow_active_app;
   $("caption").textContent = view.remote ? "Remote page · keys set by Home Assistant" : "Live preview";
   document.querySelectorAll("#rail [data-view]").forEach((b) =>
     b.classList.toggle("on", b.dataset.view === (state.pane === "editor" && view.remote ? "remote" : state.pane)));
@@ -165,10 +164,10 @@ function wireShell() {
   $("pg-home").onclick = makeHome;
   $("pg-delete").onclick = deletePage;
   $("pf-add").onclick = addProfile;
-  $("follow").onchange = (e) => edit("Follow active app", (c) => { c.settings.follow_active_app = e.target.checked; }, { redraw: false });
+  $("follow").onchange = (e) => edit("Follow active app", (c) => { settingsOf(c).follow_active_app = e.target.checked; }, { redraw: false });
   $("zoom").onchange = (e) => document.querySelector(".device").style.setProperty("--zoom", e.target.value);
   $("brightness").oninput = (e) => {
-    edit("Brightness", (c) => { c.settings.brightness = +e.target.value; }, { redraw: false, coalesce: "brightness" });
+    edit("Brightness", (c) => { settingsOf(c).brightness = +e.target.value; }, { redraw: false, coalesce: "brightness" });
     $("brightness-val").textContent = Math.round((+e.target.value / 255) * 100) + "%";
   };
   $("btn-firmware").onclick = async () => {
@@ -206,7 +205,7 @@ async function listenAll() {
   await listen("config", (e) => {
     // Brightness changed on the device or over MQTT: not an edit, no undo step.
     if (e.payload.brightness !== undefined) {
-      state.config.settings.brightness = e.payload.brightness;
+      settingsOf(state.config).brightness = e.payload.brightness;
       renderBrightness();
     }
   });

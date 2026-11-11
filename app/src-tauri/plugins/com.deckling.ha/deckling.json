@@ -7,49 +7,6 @@
   "runtime": {
     "kind": "builtin"
   },
-  "config": [
-    {
-      "key": "mqtt.enabled",
-      "label": "Connect",
-      "type": "toggle",
-      "default": false
-    },
-    {
-      "key": "mqtt.host",
-      "label": "Host",
-      "type": "text",
-      "default": "homeassistant.local"
-    },
-    {
-      "key": "mqtt.port",
-      "label": "Port",
-      "type": "number",
-      "default": 1883
-    },
-    {
-      "key": "mqtt.username",
-      "label": "User",
-      "type": "text"
-    },
-    {
-      "key": "mqtt.password",
-      "label": "Password",
-      "type": "text",
-      "secret": true
-    },
-    {
-      "key": "mqtt.base_topic",
-      "label": "Base topic",
-      "type": "text",
-      "default": "d200"
-    },
-    {
-      "key": "mqtt.discovery",
-      "label": "Discovery",
-      "type": "toggle",
-      "default": true
-    }
-  ],
   "contributes": {
     "signals": "signals.json",
     "actions": "actions.json",

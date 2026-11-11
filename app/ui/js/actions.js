@@ -2,7 +2,7 @@
 // `{action, params}` entries, with fields from the catalog's parameter schema.
 import { h, put, toast } from "./dom.js";
 import { call } from "./api.js";
-import { state, edit, saveNow } from "./store.js";
+import { state, edit, saveNow, settingsOf } from "./store.js";
 import { actionDef, actionDefaults } from "./catalog.js";
 import { schemaField } from "./fields.js";
 
@@ -21,7 +21,7 @@ const FIRST_ACTION = "com.deckling.core:command";
  * where: a short text for undo labels ("key 3").
  */
 export function eventsEditor(holder, { allowState = true, where = "" } = {}) {
-  const ms = state.config.settings.long_press_ms;
+  const ms = settingsOf(state.config).long_press_ms;
   const listOf = (ev, create) => {
     const o = holder(create);
     if (!o) return [];
@@ -112,12 +112,12 @@ function actionRow(a, i, list, actions, redraw, where) {
 }
 
 export function holdThreshold() {
-  const ms = state.config.settings.long_press_ms;
+  const ms = settingsOf(state.config).long_press_ms;
   const opts = [250, 300, 400, 500, 600, 800, 1000, 1500];
   if (!opts.includes(ms)) opts.push(ms);
   const sel = h("select", {}, opts.sort((a, b) => a - b).map((v) => h("option", { value: v }, `${v} ms`)));
   sel.value = String(ms);
-  sel.onchange = () => edit("Hold threshold", (c) => { c.settings.long_press_ms = +sel.value; });
+  sel.onchange = () => edit("Hold threshold", (c) => { settingsOf(c).long_press_ms = +sel.value; });
   return h("div", { class: "hold" },
     h("div", { class: "row" }, h("b", {}, "Hold threshold"), sel),
     h("p", { class: "sub" }, "Long press suppresses short press. Applies to every key."),

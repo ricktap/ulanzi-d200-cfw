@@ -13,6 +13,11 @@
 //! to its own namespace: `com.deckling.core` (built-in apps, Night Signal icons),
 //! `com.deckling.teams`, `com.deckling.jetbrains`, `com.deckling.ha`. App ids, action
 //! ids, icon ids and signal names in bindings are renamed.
+//!
+//! Version 3 to 4: settings move to the plugins they belong to, as
+//! `plugins.<id>.config`: `weather` and `pomodoro` to com.deckling.core, `teams` (its
+//! fields) to com.deckling.teams, everything else (long press, profiles following the
+//! front app, brightness, MQTT, screensaver, cards, theme) to `core`.
 
 use serde_json::{json, Map, Value};
 
@@ -31,6 +36,7 @@ pub fn migrate(mut v: Value, target: u32) -> Result<Value, String> {
         v = match ver {
             1 => v1_to_v2(v),
             2 => v2_to_v3(v),
+            3 => v3_to_v4(v),
             _ => return Err(format!("no migration from version {ver}")),
         };
         ver += 1;
@@ -136,6 +142,32 @@ fn v2_to_v3(mut v: Value) -> Value {
             }
         }
     }
+    v
+}
+
+fn v3_to_v4(mut v: Value) -> Value {
+    let Some(obj) = v.as_object_mut() else { return v };
+    let Some(Value::Object(mut settings)) = obj.remove("settings") else { return v };
+    let mut plugins = Map::new();
+    let mut put = |id: &str, cfg: Map<String, Value>| {
+        if !cfg.is_empty() {
+            plugins.insert(id.into(), json!({ "config": cfg }));
+        }
+    };
+    let mut apps = Map::new();
+    for k in ["weather", "pomodoro"] {
+        if let Some(x) = settings.remove(k) {
+            apps.insert(k.into(), x);
+        }
+    }
+    let teams = match settings.remove("teams") {
+        Some(Value::Object(t)) => t,
+        _ => Map::new(),
+    };
+    put("core", settings);
+    put("com.deckling.core", apps);
+    put("com.deckling.teams", teams);
+    obj.insert("plugins".into(), Value::Object(plugins));
     v
 }
 
@@ -298,8 +330,22 @@ mod tests {
     }
 
     #[test]
+    fn v3_settings_move_to_plugins() {
+        let v3 = json!({"version": 3, "settings": {
+            "brightness": 90, "mqtt": {"host": "h"}, "weather": {"fahrenheit": true},
+            "pomodoro": {"work": 30}, "teams": {"port": 9000}, "future": 1
+        }, "profiles": []});
+        let v4 = migrate(v3, 4).unwrap();
+        assert!(v4.get("settings").is_none());
+        let p = &v4["plugins"];
+        assert_eq!(p["core"]["config"], json!({"brightness": 90, "mqtt": {"host": "h"}, "future": 1}));
+        assert_eq!(p["com.deckling.core"]["config"], json!({"weather": {"fahrenheit": true}, "pomodoro": {"work": 30}}));
+        assert_eq!(p["com.deckling.teams"]["config"], json!({"port": 9000}));
+    }
+
+    #[test]
     fn newer_versions_are_refused() {
-        assert!(migrate(json!({"version": 9, "profiles": []}), 3).is_err());
-        assert_eq!(migrate(json!({"version": 3, "x": 1}), 3).unwrap(), json!({"version": 3, "x": 1}));
+        assert!(migrate(json!({"version": 9, "profiles": []}), 4).is_err());
+        assert_eq!(migrate(json!({"version": 4, "x": 1}), 4).unwrap(), json!({"version": 4, "x": 1}));
     }
 }

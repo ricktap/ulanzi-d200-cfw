@@ -3,15 +3,19 @@
 The app edits this file for you. This page is for hand edits and scripting. The source of truth
 is `app/src-tauri/src/config.rs`; the target model is `docs/deckling/architecture.md`.
 
-The file has a `version`. This app writes version 3. An older file is migrated when it is loaded
+The file has a `version`. This app writes version 4. An older file is migrated when it is loaded
 (`migrate.rs`); the original stays next to it as `deck.v<N>.json`. A newer version, or a file that
 does not parse, is moved to `deck.json.old` and the app starts from `default-config.json`.
 Fields, apps and actions this version does not know are kept when the file is saved.
 
 ```jsonc
 {
-  "version": 3,
-  "settings": { ... },
+  "version": 4,
+  "plugins": {
+    "core": { "config": { "long_press_ms": 500, "follow_active_app": true, "mqtt": { ... }, ... } },
+    "com.deckling.core": { "config": { "weather": { ... }, "pomodoro": { ... } } },
+    "com.deckling.teams": { "enabled": true, "config": { "port": 8124, ... } }
+  },
   "status_key": { "app": "profile", "show": "auto", "on": { "press": [{"action": "core:home"}] } },
   "profiles": [
     {
@@ -64,7 +68,7 @@ is drawn with its bindings, fed by the app's interfaces.
 `press`, `long`, `down` and `up` each hold a list of actions:
 
 - `down` and `up` fire on every press.
-- Exactly one of `press` and `long` fires, depending on `settings.long_press_ms`.
+- Exactly one of `press` and `long` fires, depending on `plugins.core.config.long_press_ms`.
 
 ## Namespaces
 
@@ -108,9 +112,9 @@ The list, with a parameter schema per action, comes from the Tauri command `cata
 |---|---|
 | `com.deckling.core:sysmon` | `modes`: any of `cpu`, `ram`, `disk`, `net`. A press cycles through them |
 | `com.deckling.core:mute` | |
-| `com.deckling.core:weather` | uses `settings.weather` |
+| `com.deckling.core:weather` | uses the plugin's `weather` setting |
 | `com.deckling.core:clock` | `h12` |
-| `com.deckling.core:pomodoro` | uses `settings.pomodoro` |
+| `com.deckling.core:pomodoro` | uses the plugin's `pomodoro` setting |
 | `com.deckling.core:media` | |
 | `com.deckling.teams:mute`, `com.deckling.teams:camera`, `com.deckling.teams:presence` | |
 | `com.deckling.jetbrains:debugger` | `idle_keys`, `active_keys`, `stop_keys` |
@@ -126,11 +130,26 @@ schema and the interfaces it fulfils (`implements`). See [packages.md](packages.
 | `show` | `auto` (the song while a player plays, else the default), `profile`, `media` |
 | `on` | as for keys. The default is: press → home, long press → remote page |
 
-## settings
+## plugins
 
-| Section | Fields |
+Each plugin's settings are in `plugins.<id>.config`, by the schema in its manifest's `config`
+(`app/src-tauri/core/deckling.json`, `app/src-tauri/plugins/<id>/deckling.json`).
+`"enabled": false` switches a plugin off: its actions report that, and its signals are cleared.
+Unknown keys in a config are kept.
+
+| Plugin | `config` fields |
 |---|---|
-| top level | `brightness`, `long_press_ms`, `follow_active_app` |
+| `core` | `brightness`, `long_press_ms`, `follow_active_app`, `mqtt`, `screensaver`, `cards`, `theme` (the deck's global settings) |
+| `com.deckling.core` | `weather`, `pomodoro` |
+| `com.deckling.teams` | `port`, `client_id`, `tenant`, `away` |
+
+The fields:
+
+
+
+| Field | Fields |
+|---|---|
+| `core` top level | `brightness`, `long_press_ms`, `follow_active_app` |
 | `weather` | `location {name, lat, lon}`, `fahrenheit` |
 | `pomodoro` | `work`, `short_break`, `long_break` (minutes), `rounds`, `sound` |
 | `mqtt` | `enabled`, `host`, `port`, `username`, `password`, `tls`, `base_topic`, `discovery` |

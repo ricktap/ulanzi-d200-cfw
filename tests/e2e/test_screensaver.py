@@ -19,8 +19,8 @@ for scene in ["snow", "pink", "beach", "leaves", "rain"]:
     sim = f"{S}/saver-{scene}"; shutil.rmtree(sim, ignore_errors=True); os.makedirs(sim + "/cfg")
     open(sim + "/fb", "wb").write(bytes(720 * 1280 * 4)); os.mkfifo(sim + "/kbd")
     cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-    cfg["settings"]["follow_active_app"] = False
-    cfg["settings"]["screensaver"] = {"enabled": True, "idle_minutes": 30, "scene": scene, "southern": False, "motion": True, "fps": 8}
+    cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+    cfg["plugins"]["core"]["config"]["screensaver"] = {"enabled": True, "idle_minutes": 30, "scene": scene, "southern": False, "motion": True, "fps": 8}
     marker = sim + "/ran"
     cfg["profiles"][0]["pages"]["main"]["5"]["states"][0]["on"] = {"press": [{"action": "com.deckling.core:command", "params": {"command": f"touch {marker}"}}]}
     json.dump(cfg, open(sim + "/cfg/deck.json", "w"))

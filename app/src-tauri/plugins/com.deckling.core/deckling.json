@@ -7,6 +7,44 @@
   "runtime": {
     "kind": "builtin"
   },
+  "config": [
+    {
+      "key": "weather.fahrenheit",
+      "label": "Fahrenheit",
+      "type": "toggle",
+      "default": false
+    },
+    {
+      "key": "pomodoro.work",
+      "label": "Focus (min)",
+      "type": "number",
+      "default": 25
+    },
+    {
+      "key": "pomodoro.short_break",
+      "label": "Short break (min)",
+      "type": "number",
+      "default": 5
+    },
+    {
+      "key": "pomodoro.long_break",
+      "label": "Long break (min)",
+      "type": "number",
+      "default": 15
+    },
+    {
+      "key": "pomodoro.rounds",
+      "label": "Rounds before a long break",
+      "type": "number",
+      "default": 4
+    },
+    {
+      "key": "pomodoro.sound",
+      "label": "Sound",
+      "type": "toggle",
+      "default": true
+    }
+  ],
   "contributes": {
     "signals": "signals.json",
     "actions": "actions.json",

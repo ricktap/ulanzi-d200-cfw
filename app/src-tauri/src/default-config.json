@@ -1,60 +1,70 @@
 {
-  "version": 3,
-  "settings": {
-    "brightness": 180,
-    "long_press_ms": 500,
-    "follow_active_app": true,
-    "weather": {
-      "location": null,
-      "fahrenheit": false
+  "version": 4,
+  "plugins": {
+    "core": {
+      "config": {
+        "brightness": 180,
+        "long_press_ms": 500,
+        "follow_active_app": true,
+        "theme": {
+          "palette": {
+            "active": "#69E0C1",
+            "info": "#B79AF7",
+            "attention": "#FFBF69",
+            "error": "#FF8278",
+            "background": "#11171D"
+          },
+          "widgets": {}
+        },
+        "cards": {
+          "email": true,
+          "meetings": true,
+          "steam": true,
+          "printer": true,
+          "hide_content": false
+        },
+        "mqtt": {
+          "enabled": false,
+          "host": "homeassistant.local",
+          "port": 1883,
+          "username": "",
+          "password": "",
+          "tls": false,
+          "base_topic": "d200",
+          "discovery": true
+        },
+        "screensaver": {
+          "enabled": true,
+          "idle_minutes": 3,
+          "scene": "auto",
+          "southern": false,
+          "motion": true,
+          "fps": 8
+        }
+      }
     },
-    "pomodoro": {
-      "work": 25,
-      "short_break": 5,
-      "long_break": 15,
-      "rounds": 4,
-      "sound": true
+    "com.deckling.core": {
+      "config": {
+        "weather": {
+          "location": null,
+          "fahrenheit": false
+        },
+        "pomodoro": {
+          "work": 25,
+          "short_break": 5,
+          "long_break": 15,
+          "rounds": 4,
+          "sound": true
+        }
+      }
     },
-    "mqtt": {
-      "enabled": false,
-      "host": "homeassistant.local",
-      "port": 1883,
-      "username": "",
-      "password": "",
-      "tls": false,
-      "base_topic": "d200",
-      "discovery": true
-    },
-    "teams": {
-      "port": 8124,
-      "client_id": "",
-      "tenant": "organizations",
-      "away": "DoNotDisturb"
-    },
-    "screensaver": {
-      "enabled": true,
-      "idle_minutes": 3,
-      "scene": "auto",
-      "southern": false,
-      "motion": true,
-      "fps": 8
-    },
-    "cards": {
-      "email": true,
-      "meetings": true,
-      "steam": true,
-      "printer": true,
-      "hide_content": false
-    },
-    "theme": {
-      "palette": {
-        "active": "#69E0C1",
-        "info": "#B79AF7",
-        "attention": "#FFBF69",
-        "error": "#FF8278",
-        "background": "#11171D"
-      },
-      "widgets": {}
+    "com.deckling.teams": {
+      "config": {
+        "port": 8124,
+        "client_id": "",
+        "tenant": "organizations",
+        "away": "DoNotDisturb"
+      }
     }
   },
   "status_key": {

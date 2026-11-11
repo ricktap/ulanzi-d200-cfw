@@ -20,9 +20,9 @@ for n in "DUAL":
     if os.path.exists(mark(n)): os.remove(mark(n))
 
 cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-cfg["settings"]["follow_active_app"] = False
-cfg["settings"]["long_press_ms"] = 400
-cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18830)
+cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+cfg["plugins"]["core"]["config"]["long_press_ms"] = 400
+cfg["plugins"]["core"]["config"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18830)
 cfg["profiles"][0]["pages"]["main"]["8"] = {"states": [
     {"label": "Off", "bg": "#ff0000", "on": {
         "down": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('D')}"}}],

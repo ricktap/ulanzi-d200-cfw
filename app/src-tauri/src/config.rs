@@ -581,8 +581,14 @@ pub struct Config {
     /// Format version; see `migrate`.
     #[serde(default)]
     pub version: u32,
-    #[serde(default)]
+    /// Typed view of the plugins' settings (`plugins.<id>.config`), for the engine.
+    /// Filled from `plugins` when a config is read and written back by `sync`.
+    #[serde(skip)]
     pub settings: Settings,
+    /// Per plugin: enabled, and its settings by the schema in its manifest's `config`.
+    /// `core` holds the deck's global settings.
+    #[serde(default)]
+    pub plugins: IndexMap<String, PluginEntry>,
     #[serde(default)]
     pub status_key: StatusKey,
     /// The first profile is the default: used when no other profile matches the active app.
@@ -592,7 +598,66 @@ pub struct Config {
 }
 
 /// The current deck.json format.
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
+
+fn yes() -> bool {
+    true
+}
+fn is_true(b: &bool) -> bool {
+    *b
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PluginEntry {
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub config: Map<String, Value>,
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
+}
+
+impl Default for PluginEntry {
+    fn default() -> Self {
+        PluginEntry { enabled: true, config: Map::new(), extra: Map::new() }
+    }
+}
+
+/// Which plugin's config holds a `Settings` field; the rest is in `core`.
+const SETTINGS_HOME: [(&str, &str); 3] = [("weather", "com.deckling.core"), ("pomodoro", "com.deckling.core"), ("teams", "com.deckling.teams")];
+
+impl Settings {
+    /// Read from the plugins' configs. `teams` is the whole com.deckling.teams config.
+    pub fn from_plugins(plugins: &IndexMap<String, PluginEntry>) -> Result<Settings, String> {
+        let mut obj = plugins.get("core").map(|p| p.config.clone()).unwrap_or_default();
+        for (field, id) in SETTINGS_HOME {
+            let Some(cfg) = plugins.get(id).map(|p| &p.config) else { continue };
+            let v = if field == "teams" { Some(Value::Object(cfg.clone())) } else { cfg.get(field).cloned() };
+            if let Some(v) = v {
+                obj.insert(field.into(), v);
+            }
+        }
+        serde_json::from_value(Value::Object(obj)).map_err(|e| format!("plugin settings: {e}"))
+    }
+
+    /// Write into the plugins' configs, keeping keys this version does not know.
+    pub fn to_plugins(&self, plugins: &mut IndexMap<String, PluginEntry>) {
+        let Ok(Value::Object(mut obj)) = serde_json::to_value(self) else { return };
+        for (field, id) in SETTINGS_HOME {
+            let Some(v) = obj.remove(field) else { continue };
+            let cfg = &mut plugins.entry(id.to_string()).or_default().config;
+            match (field, v) {
+                ("teams", Value::Object(t)) => cfg.extend(t),
+                (_, v) => {
+                    cfg.insert(field.into(), v);
+                }
+            }
+        }
+        plugins.entry("core".into()).or_default().config.extend(obj);
+        // core first, the rest in a stable order
+        plugins.sort_by(|a, _, b, _| (a != "core").cmp(&(b != "core")).then(a.cmp(b)));
+    }
+}
 
 impl Config {
     pub fn example() -> Self {
@@ -613,7 +678,9 @@ impl Config {
     pub fn from_value(v: Value) -> Result<(Self, u64), String> {
         let was = crate::migrate::version(&v);
         let v = crate::migrate::migrate(v, VERSION)?;
-        let cfg: Config = serde_json::from_value(v).map_err(|e| e.to_string())?;
+        let mut cfg: Config = serde_json::from_value(v).map_err(|e| e.to_string())?;
+        cfg.settings = Settings::from_plugins(&cfg.plugins)?;
+        cfg.sync();
         cfg.validate()?;
         Ok((cfg, was))
     }
@@ -709,9 +776,16 @@ impl Config {
         }
     }
 
+    /// Write `settings` back into `plugins` (after the engine changed a setting).
+    pub fn sync(&mut self) {
+        let s = self.settings.clone();
+        s.to_plugins(&mut self.plugins);
+    }
+
     pub fn save(&self, path: &Path) -> Result<(), String> {
         let mut c = self.clone();
         c.version = VERSION;
+        c.sync();
         let json = serde_json::to_string_pretty(&c).map_err(|e| e.to_string())?;
         write_private(path, &(json + "\n"))
     }
@@ -814,7 +888,7 @@ mod version_tests {
         assert_eq!(k1.states[0].on.press[0].params["value"], "+5");
         assert_eq!(std::fs::read_to_string(dir.join("deck.v1.json")).unwrap(), v1);
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved["version"], 3);
+        assert_eq!(saved["version"], 4);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -838,7 +912,7 @@ mod version_tests {
         let out: Value = serde_json::to_value(&c).unwrap();
         assert_eq!(out["profiles"][0]["pages"]["main"]["6"], key);
         assert_eq!(out["overlays"], serde_json::json!(["com.jemand.ams-blau"]));
-        assert_eq!(out["settings"]["new_setting"], 5);
+        assert_eq!(out["plugins"]["core"]["config"]["new_setting"], 5, "unknown settings live on in core's config");
         assert_eq!(out["profiles"][0]["color"], "red");
         assert_eq!(c.key(0, "main", 6).kind(), None);
         assert_eq!(c.key(0, "main", 6).states[0].on.long[0].parse(), None);

@@ -1,8 +1,7 @@
 // The key editor on the right: header, Design / Actions / States tabs.
 import { $, h, put, ask } from "./dom.js";
 import {
-  state, STATUS_KEY, edit, profile, keyObj, ensureKey, ensureState, keyKind,
-} from "./store.js";
+  state, STATUS_KEY, edit, profile, keyObj, ensureKey, ensureState, keyKind, settingsOf } from "./store.js";
 import { appDef, iconUrl, isSetIcon } from "./catalog.js";
 import { img, iconPicker } from "./icons.js";
 import { colorField, textField } from "./controls.js";
@@ -173,7 +172,7 @@ function designTab() {
 }
 
 function remoteInfo() {
-  const base = state.config.settings.mqtt.base_topic || "d200";
+  const base = settingsOf(state.config).mqtt.base_topic || "d200";
   const k = state.selected;
   const cur = state.snap?.remote?.[String(k)];
   const example = `action: mqtt.publish
@@ -187,7 +186,7 @@ data:
     h("p", { class: "note", html: `Home Assistant sets this key with a retained message on <code>${base}/remote/${k}/set</code>. Presses come back on <code>${base}/remote/${k}/action</code> and as device triggers in HA.` }),
     h("div", { class: "field" }, h("span", { class: "label" }, "Current"), h("pre", { class: "code" }, cur ? JSON.stringify(cur, null, 2) : "nothing set yet")),
     h("div", { class: "field" }, h("span", { class: "label" }, "Example"), h("pre", { class: "code" }, example)),
-    state.config.settings.mqtt.enabled ? null : h("p", { class: "note", html: "MQTT is off. Turn it on in <b>Settings → Home Assistant</b>." }),
+    settingsOf(state.config).mqtt.enabled ? null : h("p", { class: "note", html: "MQTT is off. Turn it on in <b>Settings → Home Assistant</b>." }),
   ];
 }
 
@@ -227,7 +226,7 @@ function actionsTab() {
     ];
   }
   if (state.view.remote) {
-    const base = state.config.settings.mqtt.base_topic || "d200";
+    const base = settingsOf(state.config).mqtt.base_topic || "d200";
     return [h("p", { class: "note", html: `Presses on the Remote page go to Home Assistant: <code>${base}/remote/${k}/action</code> gets <code>down</code>, <code>up</code>, <code>press</code> and <code>long_press</code>. Build the reaction as an HA automation.` })];
   }
   const key = keyObj();
