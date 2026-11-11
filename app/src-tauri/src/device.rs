@@ -252,6 +252,11 @@ impl Device {
         Ok(rects)
     }
 
+    /// RGB888 for a rectangle anywhere on the 1280x720 screen (landscape coordinates).
+    pub fn blit(&self, x: usize, y: usize, w: usize, h: usize, rgb: &[u8]) -> Result<(), String> {
+        self.cmd(&format!("BLIT {x} {y} {w} {h}"), rgb).map(|_| ())
+    }
+
     pub fn image(&self, key: usize, rgb: &[u8]) -> Result<(), String> {
         self.cmd(&format!("IMG {key} {}", rgb.len()), rgb).map(|_| ())
     }

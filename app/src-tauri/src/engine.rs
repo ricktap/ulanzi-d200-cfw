@@ -147,6 +147,8 @@ pub struct Engine {
     dev: Option<Arc<Device>>,
     connected: Arc<AtomicBool>,
     sent: [u64; NUM_KEYS],
+    /// The last image sent per key, to send only the part that changed.
+    last: Vec<Vec<u8>>,
     status: Status,
     emit: Emit,
     fonts: Result<Fonts, String>,
@@ -226,6 +228,26 @@ struct Saver {
     /// The device draws the scene itself (d200fw 0.2+); the host only sends the dot.
     on_device: bool,
     dot: bool,
+}
+
+/// Bounding box (x, y, w, h) of the pixels that differ between two RGB images of width
+/// `w`; None when they are equal.
+fn changed_box(a: &[u8], b: &[u8], w: usize) -> Option<(usize, usize, usize, usize)> {
+    let h = a.len() / 3 / w;
+    let (mut x0, mut y0, mut x1, mut y1) = (usize::MAX, usize::MAX, 0, 0);
+    for y in 0..h {
+        let (ra, rb) = (&a[y * w * 3..(y + 1) * w * 3], &b[y * w * 3..(y + 1) * w * 3]);
+        if ra == rb {
+            continue;
+        }
+        let first = (0..w).find(|&x| ra[x * 3..x * 3 + 3] != rb[x * 3..x * 3 + 3]).unwrap_or(0);
+        let last = (0..w).rev().find(|&x| ra[x * 3..x * 3 + 3] != rb[x * 3..x * 3 + 3]).unwrap_or(w - 1);
+        x0 = x0.min(first);
+        x1 = x1.max(last);
+        y0 = y0.min(y);
+        y1 = y;
+    }
+    (y0 != usize::MAX).then(|| (x0, y0, x1 - x0 + 1, y1 - y0 + 1))
 }
 
 fn hash(v: &[u8]) -> u64 {
@@ -328,6 +350,7 @@ impl Engine {
             dev: None,
             connected,
             sent: [0; NUM_KEYS],
+            last: vec![Vec::new(); NUM_KEYS],
             status: Status { message, ..Default::default() },
             emit,
             fonts: Fonts::load(),
@@ -1704,8 +1727,27 @@ impl Engine {
         if self.sent[k] == h {
             return;
         }
-        match dev.image(k, &rgb) {
-            Ok(()) => self.sent[k] = h,
+        // Only the changed rectangle goes over USB (a clock's seconds bar is a few hundred
+        // bytes, not the whole 115 KB key), unless the device's copy is unknown.
+        let (w, _) = render::key_size(k);
+        let rect = dev.rects.get(k).copied().filter(|_| self.sent[k] != 0 && self.last[k].len() == rgb.len());
+        let res = match (rect, rect.and_then(|_| changed_box(&self.last[k], &rgb, w as usize))) {
+            (Some([x, y, ..]), Some((bx, by, bw, bh))) if bw * bh * 2 < rgb.len() / 3 => {
+                let mut part = Vec::with_capacity(bw * bh * 3);
+                for row in by..by + bh {
+                    let o = (row * w as usize + bx) * 3;
+                    part.extend_from_slice(&rgb[o..o + bw * 3]);
+                }
+                dev.blit(x + bx, y + by, bw, bh, &part)
+            }
+            _ => dev.image(k, &rgb),
+        };
+        match res {
+            Ok(()) => {
+                self.sent[k] = h;
+                self.last[k] = rgb;
+                (self.emit)("face", json!({ "key": k }));
+            }
             Err(e) => eprintln!("draw key {k}: {e}"),
         }
     }
@@ -2170,4 +2212,20 @@ fn try_connect(id: u64, events: Sender<DevEvent>) -> Result<Device, Status> {
 
 fn now_secs() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod diff_tests {
+    use super::changed_box;
+
+    #[test]
+    fn finds_the_changed_rectangle() {
+        let w = 10;
+        let a = vec![0u8; w * 6 * 3];
+        let mut b = a.clone();
+        assert_eq!(changed_box(&a, &b, w), None);
+        b[(2 * w + 3) * 3] = 255; // (3, 2)
+        b[(4 * w + 7) * 3 + 2] = 9; // (7, 4)
+        assert_eq!(changed_box(&a, &b, w), Some((3, 2, 5, 3)));
+    }
 }

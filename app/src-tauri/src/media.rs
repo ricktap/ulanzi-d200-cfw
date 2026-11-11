@@ -96,6 +96,10 @@ pub fn poll() -> Option<NowPlaying> {
     if !cfg!(target_os = "macos") {
         return None;
     }
+    // Only start AppleScript when a player runs (checked natively, no process).
+    if !crate::platform::any_running(&["com.spotify.client", "com.apple.Music"]) {
+        return None;
+    }
     parse(&osascript(POLL_SCRIPT)?)
 }
 

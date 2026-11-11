@@ -1,6 +1,6 @@
 // The device grid: key previews (drawn by Rust), selection, image drops.
 import { $, h, toast } from "./dom.js";
-import { invoke, currentWebview } from "./api.js";
+import { invoke, listen, currentWebview } from "./api.js";
 import { state, NUM_KEYS, STATUS_KEY, edit, render, keyObj, ensureKey, ensureState } from "./store.js";
 
 export const keyEl = (k) => document.querySelector(`.key[data-key="${k}"]`);
@@ -37,16 +37,22 @@ export function select(k) {
   render("inspector", "pane");
 }
 
-/** Live faces (clock, system monitor, pomodoro, media, notifications) while visible. */
+/**
+ * Live faces: the engine reports each key whose face changed ("face" event); the grid
+ * fetches only those previews, at most once a second (every 3 s while the window is not
+ * focused), and nothing while it is hidden.
+ */
 export function startLiveFaces() {
+  const dirty = new Set();
+  let last = 0;
+  listen("face", (e) => dirty.add(e.payload.key));
   setInterval(() => {
-    if (document.visibilityState !== "visible" || state.pane !== "editor") return;
-    renderPreview(STATUS_KEY);
-    if (state.view.remote) return;
-    for (let k = 0; k < STATUS_KEY; k++) {
-      const app = keyObj(k)?.app;
-      if (app && app !== "core:button") renderPreview(k);
-    }
+    if (!dirty.size || document.visibilityState !== "visible" || state.pane !== "editor") return;
+    const now = Date.now();
+    if (!document.hasFocus() && now - last < 3000) return;
+    last = now;
+    for (const k of dirty) if (k === STATUS_KEY || !state.view.remote) renderPreview(k);
+    dirty.clear();
   }, 1000);
 }
 
