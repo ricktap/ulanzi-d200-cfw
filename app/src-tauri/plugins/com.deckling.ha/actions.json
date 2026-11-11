@@ -1,5 +1,35 @@
 [
   {
+    "id": "com.deckling.ha:press",
+    "name": "Send to Home Assistant",
+    "params": [
+      {
+        "key": "id",
+        "label": "Entity",
+        "type": "select",
+        "values": {
+          "source": "com.deckling.ha:ids"
+        }
+      },
+      {
+        "key": "event",
+        "label": "Event",
+        "type": "select",
+        "default": "press",
+        "values": [
+          {
+            "label": "Press",
+            "value": "press"
+          },
+          {
+            "label": "Long press",
+            "value": "long_press"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "com.deckling.ha:mqtt",
     "name": "MQTT publish",
     "params": [

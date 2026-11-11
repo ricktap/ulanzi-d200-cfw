@@ -30,6 +30,9 @@ cfg["profiles"][0]["pages"]["main"]["8"] = {"states": [
         "press": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('A')}"}}, {"action": "core:state", "params": {"to": "next"}}],
         "long": [{"action": "com.deckling.core:command", "params": {"command": f"touch {mark('L')}"}}]}},
     {"label": "On", "bg": "#00ff00", "on": {"press": [{"action": "core:state", "params": {"to": "next"}}]}}]}
+# a Home Assistant entity on a normal key: HA describes it, the plugin turns it into signals
+cfg["profiles"][0]["pages"]["main"]["12"] = {"app": "com.deckling.ha:entity", "config": {"id": "light.kitchen"},
+    "states": [{"on": {"press": [{"action": "com.deckling.ha:press", "params": {"id": "{id}"}}]}}]}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 
 broker = Broker(18830)
@@ -110,6 +113,16 @@ broker.publish("d200/profile/set", "Browser"); time.sleep(0.8); snap("v2_browser
 check("profile switched by MQTT", broker.retained.get("d200/profile") == b"Browser")
 broker.publish("d200/brightness/set", "77"); time.sleep(0.3)
 check("brightness state", broker.retained.get("d200/brightness") == b"77")
+
+# Home Assistant entity key (com.deckling.ha:entity)
+broker.publish("d200/profile/set", "Default"); time.sleep(0.5)
+broker.publish("d200/ha/light.kitchen/set", json.dumps({"label": "Kitchen", "kind": "light", "on": True, "color": "#0000FF", "background": "#00A000"}), retain=True)
+time.sleep(0.8); snap("v2_ha")
+x, y = RECT(12); blue = int((np.abs(snap()[y:y + 196, x:x + 196].astype(int) - [0, 0, 255]).sum(axis=2) < 60).sum())
+check("HA key: background from HA", px(12)[1] > 120 and px(12)[0] < 60, px(12))
+check("HA key: light icon in the entity colour", blue > 200, blue)
+tap(12); time.sleep(0.6)
+check("HA key press goes back to HA", b"press" in broker.got("d200/ha/light.kitchen/action"), broker.got("d200/ha/light.kitchen/action"))
 
 # status key press -> home; long -> remote
 broker.publish("d200/profile/set", "Default"); time.sleep(0.5)

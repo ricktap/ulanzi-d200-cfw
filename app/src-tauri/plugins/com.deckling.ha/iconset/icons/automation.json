@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:automation",
+  "roles": [
+    "button"
+  ],
+  "file": "automation.svg"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "com.deckling.ha:switch",
+  "roles": [
+    "toggle",
+    "button"
+  ],
+  "file": "switch.svg"
+}

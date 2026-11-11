@@ -15,6 +15,25 @@ of `docs/deckling/briefing.md` are in place; 5 to 8 are not.
 | `app/src-tauri/plugins/<id>/` | The built-in plugins as data: `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains`, `com.deckling.ha` |
 | `app/ui/icons/night-signal/` | Night Signal, the icon set embedded in `com.deckling.core`: `deckling.json`, `svg/`, binding files in `icons/`, interface copies in `interfaces/` |
 
+## Built-in plugins
+
+`plugins.rs` is the interface for plugins that run in the engine's thread. A plugin publishes
+signals in its own namespace (the host prefixes the id), takes its actions, fills `select`
+fields from a `source`, and reads and writes MQTT through the app's connection: it names topics
+relative to the base topic and publishes through the host. It never draws, sets no colour on a
+key and sees no key presses.
+
+| Plugin | In `plugins.rs` | Still in the engine |
+|---|---|---|
+| `com.deckling.ha` (`ha.rs`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
+| `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains` | | everything (work package 5, next) |
+
+MQTT itself is part of `core`: the connection, key events, profile, brightness, page,
+availability, discovery and notifications.
+
+Action parameters may name a key setting: `{"id": "{id}"}` is filled from the key's `config`
+when the action runs. Placeholders that name no setting stay as they are.
+
 ## Icon sets
 
 An icon set folder has a `deckling.json` (`"type": "iconset"`), SVGs in `svg/`, binding files in
@@ -69,7 +88,7 @@ Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckl
 | Key | Drawn as |
 |---|---|
 | Core app, default icon (or none chosen) | the built-in widget (`apps.rs`), as before |
-| App with another chosen icon | that icon with its bindings, fed by the app's `implements` and the key's `config` |
+| App with another chosen icon, or a plugin app | that icon with its bindings, fed by the app's `implements` and the key's `config` |
 | App from a missing plugin | dashed "Plugin missing" placeholder |
 | Plain button | icon and label; bound icons read the state's `props` and theme variables |
 
@@ -106,6 +125,11 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
   icon. Apps publish signals for every other icon.
 - **App behaviour on press is built in.** Core apps keep their press handling (cycling views,
   play/pause) in the engine, so their `on` presets are empty.
+- **Apps may bind `icon`, `label`, `value` and `background`.** A plugin that decides per key
+  what to show (Home Assistant) binds the app's default icon to a signal holding an icon id, and
+  text, value and background likewise. An icon, label or colour chosen on the key wins.
+- **The remote page** is the Home Assistant entities `remote-0` to `remote-12`, drawn with
+  `com.deckling.ha:entity`.
 - **Extra core interface `label { text }`** for icons that show a short text (thermostat).
   `clock` has `second_angle` in addition.
 - **`props` on a state** give icons static values on keys without an app, on remote keys and on

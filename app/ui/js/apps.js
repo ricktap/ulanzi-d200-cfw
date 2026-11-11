@@ -23,6 +23,7 @@ export function placeApp(id, k = state.selected) {
   edit(`${app?.name || id} on key ${k}`, () => {
     const key = ensureKey(k);
     const wasApp = key.app && key.app !== "core:button";
+    const old = wasApp ? appDef(key.app) : null;
     key.app = id;
     const config = schemaDefaults(app?.config);
     if (Object.keys(config).length) key.config = config;
@@ -32,8 +33,33 @@ export function placeApp(id, k = state.selected) {
     } else {
       delete key.states; // a button's states mean nothing on an app key
     }
+    applyPresets(key, old, app);
     state.selState = 0;
   });
+}
+
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The app's preset actions (`on`) go onto state 0. Presets of the app it replaces
+ * are taken off first; actions the user added stay.
+ */
+function applyPresets(key, oldApp, newApp) {
+  const st = key.states?.[0];
+  if (st?.on && oldApp?.on) {
+    for (const [ev, list] of Object.entries(oldApp.on)) {
+      if (!Array.isArray(st.on[ev])) continue;
+      st.on[ev] = st.on[ev].filter((a) => !list.some((p) => same(p, a)));
+      if (!st.on[ev].length) delete st.on[ev];
+    }
+    if (!Object.keys(st.on).length) delete st.on;
+  }
+  const presets = Object.entries(newApp?.on || {}).filter(([, list]) => Array.isArray(list) && list.length);
+  if (!presets.length) return;
+  key.states ||= [{}];
+  const s0 = key.states[0];
+  s0.on ||= {};
+  for (const [ev, list] of presets) s0.on[ev] = [...(s0.on[ev] || []), ...structuredClone(list)];
 }
 
 /** Design tab content for an app key. */

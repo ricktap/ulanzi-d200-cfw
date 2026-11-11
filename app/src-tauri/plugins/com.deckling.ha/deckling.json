@@ -51,6 +51,9 @@
     }
   ],
   "contributes": {
-    "actions": "actions.json"
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/",
+    "iconset": "iconset/"
   }
 }

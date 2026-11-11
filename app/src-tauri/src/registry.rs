@@ -58,9 +58,20 @@ pub struct ActionDef {
 pub struct AppDef {
     pub id: String,
     pub name: String,
-    /// Default icon, from the plugin's embedded icon set.
+    /// Default icon, from the plugin's embedded icon set: an id, or a binding that
+    /// resolves to one (a plugin that picks the icon per key, like Home Assistant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
+    pub icon: Option<Value>,
+    /// Text, value and background for keys drawn with an icon (not a built-in widget);
+    /// bindings like `implements`. A label or colour set on the key wins.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Core only: a built-in widget drawn while the default icon is chosen.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub face: Option<String>,
@@ -75,6 +86,14 @@ pub struct AppDef {
 }
 
 impl AppDef {
+    /// The default icon id without resolving anything: the id, or a binding's fallback.
+    pub fn icon_static(&self) -> Option<&str> {
+        match self.icon.as_ref()? {
+            Value::String(s) => Some(s),
+            Value::Object(o) => o.get("fallback").and_then(Value::as_str),
+            _ => None,
+        }
+    }
     /// Roles in the app's order, `button` last (every app fulfils it).
     pub fn roles(&self) -> Vec<String> {
         let mut r: Vec<String> = self.implements.keys().cloned().collect();
@@ -147,7 +166,7 @@ impl Files for Embedded {
     }
     fn svg(&self, dir: &str, file: &str) -> Option<String> {
         if dir != NIGHT_SIGNAL {
-            return None;
+            return self.read(&format!("{dir}/svg/{file}"));
         }
         let name = file.strip_suffix(".svg").unwrap_or(file);
         ICONS.binary_search_by(|(n, _)| n.cmp(&name)).ok().map(|i| ICONS[i].1.to_string())
@@ -247,6 +266,11 @@ impl Registry {
                 }
                 let mut miss = vec![];
                 bind::missing_fallbacks(&Value::Object(a.implements.clone()), &a.id, &mut miss);
+                for (k, v) in [("icon", &a.icon), ("label", &a.label), ("value", &a.value), ("background", &a.background)] {
+                    if let Some(v) = v {
+                        bind::missing_fallbacks(v, &format!("{}.{k}", a.id), &mut miss);
+                    }
+                }
                 for m in miss {
                     self.warnings.push(format!("{m}: binding without fallback"));
                 }
@@ -364,6 +388,8 @@ impl Registry {
             "apps": self.apps.values().map(|a| {
                 let mut v = serde_json::to_value(a).unwrap_or_default();
                 v["roles"] = json!(a.roles());
+                // the UI shows the static default; a bound icon is resolved per key
+                v["icon"] = json!(a.icon_static());
                 v
             }).collect::<Vec<_>>(),
             "icons": self.icons.values().map(|i| json!({"id": i.id, "roles": i.roles, "bound": !i.parts.is_empty()})).collect::<Vec<_>>(),
@@ -422,6 +448,8 @@ mod tests {
     fn builtin_packages_load_cleanly() {
         let r = builtin();
         assert!(r.warnings.is_empty(), "{:#?}", r.warnings);
+        assert!(r.icon("com.deckling.ha:light").is_some(), "the HA plugin's own icon set");
+        assert!(r.app("com.deckling.ha:entity").unwrap().icon.as_ref().unwrap().is_object(), "HA picks the icon per key");
         let ids: Vec<&str> = r.plugins.iter().map(|p| p.id.as_str()).collect();
         assert_eq!(ids, ["core", "com.deckling.core", "com.deckling.ha", "com.deckling.jetbrains", "com.deckling.teams"]);
         assert!(r.apps.contains_key("com.deckling.core:clock"));
@@ -431,12 +459,13 @@ mod tests {
         assert!(r.actions.contains_key("com.deckling.ha:mqtt"));
         assert!(r.signals.contains_key("time.second"));
         assert!(r.signals.contains_key("com.deckling.teams:mic_on"));
-        assert_eq!(r.icons.len(), 218);
+        assert_eq!(r.icons.keys().filter(|i| i.starts_with("com.deckling.core:")).count(), 218);
+        assert_eq!(r.icons.keys().filter(|i| i.starts_with("com.deckling.ha:")).count(), crate::ha::ICONS.len());
         assert_eq!(r.icon("com.deckling.core:light").unwrap().roles, vec!["rgb", "toggle", "button"]);
         assert!(r.icon("volume-on").is_some(), "plain names still resolve");
         assert!(r.icon("core:volume-on").is_some(), "old core: ids still resolve");
         for a in r.apps.values() {
-            if let Some(i) = &a.icon {
+            if let Some(i) = a.icon_static() {
                 assert!(r.icon(i).is_some(), "{}: default icon {i} missing", a.id);
             }
         }

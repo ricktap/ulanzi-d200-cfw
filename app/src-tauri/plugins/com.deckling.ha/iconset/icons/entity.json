@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:entity",
+  "roles": [
+    "button"
+  ],
+  "file": "entity.svg"
+}

@@ -1,0 +1,98 @@
+[
+  {
+    "name": "com.deckling.ha:{id}.present",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.ha:{id}.label",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:{id}.value",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:{id}.on",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.ha:{id}.color",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.ha:{id}.background",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.ha:{id}.progress",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.ha:{id}.kind",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:{id}.icon",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:printer.state",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:printer.progress",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.ha:printer.remaining_min",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.ha:printer.name",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:printer.job",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:printer.message",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:printer.ams",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot1_color",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot1_remaining",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot2_color",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot2_remaining",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot3_color",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot3_remaining",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot4_color",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.ha:printer.slot4_remaining",
+    "type": "percent"
+  }
+]

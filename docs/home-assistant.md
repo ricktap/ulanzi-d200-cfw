@@ -1,6 +1,8 @@
 # Home Assistant
 
-D200 Deck connects to your MQTT broker (Settings → Home Assistant). With discovery on,
+MQTT is part of the app: D200 Deck connects to your MQTT broker (Settings → Home Assistant) and
+offers the deck itself there (key events, profile, brightness, notifications, discovery). The
+plugin `com.deckling.ha` reads and writes Home Assistant's keys through that connection. With discovery on,
 Home Assistant gets a **Ulanzi D200** device:
 
 | Entity | What it does |
@@ -14,6 +16,37 @@ Home Assistant gets a **Ulanzi D200** device:
 
 The entity ids above are what HA usually generates. Check yours in the device page.
 
+## Entities on any key
+
+Home Assistant describes a key by id, and you put the app **Home Assistant**
+(`com.deckling.ha:entity`) on any key and pick the id. Home Assistant decides what the key shows;
+the plugin turns it into signals and picks an icon. Choose your own icon in the configurator to
+override it.
+
+Publish retained to `d200/ha/<id>/set` (id: letters, digits, `_`, `-`, `.`):
+
+```json
+{"label": "Kitchen", "kind": "light", "on": true, "color": "#FFCC66", "value": "on",
+ "background": "#1F2937", "progress": 40, "icon": "light"}
+```
+
+| Field | Meaning |
+|---|---|
+| `label` | text on the key |
+| `kind` | picks an icon of the plugin's set: `light`, `switch`, `sensor`, `climate`, `lock`, `unlock`, `cover`, `scene`, `vacuum`, `automation`, `presence`, `energy` |
+| `icon` | overrides `kind`: a name of the plugin's set, a Night Signal name, a full icon id, or an emoji |
+| `on` | on/off state, for icons with the `toggle` role (a light's glass) |
+| `color` | the entity's colour, for icons with the `rgb` role |
+| `value` | shown as a number or a pill |
+| `progress` | 0-100, for icons with the `progress` role |
+| `background` | the key's background colour |
+
+An empty payload removes the id. A press sends `press` to `d200/ha/<id>/action`, a long press
+`long_press` (the app's preset actions; you can change them on the key).
+
+Each field is also a signal, e.g. `com.deckling.ha:light.kitchen.on`, so themes and icons on
+other keys can read it.
+
 ## Topics
 
 `d200` is the default base topic.
@@ -22,7 +55,9 @@ The entity ids above are what HA usually generates. Check yours in the device pa
 |---|---|---|
 | `d200/notify` | to deck | text; or `{title, text, icon, color, duration, priority}`; or a full card `{kind, source, title, detail, note, icon, color, progress, url, critical, group}` (`kind`: push, email, meeting, printer, steam, media) |
 | `d200/printer` | to deck | `{state, percent, remaining_min, name, job, spools, ams}`; `state`: heating, printing, paused, complete, error, offline; `spools`: `[{"color": "#69E0C1", "progress": 80}, …]` shows the AMS (`ams`: `"ams"` or `"ams-lite"`) |
-| `d200/remote/<0-12>/set` | to deck, **retained** | JSON `{label, icon, icon_state, value, bg, fg}` (`icon`: a name from the icon set or an emoji; `icon_state` for stateful icons, e.g. `{"on": true, "color": "#ffcc66"}` for `light`, `{"temperature": 21.5, "progress": 55}` for `thermostat`); empty payload clears the key |
+| `d200/ha/<id>/set` | to deck, **retained** | an entity, see above; empty payload removes it |
+| `d200/ha/<id>/action` | from deck | `press`, `long_press` |
+| `d200/remote/<0-12>/set` | to deck, **retained** | the Remote page: the same fields as `ha/<id>/set` for id `remote-<k>`. The older fields still work: `bg` is `background`, `icon_state` gives `on`, `color`, `progress`, and `temperature` as `value`. `fg` is ignored (the theme colours the text) |
 | `d200/remote/<0-12>/action` | from deck | `press`, `long_press`, `down`, `up` |
 | `d200/remote/show` | to deck | anything shows the Remote page, `off` leaves it |
 | `d200/key` | from deck | `{profile, page, key, event}` for every key on every page |

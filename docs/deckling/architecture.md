@@ -100,6 +100,7 @@ A plugin with a connection also reports a state (connected, setup needed, error)
 | `publish(name, value)` | publishes a signal in its own namespace |
 | `onAction(name, fn)` | receives an action |
 | `provideOptions(name, fn)` | provides values for a select field at runtime |
+| `mqtt.subscribe(topic)`, `mqtt.publish(topic, payload)` | reads and writes MQTT through the app's connection. MQTT is part of the core |
 
 The core tells a plugin which of its signals are currently shown. A plugin may leave the rest idle.
 
@@ -171,7 +172,7 @@ Rules:
 3. `config` describes the settings. The configurator builds the fields from this schema. Type `select` has `values` as a fixed list `[{label, value}]` or as `{ "source": "<name>" }`; then the plugin provides the values through `provideOptions`.
 4. Placeholders in `bind` such as `{unit}` are filled from the settings of the key. Several devices are the same app with a different setting.
 5. `on` is a preset of the actions. On the key they can be changed freely afterwards.
-6. `icon` names the default icon from the embedded icon set.
+6. `icon` names the default icon from the embedded icon set. It may also be a binding that resolves to an icon id of that set, for a plugin that decides per key what to show (Home Assistant). `label`, `value` and `background` may be bindings in the same way. What the user sets on the key wins.
 
 Example of a setting with fixed values (clock):
 

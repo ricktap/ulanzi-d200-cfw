@@ -3,7 +3,7 @@
 //! Topics, with `<b>` = the configured base topic (default "d200"):
 //!   <b>/availability        out, retained  "online <host>" / "offline"
 //!   <b>/notify              in   text, or JSON {text, title, icon, color, style, duration}
-//!   <b>/remote/<k>/set      in   retained JSON {label, icon, bg, fg, value}; empty clears
+//!   <b>/remote/<k>/set      in   read by com.deckling.ha (see ha.rs), like <b>/ha/<id>/set
 //!   <b>/remote/<k>/action   out  press | long_press | down | up (remote page keys 0-12)
 //!   <b>/remote/show         in   anything shows the remote page, "off" leaves it
 //!   <b>/key                 out  JSON {profile, page, key, event} for every key event
@@ -90,10 +90,15 @@ impl Mqtt {
     }
 
     pub fn subscribe_all(&self) {
-        for t in ["notify", "remote/+/set", "remote/show", "profile/set", "brightness/set", "availability", "printer"] {
+        for t in ["notify", "remote/show", "profile/set", "brightness/set", "availability"] {
             let _ = self.client.try_subscribe(self.topic(t), QoS::AtLeastOnce);
         }
         let _ = self.client.try_subscribe("homeassistant/status", QoS::AtLeastOnce);
+    }
+
+    /// Subscribe to `<base>/<rest>` (for a plugin's topics).
+    pub fn subscribe(&self, rest: &str) {
+        let _ = self.client.try_subscribe(self.topic(rest), QoS::AtLeastOnce);
     }
 
     pub fn stop(self) {

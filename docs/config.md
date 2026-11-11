@@ -72,11 +72,11 @@ is drawn with its bindings, fed by the app's interfaces.
 
 | Namespace | What |
 |---|---|
-| `core` | navigation, profiles, states, brightness, notifications, the plain button |
+| `core` | navigation, profiles, states, brightness, notifications, the plain button, MQTT |
 | `com.deckling.core` | the built-in apps, commands, shortcuts, volume, media; the Night Signal icons |
 | `com.deckling.teams` | Teams meeting controls and presence |
 | `com.deckling.jetbrains` | the debugger app |
-| `com.deckling.ha` | Home Assistant: MQTT publish, the remote page |
+| `com.deckling.ha` | Home Assistant entities by id (app `com.deckling.ha:entity`), the remote page, MQTT publish |
 
 ## Actions (`{"action": ..., "params": {...}}`)
 

@@ -5,6 +5,7 @@
 use crate::apps::{self, PomoEvent, Pomodoro, SysStats, TeamsLinkState, Weather};
 use crate::bind::{self, Ctx, Reads, Signals};
 use crate::render::IconEnv;
+use crate::plugins::{Host, Plugin};
 use serde_json::Map;
 use crate::cards::{self, Card, Kind, Printer};
 use std::collections::HashSet;
@@ -13,7 +14,7 @@ use crate::screensaver::{Scene, Season};
 use crate::media::{self, NowPlaying};
 use crate::teams::{self, Meeting, Presence, TeamsEvent, TeamsLink, Tokens};
 use image::DynamicImage;
-use crate::config::{Action, AppKind, Config, Key, KeyEvent, Look, NUM_KEYS, STATUS_KEY};
+use crate::config::{Action, AppKind, Config, Key, KeyEvent, NUM_KEYS, STATUS_KEY};
 use crate::device::{self, DevEvent, Device};
 use crate::mqtt::{self, Mqtt, MqttMsg};
 use crate::platform::{self, AppInfo};
@@ -125,12 +126,6 @@ struct Runtime {
     modes: HashMap<String, usize>,
 }
 
-#[derive(Clone)]
-struct RemoteKey {
-    look: Look,
-    value: Option<String>,
-}
-
 #[derive(Clone, Copy)]
 struct Held {
     since: Instant,
@@ -180,7 +175,8 @@ pub struct Engine {
     note: Option<(Card, Instant)>,
     next_frame: Instant,
 
-    remote: HashMap<usize, RemoteKey>,
+    /// Built-in plugins, called in this thread (taken out while one runs).
+    plugins: Vec<Option<Box<dyn Plugin>>>,
     mqtt: Option<Mqtt>,
     mqtt_gen: u64,
     mqtt_up: bool,
@@ -347,7 +343,7 @@ impl Engine {
             notes: VecDeque::new(),
             note: None,
             next_frame: now,
-            remote: HashMap::new(),
+            plugins: vec![Some(Box::new(crate::ha::Ha::default()))],
             mqtt: None,
             mqtt_gen: 0,
             mqtt_up: false,
@@ -721,15 +717,7 @@ impl Engine {
         if self.saver.is_some() {
             return; // the scene owns the screen
         }
-        // Keys whose icons read a signal that changed.
-        let changed = self.signals.take_changed();
-        if !changed.is_empty() && !self.view.remote {
-            for k in 0..STATUS_KEY {
-                if self.key_cfg(k).kind().is_none() && self.reads[k].signals.iter().any(|s| changed.contains(s)) {
-                    self.draw_key(k);
-                }
-            }
-        }
+        self.redraw_changed();
         // Dynamic faces; unchanged images are not re-sent.
         self.draw_apps(None);
         if self.note.is_none() {
@@ -737,7 +725,37 @@ impl Engine {
         }
     }
 
-    /// The core's signals (docs/deckling: the core is a plugin that publishes like any other).
+    /// Redraw keys whose icons read a signal that changed (built-in widgets redraw every tick).
+    fn redraw_changed(&mut self) {
+        let changed = self.signals.take_changed();
+        if changed.is_empty() || self.saver.is_some() {
+            return;
+        }
+        let v = self.view.clone();
+        for k in 0..STATUS_KEY {
+            if self.view_key(&v, k).kind().is_none() && self.reads[k].signals.iter().any(|s| changed.contains(s)) {
+                self.draw_key(k);
+            }
+        }
+    }
+
+    /// The key shown at `k` in view `v`. On the remote page that is the Home Assistant
+    /// entity `remote-<k>`, once Home Assistant has described it.
+    fn view_key(&self, v: &View, k: usize) -> Key {
+        if !v.remote {
+            return self.cfg.key(v.profile, &v.page, k);
+        }
+        let id = format!("remote-{k}");
+        if self.signals.get(&format!("{}:{id}.present", crate::ha::ID)).is_none() {
+            return Key::default();
+        }
+        let mut key = Key { app: Some(format!("{}:entity", crate::ha::ID)), ..Default::default() };
+        key.config.insert("id".into(), json!(id));
+        key
+    }
+
+    /// Signals of the core (`time.*`) and of the built-in plugins that still run inside
+    /// the engine (com.deckling.core, com.deckling.teams, com.deckling.jetbrains).
     fn publish_core(&mut self) {
         use chrono::Timelike;
         let now = chrono::Local::now();
@@ -925,11 +943,20 @@ impl Engine {
 
     /// Run a stored action: a core action, or report the missing plugin.
     fn run_ref(&mut self, r: &crate::config::ActionRef, key: Option<usize>) {
-        match r.parse() {
-            Some(a) => self.run_action(&a, key),
-            None if r.plugin() == "core" => (self.emit)("error", json!({ "message": format!("bad action {}", r.action) })),
-            None => (self.emit)("error", json!({ "message": format!("{}: plugin {} is not installed", r.action, r.plugin()) })),
+        let config = key.map(|k| self.view_key(&self.view.clone(), k).config).unwrap_or_default();
+        let r = crate::config::ActionRef { params: crate::plugins::fill_params(&r.params, &config), ..r.clone() };
+        if let Some(a) = r.parse() {
+            return self.run_action(&a, key);
         }
+        let (plugin, name) = r.action.split_once(':').unwrap_or(("core", ""));
+        let res = self.call_plugin(plugin, |p, h| p.on_action(name, &r.params, h)).flatten();
+        let msg = match res {
+            Some(Ok(())) => return,
+            Some(Err(e)) => e,
+            None if self.plugins.iter().flatten().any(|p| p.id() == plugin) || plugin == "core" => format!("bad action {}", r.action),
+            None => format!("{}: plugin {plugin} is not installed", r.action),
+        };
+        (self.emit)("error", json!({ "message": msg }));
     }
 
     fn app_action(&mut self, k: usize, kind: AppKind, ev: KeyEvent) {
@@ -1841,18 +1868,8 @@ impl Engine {
                     },
                 )
             }
-        } else if v.remote {
-            match self.remote.get(&k) {
-                Some(r) => {
-                    let env = IconEnv::new(Ctx { implements: None, props: Some(&r.look.props), config: &r.look.props, signals: &self.signals, theme: &vars });
-                    let c = render::button(f, &base, &r.look, r.value.as_deref(), size, render::DEFAULT_BG, Some(&env));
-                    reads = env.reads.into_inner();
-                    c
-                }
-                None => Canvas::new(size.0, size.1, [0, 0, 0]),
-            }
         } else {
-            let key = self.cfg.key(v.profile, &v.page, k);
+            let key = self.view_key(v, k);
             let pname = self.cfg.profiles.get(v.profile).map(|p| p.name.as_str()).unwrap_or("");
             let path = format!("{pname}/{}/{k}", v.page);
             let reg = crate::registry::builtin();
@@ -1860,7 +1877,7 @@ impl Engine {
             let st0 = key.state(0);
             let chosen = st0.look.icon.as_deref().map(str::trim).filter(|i| !i.is_empty());
             // Built-in widgets draw while the app's default icon is chosen.
-            let builtin_face = def.is_some_and(|d| d.face.is_some() && chosen.is_none_or(|c| Some(c) == d.icon.as_deref()));
+            let builtin_face = def.is_some_and(|d| d.face.is_some() && chosen.is_none_or(|c| Some(c) == d.icon_static()));
             match key.kind() {
                 Some(kind) if builtin_face => {
                     let st = st0.clone();
@@ -1919,12 +1936,23 @@ impl Engine {
                 _ if key.app.is_some() => {
                     // Any icon the user picked, fed by the app's interfaces.
                     let d = def.expect("checked above");
+                    let env = IconEnv::new(Ctx { implements: Some(&d.implements), props: Some(&st0.look.props), config: &key.config, signals: &self.signals, theme: &vars });
+                    // The app may pick icon, text, value and background per key; the key's own wins.
+                    let pick = |b: &Option<Value>| {
+                        b.as_ref().and_then(|b| bind::resolve(b, &env.ctx, &mut env.reads.borrow_mut())).map(|v| bind::text(&v)).filter(|t| !t.is_empty())
+                    };
                     let mut look = st0.look.clone();
                     if chosen.is_none() {
-                        look.icon = d.icon.clone();
+                        look.icon = pick(&d.icon);
                     }
-                    let env = IconEnv::new(Ctx { implements: Some(&d.implements), props: Some(&st0.look.props), config: &key.config, signals: &self.signals, theme: &vars });
-                    let c = render::button(f, &base, &look, None, size, render::DEFAULT_BG, Some(&env));
+                    if look.label.is_none() {
+                        look.label = pick(&d.label);
+                    }
+                    if look.bg.is_none() {
+                        look.bg = pick(&d.background).filter(|c| render::parse_color(c).is_some());
+                    }
+                    let value = pick(&d.value);
+                    let c = render::button(f, &base, &look, value.as_deref(), size, render::DEFAULT_BG, Some(&env));
                     reads = env.reads.into_inner();
                     c
                 }
@@ -2000,7 +2028,6 @@ impl Engine {
         }
         self.mqtt_gen += 1;
         self.mqtt_up = false;
-        self.remote.clear();
         let cfg = self.cfg.settings.mqtt.clone();
         if !cfg.enabled || cfg.host.trim().is_empty() {
             self.set_status(|s| {
@@ -2032,6 +2059,11 @@ impl Engine {
                 });
                 if let Some(mq) = &self.mqtt {
                     mq.subscribe_all();
+                    for p in self.plugins.iter().flatten() {
+                        for t in p.mqtt_topics() {
+                            mq.subscribe(t);
+                        }
+                    }
                 }
                 self.publish_discovery();
                 self.publish_availability(self.dev.is_some());
@@ -2077,19 +2109,6 @@ impl Engine {
                     self.show_card(c);
                 }
             }
-            "printer" => {
-                if let Ok(p) = serde_json::from_str::<Printer>(&text) {
-                    let old = self.printer.replace(p.clone());
-                    let changed = old.as_ref().map(|o| o.state.to_ascii_lowercase()) != Some(p.state.to_ascii_lowercase());
-                    let st = p.state.to_ascii_lowercase();
-                    if changed && self.cfg.settings.cards.printer && old.is_some() && matches!(st.as_str(), "complete" | "error") {
-                        self.show_card(p.card());
-                    }
-                    if self.note.is_none() {
-                        self.draw_status();
-                    }
-                }
-            }
             "remote/show" => {
                 let on = !matches!(text.to_ascii_lowercase().as_str(), "off" | "0" | "false" | "hide");
                 if on != self.view.remote {
@@ -2111,47 +2130,78 @@ impl Engine {
                 }
             }
             _ => {
-                let parts: Vec<&str> = rest.split('/').collect();
-                if let ["remote", k, "set"] = parts[..] {
-                    let Ok(k) = k.parse::<usize>() else { return };
-                    if k >= STATUS_KEY {
-                        return;
-                    }
-                    if text.is_empty() {
-                        self.remote.remove(&k);
-                    } else {
-                        let v: Value = serde_json::from_str(&text).unwrap_or_else(|_| json!({ "label": text }));
-                        let s = |f: &str| v.get(f).and_then(|x| match x {
-                            Value::String(s) => Some(s.clone()),
-                            Value::Number(n) => Some(n.to_string()),
-                            Value::Bool(b) => Some(b.to_string()),
-                            _ => None,
-                        });
-                        self.remote.insert(
-                            k,
-                            RemoteKey {
-                                look: Look {
-                                    label: s("label"),
-                                    icon: s("icon"),
-                                    image: None,
-                                    bg: s("bg"),
-                                    fg: s("fg"),
-                                    props: match (v.get("props"), v.get("icon_state")) {
-                                        (Some(Value::Object(p)), _) => p.clone(),
-                                        (_, Some(st)) => crate::migrate::legacy_props(&s("icon").unwrap_or_default(), st),
-                                        _ => Default::default(),
-                                    },
-                                },
-                                value: s("value"),
-                            },
-                        );
-                    }
-                    (self.emit)("remote", json!({ "key": k }));
-                    if self.view.remote {
-                        self.draw_key(k);
-                    }
+                // Everything else belongs to the plugins that read it.
+                let ids: Vec<&'static str> = self
+                    .plugins
+                    .iter()
+                    .flatten()
+                    .filter(|p| p.mqtt_topics().iter().any(|t| crate::plugins::topic_matches(t, rest)))
+                    .map(|p| p.id())
+                    .collect();
+                for id in ids {
+                    self.call_plugin(id, |p, h| p.on_mqtt(rest, &text, h));
+                }
+                if rest == "printer" {
+                    self.on_printer();
+                }
+                if let ["remote", k, "set"] = rest.split('/').collect::<Vec<_>>()[..] {
+                    (self.emit)("remote", json!({ "key": k.parse::<usize>().unwrap_or(0) }));
                 }
             }
+        }
+    }
+
+    /// Run `f` on plugin `id` with a host bound to this engine, then send what it
+    /// published over MQTT and redraw keys whose signals changed.
+    fn call_plugin<R>(&mut self, id: &str, f: impl FnOnce(&mut dyn Plugin, &mut Host) -> R) -> Option<R> {
+        let i = self.plugins.iter().position(|p| p.as_ref().is_some_and(|p| p.id() == id))?;
+        let mut p = self.plugins[i].take()?;
+        let base = self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into());
+        let (r, out) = {
+            let mut host = Host::new(p.id(), &mut self.signals, base);
+            let r = f(p.as_mut(), &mut host);
+            (r, host.mqtt_out)
+        };
+        self.plugins[i] = Some(p);
+        for (topic, payload, retain) in out {
+            match &self.mqtt {
+                Some(m) if self.mqtt_up => m.publish(&topic, payload, retain),
+                _ => (self.emit)("error", json!({ "message": "MQTT is not connected" })),
+            }
+        }
+        self.redraw_changed();
+        Some(r)
+    }
+
+    /// The printer card follows the printer signals of com.deckling.ha.
+    fn on_printer(&mut self) {
+        let g = |n: &str| self.signals.get(&format!("{}:printer.{n}", crate::ha::ID)).cloned();
+        let text = |n: &str| g(n).and_then(|v| v.as_str().map(str::to_string));
+        let Some(state) = text("state") else {
+            self.printer = None;
+            return;
+        };
+        let spools: Vec<Value> = (1..=4)
+            .filter_map(|i| Some(json!({ "color": g(&format!("slot{i}_color"))?, "progress": g(&format!("slot{i}_remaining")).unwrap_or(json!(0)) })))
+            .collect();
+        let p = Printer {
+            state,
+            percent: g("progress").and_then(|v| v.as_f64()).map(|v| v as f32),
+            remaining_min: g("remaining_min").and_then(|v| v.as_f64()).map(|v| v as f32),
+            name: text("name"),
+            job: text("job"),
+            message: text("message"),
+            spools: (!spools.is_empty()).then_some(spools),
+            ams: text("ams"),
+        };
+        let old = self.printer.replace(p.clone());
+        let st = p.state.to_ascii_lowercase();
+        let changed = old.as_ref().map(|o| o.state.to_ascii_lowercase()) != Some(st.clone());
+        if changed && self.cfg.settings.cards.printer && old.is_some() && matches!(st.as_str(), "complete" | "error") {
+            self.show_card(p.card());
+        }
+        if self.note.is_none() {
+            self.draw_status();
         }
     }
 
@@ -2199,10 +2249,11 @@ impl Engine {
     // -------------------------------------------------------------- UI
 
     fn snapshot(&self) -> Value {
-        let remote: HashMap<String, Value> = self
-            .remote
-            .iter()
-            .map(|(k, r)| (k.to_string(), json!({ "look": r.look, "value": r.value })))
+        // Remote keys as Home Assistant described them (com.deckling.ha signals).
+        let ha = |k: usize, f: &str| self.signals.get(&format!("{}:remote-{k}.{f}", crate::ha::ID)).cloned();
+        let remote: HashMap<String, Value> = (0..STATUS_KEY)
+            .filter(|k| ha(*k, "present").is_some())
+            .map(|k| (k.to_string(), json!({ "look": { "label": ha(k, "label"), "icon": ha(k, "icon") }, "value": ha(k, "value") })))
             .collect();
         json!({
             "config": self.cfg,
@@ -2273,7 +2324,10 @@ impl Engine {
                         .get(profile)
                         .map(|p| p.pages.keys().map(|n| json!({ "label": n, "value": n })).collect())
                         .unwrap_or_default(),
-                    _ => vec![],
+                    other => other
+                        .split_once(':')
+                        .and_then(|(pl, name)| self.plugins.iter().flatten().find(|p| p.id() == pl).and_then(|p| p.options(name)))
+                        .unwrap_or_default(),
                 };
                 let _ = reply.send(list);
             }

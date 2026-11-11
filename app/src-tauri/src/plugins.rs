@@ -1,0 +1,153 @@
+//! Built-in plugins: the interface between the engine and a plugin that runs in the
+//! engine's thread (docs/deckling/architecture.md, section 5.3).
+//!
+//! A plugin publishes signals in its own namespace, takes the actions it registered,
+//! and fills `select` fields from a `source`. It never draws, never sets a colour on a
+//! key and never sees key presses. MQTT is part of the app: a plugin names the topics
+//! it reads (relative to the base topic) and may publish through the host.
+
+use crate::bind::Signals;
+use serde_json::{Map, Value};
+
+/// What a plugin may touch while it handles one call.
+pub struct Host<'a> {
+    id: &'static str,
+    signals: &'a mut Signals,
+    /// The configured MQTT base topic ("d200").
+    pub base: String,
+    /// (absolute topic, payload, retain) to publish when the call returns.
+    pub mqtt_out: Vec<(String, String, bool)>,
+}
+
+impl<'a> Host<'a> {
+    pub fn new(id: &'static str, signals: &'a mut Signals, base: String) -> Host<'a> {
+        Host { id, signals, base, mqtt_out: vec![] }
+    }
+
+    fn full(&self, name: &str) -> String {
+        format!("{}:{name}", self.id)
+    }
+
+    /// Publish `<plugin id>:<name>`. Returns true when the value changed.
+    pub fn publish(&mut self, name: &str, value: Value) -> bool {
+        let n = self.full(name);
+        self.signals.publish(&n, value)
+    }
+
+    pub fn clear(&mut self, name: &str) -> bool {
+        let n = self.full(name);
+        self.signals.clear(&n)
+    }
+
+    /// Clear every signal of this plugin that starts with `prefix`.
+    pub fn clear_prefix(&mut self, prefix: &str) {
+        let p = self.full(prefix);
+        let names: Vec<String> = self.signals.all().map(|(n, _)| n.clone()).filter(|n| n.starts_with(&p)).collect();
+        for n in names {
+            self.signals.clear(&n);
+        }
+    }
+
+    /// Publish to `<base>/<topic>` over the app's MQTT connection.
+    pub fn mqtt(&mut self, topic: &str, payload: impl Into<String>, retain: bool) {
+        let t = format!("{}/{topic}", self.base);
+        self.mqtt_out.push((t, payload.into(), retain));
+    }
+
+    /// Publish to an absolute topic (the `mqtt` action).
+    pub fn mqtt_abs(&mut self, topic: &str, payload: impl Into<String>, retain: bool) {
+        self.mqtt_out.push((topic.to_string(), payload.into(), retain));
+    }
+}
+
+pub trait Plugin: Send {
+    fn id(&self) -> &'static str;
+
+    /// MQTT topics this plugin reads, relative to the base topic (`+` and `#` allowed).
+    fn mqtt_topics(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    /// A message on one of `mqtt_topics` (topic relative to the base topic).
+    fn on_mqtt(&mut self, _topic: &str, _payload: &str, _host: &mut Host) {}
+
+    /// Run action `<plugin id>:<name>`. `None`: not one of this plugin's actions.
+    fn on_action(&mut self, _name: &str, _params: &Map<String, Value>, _host: &mut Host) -> Option<Result<(), String>> {
+        None
+    }
+
+    /// Values for a `select` with `{"source": "<plugin id>:<name>"}`.
+    fn options(&self, _name: &str) -> Option<Vec<Value>> {
+        None
+    }
+}
+
+/// MQTT topic filter match (`+` one level, `#` the rest).
+pub fn topic_matches(filter: &str, topic: &str) -> bool {
+    let mut f = filter.split('/');
+    let mut t = topic.split('/');
+    loop {
+        match (f.next(), t.next()) {
+            (Some("#"), _) => return true,
+            (Some("+"), Some(_)) => {}
+            (Some(a), Some(b)) if a == b => {}
+            (None, None) => return true,
+            _ => return false,
+        }
+    }
+}
+
+/// Replace `{key}` in string parameters with the key's setting `key`. Placeholders
+/// that name no setting stay as they are (a shell `${HOME}` is not touched).
+pub fn fill_params(params: &Map<String, Value>, config: &Map<String, Value>) -> Map<String, Value> {
+    params
+        .iter()
+        .map(|(k, v)| {
+            let v = match v.as_str() {
+                Some(s) if s.contains('{') => {
+                    let mut out = s.to_string();
+                    for (ck, cv) in config {
+                        out = out.replace(&format!("{{{ck}}}"), &crate::bind::text(cv));
+                    }
+                    Value::String(out)
+                }
+                _ => v.clone(),
+            };
+            (k.clone(), v)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn topics() {
+        assert!(topic_matches("ha/+/set", "ha/kitchen/set"));
+        assert!(!topic_matches("ha/+/set", "ha/kitchen/light/set"));
+        assert!(topic_matches("ha/#", "ha/kitchen/light/set"));
+        assert!(!topic_matches("printer", "printer/x"));
+    }
+
+    #[test]
+    fn placeholders_only_from_settings() {
+        let p = json!({"id": "{id}", "cmd": "echo ${HOME} {id}", "n": 3}).as_object().cloned().unwrap();
+        let c = json!({"id": "light.kitchen"}).as_object().cloned().unwrap();
+        let out = fill_params(&p, &c);
+        assert_eq!(out["id"], "light.kitchen");
+        assert_eq!(out["cmd"], "echo ${HOME} light.kitchen");
+        assert_eq!(out["n"], 3);
+    }
+
+    #[test]
+    fn host_publishes_in_own_namespace() {
+        let mut s = Signals::default();
+        let mut h = Host::new("com.deckling.ha", &mut s, "d200".into());
+        h.publish("x.on", json!(true));
+        h.mqtt("ha/x/action", "press", false);
+        assert_eq!(h.mqtt_out[0].0, "d200/ha/x/action");
+        assert_eq!(s.get("com.deckling.ha:x.on"), Some(&json!(true)));
+    }
+}
