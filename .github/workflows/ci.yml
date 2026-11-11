@@ -46,27 +46,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Plain HTTP to the Ubuntu mirrors stopped working on the runners (HTTPS still did)
-      # and held releases for half an hour. apt uses HTTPS, the Azure mirror first, then
-      # archive.ubuntu.com; each attempt is time-limited.
+      # Canonical's mirrors (azure.archive / archive.ubuntu.com) once stopped answering the
+      # runners for hours and held releases. Each attempt is time-limited; after the Azure
+      # mirror come independent mirrors (same packages, checked against Ubuntu's signatures).
       - name: Linux packages for Tauri
         timeout-minutes: 15
         run: |
           PKGS="libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev"
           OPTS="-o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
-          mirror() {
+          PREV="http://azure.archive.ubuntu.com/ubuntu/"
+          mirror() {  # point every Ubuntu source at $1
             for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
               [ -f "$f" ] || continue
               sudo sed -i -E \
                 -e "s#mirror\+file:/etc/apt/apt-mirrors\.txt#$1#g" \
                 -e "s#https?://(azure\.)?archive\.ubuntu\.com/ubuntu/?#$1#g" \
-                -e "s#https?://security\.ubuntu\.com/ubuntu/?#$1#g" "$f"
+                -e "s#https?://security\.ubuntu\.com/ubuntu/?#$1#g" \
+                -e "s#$PREV#$1#g" "$f"
             done
+            PREV="$1"
           }
-          for m in https://azure.archive.ubuntu.com/ubuntu/ https://archive.ubuntu.com/ubuntu/ https://azure.archive.ubuntu.com/ubuntu/; do
+          for m in https://azure.archive.ubuntu.com/ubuntu/ https://mirrors.edge.kernel.org/ubuntu/ \
+                   https://mirror.us.leaseweb.net/ubuntu/ https://ftp.halifax.rwth-aachen.de/ubuntu/; do
             mirror "$m"
             echo "apt mirror: $m"
-            if timeout 150 sudo apt-get update $OPTS && timeout 360 sudo apt-get install -y $OPTS $PKGS; then
+            if timeout 100 sudo apt-get update $OPTS && timeout 360 sudo apt-get install -y $OPTS $PKGS; then
               exit 0
             fi
             echo "::warning::apt failed with $m"
