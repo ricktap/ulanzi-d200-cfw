@@ -318,6 +318,11 @@ impl Pomodoro {
     }
 
     /// Long press: reset.
+    /// A timer as the core reads it back from signals (`core_plugin::pomodoro`).
+    pub fn from_parts(phase: Phase, done: u32, running: bool, remaining: Duration) -> Self {
+        Pomodoro { phase, done, running, remaining, deadline: running.then(|| Instant::now() + remaining) }
+    }
+
     pub fn reset(&mut self) {
         *self = Pomodoro::new();
     }
@@ -499,7 +504,7 @@ fn short_bytes(b: u64) -> String {
 }
 
 /// Square system widgets (CPU, RAM, disk, network), per the Night Signal widget spec.
-pub fn sysmon_face(f: &Fonts, s: &SysStats, mode: &str, idx: usize, n: usize, th: &Th) -> Canvas {
+pub fn sysmon_face(f: &Fonts, s: &crate::core_plugin::SysView, mode: &str, idx: usize, n: usize, th: &Th) -> Canvas {
     let mut c = key(th.bg);
     th.surface(&mut c, true);
     let (ivory, secondary) = (th.text, th.secondary);
@@ -512,7 +517,7 @@ pub fn sysmon_face(f: &Fonts, s: &SysStats, mode: &str, idx: usize, n: usize, th
     }
     let pct = |a: u64, b: u64| if b > 0 { a as f32 * 100.0 / b as f32 } else { 0.0 };
     let gib = |b: u64| b as f64 / (1u64 << 30) as f64;
-    let range = |h: &VecDeque<f32>| {
+    let range = |h: &Vec<f32>| {
         let lo = h.iter().copied().fold(f32::MAX, f32::min);
         let hi = h.iter().copied().fold(f32::MIN, f32::max);
         if lo > hi { (0.0, 100.0) } else { ((lo - 4.0).max(0.0), (hi + 4.0).min(100.0).max(lo + 8.0)) }

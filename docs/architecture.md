@@ -35,8 +35,8 @@ message:
 - MQTT messages
 - ticks
 - UI commands
-- updates from the pollers: media, Steam
-- results from the built-in plugins' background work (`Msg::Plugin`: Teams, Graph)
+- updates from the pollers: Steam
+- results from the built-in plugins' background work (`Msg::Plugin`: media, weather, Teams, Graph, ...)
 
 The engine owns all state. It decides what each key shows and sends only the keys that changed.
 
@@ -59,6 +59,7 @@ The engine owns all state. It decides what each key shows and sends only the key
 | `ha.rs` | plugin `com.deckling.ha`: Home Assistant entities, the remote page, printer |
 | `teams_plugin.rs` | plugin `com.deckling.teams`: meeting link, presence, mail, calendar as signals |
 | `jetbrains.rs` | plugin `com.deckling.jetbrains`: debugger state |
+| `core_plugin.rs` | plugin `com.deckling.core`: system, mute and volume, weather, Pomodoro, media, commands |
 | `teams.rs` | Teams local WebSocket API (meetings) and Microsoft Graph (presence, mail, calendar) |
 | `media.rs` | Spotify / Music through AppleScript |
 | `ide.rs` | debugger detection (process scan, used by `jetbrains.rs`) and the Steam game currently running |

@@ -4,6 +4,7 @@ pub mod bind;
 mod guide_tests;
 pub mod cards;
 pub mod config;
+pub mod core_plugin;
 pub mod device;
 pub mod engine;
 pub mod ha;

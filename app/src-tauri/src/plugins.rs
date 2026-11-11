@@ -42,17 +42,24 @@ pub struct Host<'a> {
     /// The app's data folder (next to deck.json), for tokens and the like.
     pub dir: PathBuf,
     sender: Option<Sender>,
+    /// Errors to show in the UI when the call returns.
+    pub errors: Vec<String>,
 }
 
 impl<'a> Host<'a> {
     pub fn new(id: &'static str, signals: &'a mut Signals, base: String) -> Host<'a> {
-        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None }
+        Host { id, signals, base, mqtt_out: vec![], dir: PathBuf::new(), sender: None, errors: vec![] }
     }
 
     pub fn with_engine(mut self, dir: PathBuf, sender: Sender) -> Host<'a> {
         self.dir = dir;
         self.sender = Some(sender);
         self
+    }
+
+    /// Show an error in the UI.
+    pub fn error(&mut self, e: impl Into<String>) {
+        self.errors.push(e.into());
     }
 
     /// For background threads: what they send arrives in `on_message`.

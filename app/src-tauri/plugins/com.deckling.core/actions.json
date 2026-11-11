@@ -77,5 +77,37 @@
         "placeholder": "+5, -5, 40, mute, toggle-mute"
       }
     ]
+  },
+  {
+    "id": "com.deckling.core:mute",
+    "name": "Mute or unmute",
+    "params": []
+  },
+  {
+    "id": "com.deckling.core:weather_refresh",
+    "name": "Refresh weather",
+    "params": []
+  },
+  {
+    "id": "com.deckling.core:pomodoro",
+    "name": "Pomodoro",
+    "params": [
+      {
+        "key": "do",
+        "label": "Do",
+        "type": "select",
+        "default": "press",
+        "values": [
+          {
+            "label": "Start, pause or resume",
+            "value": "press"
+          },
+          {
+            "label": "Reset",
+            "value": "reset"
+          }
+        ]
+      }
+    ]
   }
 ]

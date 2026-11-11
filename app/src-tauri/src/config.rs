@@ -51,12 +51,6 @@ impl Look {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Action {
-    /// Shell command on this computer.
-    Command { command: String },
-    /// App name, file, folder or URL.
-    Open { target: String },
-    /// Keyboard shortcut such as "cmd+shift+4".
-    Keys { combo: String },
     /// Go to a page of the current profile.
     Page { page: String },
     /// Previous page.
@@ -86,16 +80,12 @@ pub enum Action {
     },
     /// Show the Home Assistant remote page.
     Remote,
-    /// Spotify / Music: "playpause", "next", "previous", "play", "pause".
-    Media { command: String },
-    /// System output volume: "+5" / "-5" (percent steps), "40" (set), "mute", "unmute", "toggle-mute".
-    Volume { value: String },
 }
 
 /// Actions the engine runs itself: (action id, `Action` type). `core:` is what is fixed
-/// in the app; the others belong to built-in plugins whose code is still in the engine.
-/// Actions of plugins in `plugins.rs` (Teams, Home Assistant presses) are not listed.
-pub const ACTION_IDS: [(&str, &str); 14] = [
+/// in the app; `com.deckling.ha:mqtt` and `:remote` use the app's MQTT connection and
+/// the remote view. Every other action belongs to a plugin (plugins.rs).
+pub const ACTION_IDS: [(&str, &str); 9] = [
     ("core:page", "page"),
     ("core:back", "back"),
     ("core:home", "home"),
@@ -103,11 +93,6 @@ pub const ACTION_IDS: [(&str, &str); 14] = [
     ("core:state", "state"),
     ("core:brightness", "brightness"),
     ("core:notify", "notify"),
-    ("com.deckling.core:command", "command"),
-    ("com.deckling.core:open", "open"),
-    ("com.deckling.core:keys", "keys"),
-    ("com.deckling.core:volume", "volume"),
-    ("com.deckling.core:media", "media"),
     ("com.deckling.ha:mqtt", "mqtt"),
     ("com.deckling.ha:remote", "remote"),
 ];
@@ -825,7 +810,8 @@ mod version_tests {
         assert!(k0.cfg_bool("h12"));
         let k1 = c.key(0, "main", 1);
         assert_eq!(k1.states[0].look.icon.as_deref(), Some("com.deckling.core:volume-on"));
-        assert_eq!(k1.states[0].on.press[0].parse(), Some(Action::Volume { value: "+5".into() }));
+        assert_eq!(k1.states[0].on.press[0].action, "com.deckling.core:volume");
+        assert_eq!(k1.states[0].on.press[0].params["value"], "+5");
         assert_eq!(std::fs::read_to_string(dir.join("deck.v1.json")).unwrap(), v1);
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(saved["version"], 3);

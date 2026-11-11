@@ -28,7 +28,7 @@ key and sees no key presses.
 | `com.deckling.ha` (`ha.rs`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
 | `com.deckling.teams` (`teams_plugin.rs`, protocol in `teams.rs`) | meeting link, pairing, Microsoft 365 sign-in, presence, mail, calendar, `meeting` and `presence` actions | |
 | `com.deckling.jetbrains` (`jetbrains.rs`) | debugger detection | |
-| `com.deckling.core` | | everything: system, weather, Pomodoro, media, volume, commands |
+| `com.deckling.core` (`core_plugin.rs`) | system monitor, mute and volume, weather, Pomodoro, media, commands, open, shortcuts | |
 
 A plugin's calls: `mqtt_topics`/`on_mqtt`, `on_action`, `options`, `configure` (at start and
 after every config change), `tick` (once a second), `on_message` (results of its own background
@@ -82,8 +82,8 @@ As in the icon workbench report, collected in `Registry.warnings` and shown in t
 
 ## Signals
 
-`core` and `com.deckling.core` signals are published by the engine every second
-(`Engine::publish_core`); the other plugins publish their own. Types are in each package's
+`core` signals (the clock) are published by the engine every second (`Engine::publish_core`);
+every plugin publishes its own. Types are in each package's
 `signals.json`.
 
 | Package | Signals |
@@ -130,9 +130,8 @@ any variable, also with bindings. Built-in widgets use the resolved palette colo
   (`long_press_ms`, `screensaver.enabled`, ...), and the plugins read `settings.teams` and
   `settings.mqtt`. Moving them to `plugins.<id>.config` goes with the Packages view of the new
   configurator (work package 6).
-- **`com.deckling.core` still runs inside the engine.** Its apps (system monitor, weather,
-  Pomodoro, media) are drawn by `apps.rs` and fed from engine state; Teams, JetBrains and Home
-  Assistant are behind the plugin interface.
+- **Signals of type `series`** (`system.history.*`): the last values as a list, for the system
+  monitor's graphs. The target model lists `flag`, `percent`, `number`, `color`, `text`.
 - **Plugins run in the engine's thread.** `runtime.kind` `process` (own process, JSON RPC) is
   work package 8.
 - **Default icons come from `com.deckling.core`.** The Teams and JetBrains apps use Night Signal

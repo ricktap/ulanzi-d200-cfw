@@ -2,7 +2,7 @@
 //! notifications) and reacts to messages. Independent of Tauri; the app passes
 //! an `emit` callback for UI events and talks to it through `Handle`.
 
-use crate::apps::{self, PomoEvent, Pomodoro, SysStats, Weather};
+use crate::apps;
 use crate::bind::{self, Ctx, Reads, Signals};
 use crate::render::IconEnv;
 use crate::plugins::{Host, Plugin};
@@ -68,12 +68,9 @@ pub enum Msg {
     Dev(DevEvent),
     DevUp(Arc<Device>),
     Conn(Status),
-    Mute(Option<bool>),
-    Weather(u64, Result<Weather, String>),
     Mqtt(u64, MqttMsg),
     Ui(Ui),
     Error(String),
-    Media(Option<NowPlaying>),
     Art(String, Option<DynamicImage>),
     /// A built-in plugin's background work reporting back (see plugins.rs).
     Plugin(&'static str, crate::plugins::PluginMsg),
@@ -159,15 +156,6 @@ pub struct Engine {
     next_tick: Instant,
     ticks: u64,
 
-    sys: SysStats,
-    muted: Option<bool>,
-    mute_polling: bool,
-    weather: Option<Weather>,
-    weather_err: Option<String>,
-    weather_at: Option<Instant>,
-    weather_gen: u64,
-    weather_busy: bool,
-    pomo: Pomodoro,
 
     notes: VecDeque<Card>,
     note: Option<(Card, Instant)>,
@@ -183,7 +171,6 @@ pub struct Engine {
 
     np: Option<NowPlaying>,
     np_at: Instant,
-    media_busy: bool,
     art: Option<(String, Option<Arc<DynamicImage>>)>,
     art_busy: bool,
     profile_flash: Option<Instant>,
@@ -194,6 +181,8 @@ pub struct Engine {
     mail_seen: Option<Option<String>>,
     /// Teams pairing as last seen, for the "Paired with Teams" card.
     paired_seen: Option<bool>,
+    /// Pomodoro phase ends seen, for its cards.
+    pomo_seen: Option<u64>,
     mail_dismissed: Option<String>,
     announced: HashSet<String>,
     meeting_dismissed: Option<String>,
@@ -317,19 +306,11 @@ impl Engine {
             held: [None; NUM_KEYS],
             next_tick: now,
             ticks: 0,
-            sys: SysStats::new(),
-            muted: None,
-            mute_polling: false,
-            weather: None,
-            weather_err: None,
-            weather_at: None,
-            weather_gen: 0,
-            weather_busy: false,
-            pomo: Pomodoro::new(),
             notes: VecDeque::new(),
             note: None,
             next_frame: now,
             plugins: vec![
+                Some(Box::new(crate::core_plugin::Core::default())),
                 Some(Box::new(crate::ha::Ha::default())),
                 Some(Box::new(crate::teams_plugin::Teams::default())),
                 Some(Box::new(crate::jetbrains::JetBrains::default())),
@@ -341,13 +322,13 @@ impl Engine {
             host: mqtt::host_name(),
             np: None,
             np_at: now,
-            media_busy: false,
             art: None,
             art_busy: false,
             profile_flash: None,
             dbg: None,
             mail_seen: None,
             paired_seen: None,
+            pomo_seen: None,
             mail_dismissed: None,
             announced: HashSet::new(),
             meeting_dismissed: None,
@@ -365,7 +346,6 @@ impl Engine {
         };
         e.restart_mqtt();
         e.configure_plugins();
-        e.poll_mute();
         e
     }
 
@@ -462,56 +442,10 @@ impl Engine {
                     });
                 }
             }
-            Msg::Mute(m) => {
-                self.mute_polling = false;
-                if m != self.muted {
-                    self.muted = m;
-                    self.draw_apps(Some(AppKind::Mute));
-                }
-            }
-            Msg::Weather(gen, r) => {
-                if gen == self.weather_gen {
-                    self.weather_busy = false;
-                    self.weather_at = Some(Instant::now());
-                    match r {
-                        Ok(w) => {
-                            self.weather = Some(w);
-                            self.weather_err = None;
-                        }
-                        Err(e) => {
-                            eprintln!("weather: {e}");
-                            self.weather_err = Some(e);
-                        }
-                    }
-                    self.draw_apps(Some(AppKind::Weather));
-                }
-            }
             Msg::Mqtt(gen, m) if gen == self.mqtt_gen => self.on_mqtt(m),
             Msg::Mqtt(..) => {}
             Msg::Ui(u) => self.on_ui(u),
             Msg::Error(e) => (self.emit)("error", json!({ "message": e })),
-            Msg::Media(np) => {
-                self.media_busy = false;
-                self.np_at = Instant::now();
-                let key = np.as_ref().map(NowPlaying::track_key);
-                if np != self.np {
-                    self.np = np;
-                    self.draw_apps(Some(AppKind::Media));
-                    if self.note.is_none() {
-                        self.draw_status();
-                    }
-                }
-                if let (Some(k), Some(np)) = (key, self.np.clone()) {
-                    if self.art.as_ref().is_none_or(|(ak, _)| *ak != k) && !self.art_busy {
-                        self.art_busy = true;
-                        let tx = self.tx.clone();
-                        std::thread::spawn(move || {
-                            let img = media::artwork(&np).and_then(|b| image::load_from_memory(&b).ok());
-                            let _ = tx.send(Msg::Art(k, img));
-                        });
-                    }
-                }
-            }
             Msg::Art(k, img) => {
                 self.art_busy = false;
                 self.art = Some((k, img.map(Arc::new)));
@@ -565,39 +499,12 @@ impl Engine {
 
     fn tick(&mut self) {
         self.ticks += 1;
-        self.sys.refresh();
-
-        if let Some(ev) = self.pomo.tick(&self.cfg.settings.pomodoro) {
-            let n = match ev {
-                PomoEvent::WorkDone { long_break } => Notification {
-                    title: Some("Pomodoro".into()),
-                    style: Some("flash".into()),
-                    ..Notification::simple(if long_break { "Long break!" } else { "Time for a break" }, Some("pomodoro-break"), Some("#16a34a"))
-                },
-                PomoEvent::BreakDone => Notification {
-                    title: Some("Pomodoro".into()),
-                    style: Some("flash".into()),
-                    ..Notification::simple("Break over, press to focus", Some("pomodoro-focus"), Some("#dc2626"))
-                },
-            };
-            if self.cfg.settings.pomodoro.sound {
-                platform::chime();
-            }
-            self.notify(n);
-        }
-
-        if self.ticks % 3 == 0 && self.visible_app(AppKind::Mute) {
-            self.poll_mute();
-        }
-        self.maybe_fetch_weather(false);
         self.check_active_app();
-        if self.ticks % 2 == 0 && self.needs_media() {
-            self.poll_media();
-        }
         let ticks = self.ticks;
         for id in self.plugin_ids() {
             self.call_plugin(id, |p, h, c| p.tick(ticks, c, h));
         }
+        self.plugin_cards();
         let app = self.cfg.status_key.app.clone();
         self.meeting_cards();
         if self.ticks % 3 == 1 && (self.cfg.settings.cards.steam || app == "steam") {
@@ -657,6 +564,18 @@ impl Engine {
         if from("com.deckling.jetbrains:") {
             self.draw_apps(Some(AppKind::Debugger));
         }
+        if from("com.deckling.core:audio.") {
+            self.draw_apps(Some(AppKind::Mute));
+        }
+        if from("com.deckling.core:weather.") {
+            self.draw_apps(Some(AppKind::Weather));
+        }
+        if from("com.deckling.core:pomodoro.") {
+            self.draw_apps(Some(AppKind::Pomodoro));
+        }
+        if from("com.deckling.core:media.") {
+            self.on_media();
+        }
     }
 
     /// The key shown at `k` in view `v`. On the remote page that is the Home Assistant
@@ -674,85 +593,23 @@ impl Engine {
         key
     }
 
-    /// Signals of the core (`time.*`) and of com.deckling.core, whose code is still in
-    /// the engine. Teams, JetBrains and Home Assistant publish their own (plugins.rs).
+    /// The core's own signals: the clock. Plugins publish theirs (plugins.rs).
     fn publish_core(&mut self) {
         use chrono::Timelike;
         let now = chrono::Local::now();
         let (h, m, sec) = (now.hour() as f64, now.minute() as f64, now.second() as f64);
-        let pct = |a: u64, b: u64| if b == 0 { 0.0 } else { (a as f64 * 100.0 / b as f64).round() };
-        let cfg = &self.cfg.settings.pomodoro;
-        let rem = self.pomo.remaining(cfg).as_secs();
-        let len = Pomodoro::len(self.pomo.phase, cfg).as_secs();
-        let mut out: Vec<(&str, Option<Value>)> = vec![
-            ("time.clock", Some(json!(now.format("%H:%M").to_string()))),
-            ("time.second", Some(json!(sec))),
-            ("time.tick", Some(json!(self.ticks))),
-            ("time.hour_angle", Some(json!((h % 12.0) * 30.0 + m * 0.5))),
-            ("time.minute_angle", Some(json!(m * 6.0))),
-            ("time.second_angle", Some(json!(sec * 6.0))),
-            ("time.second_progress", Some(json!((sec * 100.0 / 60.0).round()))),
-            ("com.deckling.core:system.cpu", Some(json!((self.sys.cpu as f64).round()))),
-            ("com.deckling.core:system.ram", Some(json!(pct(self.sys.ram_used, self.sys.ram_total)))),
-            ("com.deckling.core:system.disk", Some(json!(pct(self.sys.disk_used, self.sys.disk_total)))),
-            ("com.deckling.core:system.net_down", Some(json!(self.sys.rx.round()))),
-            ("com.deckling.core:system.net_up", Some(json!(self.sys.tx.round()))),
-            ("com.deckling.core:audio.muted", self.muted.map(|b| json!(b))),
-            ("com.deckling.core:weather.temperature", self.weather.as_ref().map(|w| json!(w.temp.round()))),
-            ("com.deckling.core:weather.summary", self.weather.as_ref().map(|w| json!(apps::weather_info(w.code, w.is_day).1))),
-            ("com.deckling.core:pomodoro.running", Some(json!(self.pomo.running))),
-            ("com.deckling.core:pomodoro.phase", Some(json!(format!("{:?}", self.pomo.phase).to_lowercase()))),
-            ("com.deckling.core:pomodoro.remaining", Some(json!(format!("{}:{:02}", rem / 60, rem % 60)))),
-            ("com.deckling.core:pomodoro.progress", Some(json!(if len == 0 || self.pomo.phase == apps::Phase::Idle { 0.0 } else { ((len - rem.min(len)) as f64 * 100.0 / len as f64).round() }))),
+        let out: [(&str, Value); 7] = [
+            ("time.clock", json!(now.format("%H:%M").to_string())),
+            ("time.second", json!(sec)),
+            ("time.tick", json!(self.ticks)),
+            ("time.hour_angle", json!((h % 12.0) * 30.0 + m * 0.5)),
+            ("time.minute_angle", json!(m * 6.0)),
+            ("time.second_angle", json!(sec * 6.0)),
+            ("time.second_progress", json!((sec * 100.0 / 60.0).round())),
         ];
-        let np = self.np_now();
-        out.push(("com.deckling.core:media.playing", np.as_ref().map(|n| json!(n.playing))));
-        out.push(("com.deckling.core:media.title", np.as_ref().map(|n| json!(n.title))));
-        out.push(("com.deckling.core:media.artist", np.as_ref().map(|n| json!(n.artist))));
-        out.push(("com.deckling.core:media.progress", np.as_ref().map(|n| json!(if n.duration > 0.0 { (n.position * 100.0 / n.duration).round() } else { 0.0 }))));
         for (name, v) in out {
-            match v {
-                Some(v) => self.signals.publish(name, v),
-                None => self.signals.clear(name),
-            };
+            self.signals.publish(name, v);
         }
-    }
-
-    fn visible_app(&self, kind: AppKind) -> bool {
-        !self.view.remote
-            && (0..STATUS_KEY).any(|k| self.key_cfg(k).kind() == Some(kind))
-    }
-
-    fn poll_mute(&mut self) {
-        if self.mute_polling {
-            return;
-        }
-        self.mute_polling = true;
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            let _ = tx.send(Msg::Mute(platform::get_muted()));
-        });
-    }
-
-    fn maybe_fetch_weather(&mut self, force: bool) {
-        let Some(loc) = self.cfg.settings.weather.location.clone() else { return };
-        if self.weather_busy {
-            return;
-        }
-        let stale = self.weather_at.is_none_or(|t| {
-            let age = t.elapsed();
-            age > Duration::from_secs(15 * 60) || (self.weather_err.is_some() && age > Duration::from_secs(60))
-        });
-        if !force && !stale {
-            return;
-        }
-        self.weather_busy = true;
-        let gen = self.weather_gen;
-        let f = self.cfg.settings.weather.fahrenheit;
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            let _ = tx.send(Msg::Weather(gen, apps::fetch_weather(&loc, f)));
-        });
     }
 
     fn check_active_app(&mut self) {
@@ -881,29 +738,12 @@ impl Engine {
                 self.rt_dirty = true;
                 self.draw_key(k);
             }
-            (AppKind::Mute, KeyEvent::Press) => {
-                let target = !self.muted.unwrap_or(false);
-                let tx = self.tx.clone();
-                std::thread::spawn(move || {
-                    if let Err(e) = platform::set_muted(target) {
-                        let _ = tx.send(Msg::Error(e));
-                    }
-                    let _ = tx.send(Msg::Mute(platform::get_muted()));
-                });
-                self.muted = Some(target); // optimistic
-                self.draw_apps(Some(AppKind::Mute));
-            }
-            (AppKind::Weather, KeyEvent::Press) => self.maybe_fetch_weather(true),
-            (AppKind::Pomodoro, KeyEvent::Press) => {
-                self.pomo.press(&self.cfg.settings.pomodoro);
-                self.draw_apps(Some(AppKind::Pomodoro));
-            }
-            (AppKind::Pomodoro, KeyEvent::Long) => {
-                self.pomo.reset();
-                self.draw_apps(Some(AppKind::Pomodoro));
-            }
-            (AppKind::Media, KeyEvent::Press) => self.run_action(&Action::Media { command: "playpause".into() }, None),
-            (AppKind::Media, KeyEvent::Long) => self.run_action(&Action::Media { command: "next".into() }, None),
+            (AppKind::Mute, KeyEvent::Press) => self.run_plugin_action("com.deckling.core:mute", json!({})),
+            (AppKind::Weather, KeyEvent::Press) => self.run_plugin_action("com.deckling.core:weather_refresh", json!({})),
+            (AppKind::Pomodoro, KeyEvent::Press) => self.run_plugin_action("com.deckling.core:pomodoro", json!({})),
+            (AppKind::Pomodoro, KeyEvent::Long) => self.run_plugin_action("com.deckling.core:pomodoro", json!({ "do": "reset" })),
+            (AppKind::Media, KeyEvent::Press) => self.run_plugin_action("com.deckling.core:media", json!({ "command": "playpause" })),
+            (AppKind::Media, KeyEvent::Long) => self.run_plugin_action("com.deckling.core:media", json!({ "command": "next" })),
             (AppKind::TeamsMute, KeyEvent::Press) => self.run_plugin_action("com.deckling.teams:meeting", json!({ "command": "toggle-mute" })),
             (AppKind::TeamsCamera, KeyEvent::Press) => self.run_plugin_action("com.deckling.teams:meeting", json!({ "command": "toggle-video" })),
             (AppKind::TeamsPresence, KeyEvent::Press) => self.run_plugin_action("com.deckling.teams:presence", json!({ "to": "toggle" })),
@@ -917,37 +757,15 @@ impl Engine {
                     (false, KeyEvent::Press) => pick("idle_keys", "ctrl+d"),
                     (false, _) => return,
                 };
-                self.run_action(&Action::Keys { combo }, None);
+                self.run_plugin_action("com.deckling.core:keys", json!({ "combo": combo }));
             }
             _ => {}
         }
     }
 
     fn run_action(&mut self, a: &Action, key: Option<usize>) {
-        let dir = base_dir(&self.path);
         let err = |e: String| (self.emit)("error", json!({ "message": e }));
         match a {
-            Action::Command { command } => {
-                if !command.trim().is_empty() {
-                    if let Err(e) = platform::run_shell(command, &dir) {
-                        err(format!("command failed to start: {e}"));
-                    }
-                }
-            }
-            Action::Open { target } => {
-                if let Err(e) = platform::open(target, &dir) {
-                    err(format!("open failed: {e}"));
-                }
-            }
-            Action::Keys { combo } => {
-                let combo = combo.clone();
-                let tx = self.tx.clone();
-                std::thread::spawn(move || {
-                    if let Err(e) = platform::send_keys(&combo) {
-                        let _ = tx.send(Msg::Error(e));
-                    }
-                });
-            }
             Action::Page { page } => {
                 let exists = self.cfg.profiles[self.view.profile].pages.contains_key(page);
                 if exists && (page != &self.view.page || self.view.remote) {
@@ -1020,54 +838,10 @@ impl Engine {
                     self.set_view(View { remote: true, ..self.view.clone() });
                 }
             }
-            Action::Media { command } => {
-                let player = self.np.as_ref().map(|n| n.player.clone());
-                let command = command.clone();
-                let tx = self.tx.clone();
-                // Optimistic play-state flip for a snappy key.
-                if command == "playpause" {
-                    if let Some(np) = self.np.as_mut() {
-                        np.playing = !np.playing;
-                    }
-                    self.draw_apps(Some(AppKind::Media));
-                }
-                self.media_busy = true;
-                std::thread::spawn(move || {
-                    if let Err(e) = media::command(player.as_deref(), &command) {
-                        let _ = tx.send(Msg::Error(e));
-                    }
-                    std::thread::sleep(Duration::from_millis(350));
-                    let _ = tx.send(Msg::Media(media::poll()));
-                });
-            }
-            Action::Volume { value } => {
-                let value = value.clone();
-                let tx = self.tx.clone();
-                std::thread::spawn(move || {
-                    if let Err(e) = platform::change_volume(&value) {
-                        let _ = tx.send(Msg::Error(e));
-                    }
-                    let _ = tx.send(Msg::Mute(platform::get_muted()));
-                });
-            }
         }
     }
 
     // -------------------------------------------------------------- media, Teams
-
-    fn needs_media(&self) -> bool {
-        media::available()
-            && !self.media_busy
-            && (self.cfg.status_key.show != "profile" || self.visible_app(AppKind::Media))
-    }
-
-    fn poll_media(&mut self) {
-        self.media_busy = true;
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            let _ = tx.send(Msg::Media(media::poll()));
-        });
-    }
 
     /// Track position, advanced between polls while playing.
     fn np_now(&self) -> Option<NowPlaying> {
@@ -1080,7 +854,6 @@ impl Engine {
 
     fn integrations(&self) -> Value {
         let mut v = json!({
-            "playing": self.np.as_ref().map(|n| json!({ "player": n.player, "title": n.title, "artist": n.artist, "playing": n.playing })),
             "game": self.game.as_ref().map(|g| g.name.clone()),
             "printer": self.printer.as_ref().map(|p| p.state.clone()),
             "debugging": crate::jetbrains::active(&self.signals),
@@ -1112,8 +885,43 @@ impl Engine {
         self.emit_integrations();
     }
 
-    /// Cards that follow plugin signals: pairing with Teams, a new mail.
+    /// The player changed (com.deckling.core media signals): keep the track for the
+    /// status key, fetch its artwork, redraw.
+    fn on_media(&mut self) {
+        let np = crate::core_plugin::now_playing(&self.signals);
+        self.np_at = Instant::now();
+        let key = np.as_ref().map(NowPlaying::track_key);
+        if np != self.np {
+            self.np = np;
+            self.draw_apps(Some(AppKind::Media));
+            if self.note.is_none() {
+                self.draw_status();
+            }
+        }
+        if let (Some(k), Some(np)) = (key, self.np.clone()) {
+            if self.art.as_ref().is_none_or(|(ak, _)| *ak != k) && !self.art_busy {
+                self.art_busy = true;
+                let tx = self.tx.clone();
+                std::thread::spawn(move || {
+                    let img = media::artwork(&np).and_then(|b| image::load_from_memory(&b).ok());
+                    let _ = tx.send(Msg::Art(k, img));
+                });
+            }
+        }
+    }
+
+    /// Cards that follow plugin signals: pairing with Teams, a new mail, Pomodoro phases.
     fn plugin_cards(&mut self) {
+        let (n, last) = crate::core_plugin::pomodoro_events(&self.signals);
+        if self.pomo_seen.is_some_and(|seen| n > seen) {
+            let (text, icon, color) = match last.as_deref() {
+                Some("long_break") => ("Long break!", "pomodoro-break", "#16a34a"),
+                Some("break") => ("Time for a break", "pomodoro-break", "#16a34a"),
+                _ => ("Break over, press to focus", "pomodoro-focus", "#dc2626"),
+            };
+            self.notify(Notification { title: Some("Pomodoro".into()), style: Some("flash".into()), ..Notification::simple(text, Some(icon), Some(color)) });
+        }
+        self.pomo_seen = Some(n);
         let paired = crate::teams_plugin::link_state(&self.signals).paired;
         if self.paired_seen == Some(false) && paired {
             self.notify(Notification::simple("Paired with Teams", Some("check"), Some("#4f46e5")));
@@ -1446,7 +1254,7 @@ impl Engine {
                 _ => {}
             },
             Visible::App(app) => match (app.as_str(), ev) {
-                ("media", KeyEvent::Press) => self.run_action(&Action::Media { command: "playpause".into() }, None),
+                ("media", KeyEvent::Press) => self.run_plugin_action("com.deckling.core:media", json!({ "command": "playpause" })),
                 ("media", KeyEvent::Long) => {
                     let player = self.np.as_ref().map(|n| n.player.clone()).unwrap_or_else(|| "Spotify".into());
                     let _ = platform::open(&player, &dir);
@@ -1710,17 +1518,13 @@ impl Engine {
                                 th.bg = bg;
                             }
                             let _ = fg;
-                            apps::sysmon_face(f, &self.sys, modes[i], i, modes.len(), &th)
+                            apps::sysmon_face(f, &crate::core_plugin::sys(&self.signals), modes[i], i, modes.len(), &th)
                         }
-                        AppKind::Mute => apps::mute_face(f, self.muted, bg, fg),
-                        AppKind::Weather => apps::weather_face(
-                            f,
-                            self.weather.as_ref(),
-                            self.weather_err.as_deref(),
-                            self.cfg.settings.weather.location.is_some(),
-                            bg,
-                            fg,
-                        ),
+                        AppKind::Mute => apps::mute_face(f, crate::core_plugin::muted(&self.signals), bg, fg),
+                        AppKind::Weather => {
+                            let (w, err, configured) = crate::core_plugin::weather(&self.signals);
+                            apps::weather_face(f, w.as_ref(), err.as_deref(), configured, bg, fg)
+                        }
                         AppKind::Clock => {
                             let mut th = render::Th::resolve(&theme_eff, "clock", render::Tone::Active);
                             if st.look.bg.is_some() {
@@ -1728,7 +1532,7 @@ impl Engine {
                             }
                             apps::clock_face(f, mode, key.cfg_bool("h12"), &th)
                         }
-                        AppKind::Pomodoro => apps::pomodoro_face(f, &self.pomo, &self.cfg.settings.pomodoro, bg, fg),
+                        AppKind::Pomodoro => apps::pomodoro_face(f, &crate::core_plugin::pomodoro(&self.signals), &self.cfg.settings.pomodoro, bg, fg),
                         AppKind::Media => {
                             let np = self.np_now();
                             let art = np.as_ref().and_then(|n| {
@@ -1976,14 +1780,17 @@ impl Engine {
         let i = self.plugins.iter().position(|p| p.as_ref().is_some_and(|p| p.id() == id))?;
         let mut p = self.plugins[i].take()?;
         let base = self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into());
-        let (r, out) = {
+        let (r, out, errors) = {
             let dir = base_dir(&self.path);
             let sender = crate::plugins::Sender::new(p.id(), self.tx.clone());
             let mut host = Host::new(p.id(), &mut self.signals, base).with_engine(dir, sender);
             let r = f(p.as_mut(), &mut host, &self.cfg);
-            (r, host.mqtt_out)
+            (r, host.mqtt_out, host.errors)
         };
         self.plugins[i] = Some(p);
+        for e in errors {
+            (self.emit)("error", json!({ "message": e }));
+        }
         for (topic, payload, retain) in out {
             match &self.mqtt {
                 Some(m) if self.mqtt_up => m.publish(&topic, payload, retain),
@@ -2217,14 +2024,6 @@ impl Engine {
             self.restart_mqtt();
         } else if old.profiles.iter().map(|p| &p.name).ne(self.cfg.profiles.iter().map(|p| &p.name)) {
             self.publish_discovery();
-        }
-        if old.settings.weather != self.cfg.settings.weather {
-            self.weather_gen += 1;
-            self.weather = None;
-            self.weather_err = None;
-            self.weather_at = None;
-            self.weather_busy = false;
-            self.maybe_fetch_weather(true);
         }
         if old.settings.brightness != self.cfg.settings.brightness {
             self.set_brightness(self.cfg.settings.brightness, false);
