@@ -41,14 +41,24 @@ env:
 jobs:
   test:
     name: Tests (unit + e2e)
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # A stuck package mirror once held a release for half an hour: limit and retry.
       - name: Linux packages for Tauri
+        timeout-minutes: 12
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+          for i in 1 2 3; do
+            if timeout 240 sudo apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+              && timeout 300 sudo apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+                   libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev; then
+              exit 0
+            fi
+            echo "apt failed (attempt $i), retrying"; sleep 10
+          done
+          exit 1
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -86,6 +96,7 @@ jobs:
 
   device:
     name: Device binary (armv7)
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,6 +121,7 @@ jobs:
 
   app:
     name: Desktop app (macOS universal)
+    timeout-minutes: 40
     needs: device
     runs-on: macos-latest
     steps:
@@ -192,6 +204,7 @@ jobs:
 
   release:
     name: GitHub release
+    timeout-minutes: 40
     if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
     needs: [test, device, app]
     runs-on: ubuntu-latest
