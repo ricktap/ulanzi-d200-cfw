@@ -27,6 +27,7 @@ ab_glyph = "0.2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 base64 = "0.22"
 tiny-skia = "0.11"
+scene = { path = "../../scene" }
 resvg = { version = "0.45", default-features = false, features = ["text"] }
 sysinfo = { version = "0.37", default-features = false, features = ["system", "disk", "network", "component"] }
 rumqttc = "0.25"

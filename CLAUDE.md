@@ -6,8 +6,8 @@ Guide for working on this repository with Claude Code (or any agent).
 
 Custom software for the Ulanzi D200 stream controller:
 
-- `device/`: `d200fw`, a Rust replacement for the stock app on the device (ARMv7 Linux, no
-  dependencies).
+- `device/`: `d200fw`, a Rust replacement for the stock app on the device (ARMv7 Linux). Its
+  only dependency is `scene/`, the screensaver scenes (tiny-skia), shared with the app.
 - `app/`: D200 Deck, a Tauri v2 desktop app. The Rust engine is in `app/src-tauri/src/`, the
   plain HTML/JS UI in `app/ui/`. It draws all keys and runs the actions.
 

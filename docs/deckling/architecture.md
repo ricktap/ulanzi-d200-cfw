@@ -352,6 +352,7 @@ The eight existing stateful icons already work through `data-part` and states. T
 7. Long texts and images: rules for truncation and for signals of type image.
 8. Runtime for third-party plugins: process with stdio or WASM.
 9. Licence: must be settled before opening up.
+10. Screensavers from packages: the scenes are compiled into d200fw today (it draws them, so no frames go over USB). Proposal: a scene is data, a package like a theme (background, gradients, particle systems, colours bound to variables or signals), interpreted by the device and by the app for previews. The current five scenes would be the first such packages.
 
 ## 14. Rejected and why
 

@@ -24,7 +24,9 @@
 | `font.rs` | a tiny built-in font for the idle screen and boot prompt |
 | `main.rs` | arguments, stopping the vendor processes, the TCP server, the boot prompt |
 
-Its job is to draw what it is sent and report the keys.
+Its job is to draw what it is sent and report the keys, and to run the screensaver
+(`saver.rs`) on the device, so no frames go over USB. The scenes are in `scene/`, a small
+crate (tiny-skia) shared with the app.
 
 ## Desktop app (`app/src-tauri/src/`)
 
@@ -51,7 +53,7 @@ The engine owns all state. It decides what each key shows and sends only the key
 | `render.rs` | the drawing canvas: tiny-skia plus ab_glyph text (variable SF weights, tracking, emoji fallback). Also `Th`, the resolved theme |
 | `apps.rs` | built-in widgets: system monitor, mute, weather, clock, pomodoro, media, Teams, debugger |
 | `cards.rs` | wide-key notification cards (meeting, email, printer, push, critical) in Compact and Airy layouts |
-| `screensaver.rs` | seasonal scenes. A seeded 1280x720 scene is clipped to the key windows |
+| `screensaver.rs` | which season to show; the scenes themselves are in `scene/` (shared with d200fw, which draws them; the app draws them only for older firmware) |
 | `icons.rs` | Night Signal SVGs compiled in (`build.rs` → `icons_gen.rs`), resvg rendering, `apply_parts` for bound icons |
 | `device.rs` | adb detection, pushing the binary, port forwarding, the protocol client |
 | `mqtt.rs` | rumqttc client, topics, Home Assistant discovery |

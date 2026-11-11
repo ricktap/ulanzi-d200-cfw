@@ -1,9 +1,11 @@
 [package]
 name = "d200fw"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
+# the screensaver scenes, drawn on the device (shared with the app)
+scene = { path = "../scene" }
 
 [profile.release]
 opt-level = 3

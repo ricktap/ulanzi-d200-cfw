@@ -76,6 +76,28 @@ impl Framebuffer {
         Ok(())
     }
 
+    /// Read a landscape rectangle back as RGB888 (row-major), the inverse of `blit`.
+    pub fn read(&self, x: usize, y: usize, w: usize, h: usize) -> io::Result<Vec<u8>> {
+        let mut out = vec![0u8; w * h * 3];
+        if x >= SCREEN_W || y >= SCREEN_H {
+            return Ok(out);
+        }
+        let cw = w.min(SCREEN_W - x);
+        let ch = h.min(SCREEN_H - y);
+        let mut row = vec![0u8; ch * 4];
+        for lx in 0..cw {
+            let fb_y = SCREEN_W - 1 - (x + lx);
+            self.file.read_exact_at(&mut row, (fb_y * FB_STRIDE + y * 4) as u64)?;
+            for ly in 0..ch {
+                let (d, s) = ((ly * w + lx) * 3, ly * 4);
+                out[d] = row[s + 2];
+                out[d + 1] = row[s + 1];
+                out[d + 2] = row[s];
+            }
+        }
+        Ok(out)
+    }
+
     /// Fill a landscape rectangle with one colour.
     pub fn fill(&self, x: usize, y: usize, w: usize, h: usize, rgb: [u8; 3]) -> io::Result<()> {
         if x >= SCREEN_W || y >= SCREEN_H {

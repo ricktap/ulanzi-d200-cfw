@@ -220,6 +220,9 @@ struct Saver {
     next_frame: Instant,
     t: f32,
     pm: tiny_skia::Pixmap,
+    /// The device draws the scene itself (d200fw 0.2+); the host only sends the dot.
+    on_device: bool,
+    dot: bool,
 }
 
 fn hash(v: &[u8]) -> u64 {
@@ -1338,14 +1341,22 @@ impl Engine {
 
     fn start_saver(&mut self) {
         let ss = &self.cfg.settings.screensaver;
-        let season = Season::parse(&ss.scene, ss.southern);
+        let season = crate::screensaver::parse(&ss.scene, ss.southern);
         let Some(pm) = tiny_skia::Pixmap::new(1280, 720) else { return };
-        self.saver = Some(Saver { since: Instant::now(), season, next_frame: Instant::now(), t: 0.0, pm });
+        // Newer d200fw draws the scene itself: no frames over USB. Older ones say ERR.
+        let fps = ss.fps.clamp(1, 20);
+        let on_device = self.dev.as_ref().is_some_and(|d| d.saver(season.name(), fps, ss.motion).is_ok());
+        self.saver = Some(Saver { since: Instant::now(), season, next_frame: Instant::now(), t: 0.0, pm, on_device, dot: false });
         (self.emit)("screensaver", json!({ "on": true, "scene": season.name() }));
     }
 
     fn stop_saver(&mut self) {
-        if self.saver.take().is_some() {
+        if let Some(sv) = self.saver.take() {
+            if sv.on_device {
+                if let Some(d) = &self.dev {
+                    let _ = d.saver_off();
+                }
+            }
             self.sent = [0; NUM_KEYS];
             self.draw_all();
             (self.emit)("screensaver", json!({ "on": false }));
@@ -1361,6 +1372,16 @@ impl Engine {
             self.saver = None;
             return;
         };
+        // On the device: only keep the "notification waiting" dot up to date.
+        if self.saver.as_ref().is_some_and(|sv| sv.on_device) {
+            let pending = !self.notes.is_empty();
+            let sv = self.saver.as_mut().unwrap();
+            sv.next_frame = Instant::now() + Duration::from_millis(250);
+            if sv.dot != pending && dev.saver_dot(pending).is_ok() {
+                sv.dot = pending;
+            }
+            return;
+        }
         let ss = self.cfg.settings.screensaver.clone();
         let fps = ss.fps.clamp(1, 20) as u64;
         let (fade, pending) = {
@@ -1646,6 +1667,10 @@ impl Engine {
     }
 
     fn draw_key(&mut self, k: usize) {
+        // The scene owns the screen; a key image would also end the device's screensaver.
+        if self.saver.is_some() {
+            return;
+        }
         let Some(dev) = self.dev.clone() else { return };
         let pressed = self.held[k].is_some();
         let Some((rgb, reads)) = self.face_r(&self.view.clone(), k, pressed) else { return };

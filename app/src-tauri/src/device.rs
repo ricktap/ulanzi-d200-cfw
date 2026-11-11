@@ -222,6 +222,20 @@ impl Device {
         self.cmd(&format!("IMG {key} {}", rgb.len()), rgb).map(|_| ())
     }
 
+    /// Let the device draw the screensaver itself (d200fw 0.2+). Err on older firmware.
+    pub fn saver(&self, scene: &str, fps: u32, motion: bool) -> Result<(), String> {
+        self.cmd(&format!("SAVER {scene} {fps} {}", motion as u8), &[]).map(|_| ())
+    }
+
+    /// Show or hide the "notification waiting" dot of the device's screensaver.
+    pub fn saver_dot(&self, on: bool) -> Result<(), String> {
+        self.cmd(&format!("SAVER DOT {}", on as u8), &[]).map(|_| ())
+    }
+
+    pub fn saver_off(&self) -> Result<(), String> {
+        self.cmd("SAVER OFF", &[]).map(|_| ())
+    }
+
     pub fn clear(&self) -> Result<(), String> {
         self.cmd("CLEAR 000000", &[]).map(|_| ())
     }
