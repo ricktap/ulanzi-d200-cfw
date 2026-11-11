@@ -42,24 +42,33 @@ Plug the D200 in over USB. The app finds it over adb and pushes `d200fw` to `/tm
 lasts until the next reboot. It draws your deck. To have it start at boot, see
 [docs/firmware.md](docs/firmware.md).
 
-## Install on macOS (without signing)
+## Install on macOS
 
-The app is not notarised by Apple. CI builds two files (the `d200-deck-macos` artifact of a
-run, or a release):
+```sh
+curl -fsSL https://raw.githubusercontent.com/ricktap/ulanzi-d200-cfw/main/install.sh | sh
+```
 
-- **`D200 Deck_<version>_universal.pkg`** (recommended): installs to `/Applications` and clears
-  the quarantine flag, so macOS only asks once, for the installer. Double-click it; when macOS
-  refuses, open **System Settings → Privacy & Security** and click **Open Anyway** next to the
-  message (macOS 14 and older: right-click the .pkg → Open). Then follow the installer.
-- **`D200 Deck_<version>_universal.dmg`**: drag the app to Applications. Before the first start,
-  run once in Terminal:
+`install.sh` downloads the latest release (or `sh install.sh v0.5.0` for a given one), puts
+D200 Deck in `/Applications` and starts it. The app is not notarised by Apple, but a download
+with `curl` carries no quarantine flag, so macOS opens it without asking. Runs on Intel and
+Apple Silicon, macOS 11 or newer.
 
-  ```sh
-  xattr -dr com.apple.quarantine "/Applications/D200 Deck.app"
-  ```
+After that the app updates itself: it looks for a new release shortly after start and every
+six hours, and shows **Update to …** in the header (Settings → General: version and "Check for
+updates"). It asks GitHub with the ETag of the last answer, so a check without news does not
+count against GitHub's rate limit; `latest.json` and the package are fetched only for a newer
+release.
 
-Both run on Intel and Apple Silicon (macOS 11 or newer). The app is signed ad hoc, which Apple
-Silicon needs to run it at all.
+Each release also has a `.dmg` and a `.pkg`. Opened from a browser download, macOS asks once:
+System Settings → Privacy & Security → **Open Anyway**.
+
+## Releases
+
+Actions → CI → **Run workflow** with `release` = `0.6.0` builds that commit as version 0.6.0,
+creates tag `v0.6.0` and the GitHub release (changes since the previous release, DMG, PKG,
+`d200fw`, and the signed updater package with `latest.json`). Pushing a tag `v0.6.0` does the
+same. Updates are signed with the key in the repository secret `TAURI_SIGNING_PRIVATE_KEY`
+(public half in `tauri.conf.json`); without it the release has no updater package.
 
 ## Build and test
 

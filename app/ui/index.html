@@ -17,6 +17,7 @@
     <div class="top-actions">
       <button id="btn-firmware" class="btn primary" hidden>Start firmware</button>
       <button class="tbtn" id="btn-undo" disabled title="Nothing to undo"><span class="glyph">↶</span><span>Undo</span></button>
+      <button class="tbtn" id="btn-update" hidden><span class="glyph">⬆</span><span id="btn-update-label">Update</span></button>
       <span class="top-sep"></span>
       <button class="tbtn" id="btn-notify" title="Show a test notification on the status key"><img src="icons/night-signal/svg/notification.svg" alt=""><span>Notify</span></button>
       <button class="tbtn" id="btn-settings"><img src="icons/night-signal/svg/settings.svg" alt=""><span>Settings</span></button>
@@ -141,6 +142,11 @@
         <div class="field">
           <span class="label">Status key (wide key, bottom right)</span>
           <p class="sub">It shows the current profile and notifications. Click it in the grid to choose what pressing it does.</p>
+        </div>
+        <div class="field">
+          <span class="label">Updates</span>
+          <p class="sub">Version <span class="mono" id="s-version"></span> <span id="s-update-state"></span></p>
+          <div><button class="btn small" type="button" id="s-check">Check for updates</button></div>
         </div>
         <div class="field">
           <span class="label">Files</span>

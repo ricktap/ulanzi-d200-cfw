@@ -15,6 +15,7 @@ pub mod media;
 pub mod migrate;
 pub mod teams;
 pub mod teams_plugin;
+pub mod updater;
 pub mod mqtt;
 pub mod platform;
 pub mod plugins;
@@ -196,7 +197,9 @@ fn show_main(app: &AppHandle) {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            updater::watch(app.handle().clone());
             let path = app.path().app_config_dir()?.join("deck.json");
             let handle = app.handle().clone();
             let emit: engine::Emit = Box::new(move |name, payload| {
@@ -240,6 +243,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
+            updater::check_update,
+            updater::install_update,
+            updater::app_version,
             catalog,
             options,
             signals,

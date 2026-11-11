@@ -32,9 +32,9 @@ cd app/src-tauri && cargo test --lib
 # end-to-end (simulated device, fake broker/Teams/IDE; no hardware)
 tests/e2e/run.sh
 
-# release: CI builds and publishes on semver tags, version taken from the tag
+# release: Actions → CI → Run workflow with release=1.2.3 (or push tag v1.2.3);
+# the version comes from the tag. Every release is tagged and lists its changes.
 scripts/set-version.sh 1.2.3     # sets Cargo.toml/lock, tauri.conf.json, package(-lock).json
-git tag v1.2.3 && git push origin v1.2.3
 ```
 
 ## Conventions

@@ -13,6 +13,7 @@ import { renderAssets } from "./library.js";
 import { renderProfiles, renderAutomation, addProfile, addPage, renamePage, makeHome, deletePage } from "./profiles.js";
 import { openSettings, wireSettings, showIntegrations, teamsSignedIn } from "./settings.js";
 import { wireDialogs } from "./dialogs.js";
+import { wireUpdates } from "./updates.js";
 
 // ------------------------------------------------------------------ header and status
 
@@ -209,6 +210,7 @@ async function listenAll() {
       renderBrightness();
     }
   });
+  await wireUpdates();
   await listen("remote", async () => {
     const snap = await invoke("get_state");
     state.snap = { ...snap, config: state.config };
