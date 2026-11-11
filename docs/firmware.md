@@ -14,6 +14,11 @@ adb reboot             # back to stock
 The D200 Deck app does the same thing on its own when it connects, so you don't need any of
 this just to use the app.
 
+When the app finds an older `d200fw` on the device, it replaces it with the one it embeds and
+restarts it (once per app start). A boot install in `/userdata/d200fw/` is updated in place and
+its wrapper restarts it; otherwise the copy in `/tmp` is replaced. The files are swapped with a
+rename, so the running binary is never overwritten.
+
 ## Install for boot
 
 ```sh

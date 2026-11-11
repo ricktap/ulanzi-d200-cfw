@@ -199,6 +199,9 @@ pub struct Engine {
     scene: Scene,
     /// Keys whose press woke the screensaver: their up/press/long are swallowed.
     swallow: [bool; NUM_KEYS],
+    /// The d200fw this app embeds, to upgrade an older one on the device (once per run).
+    firmware: &'static [u8],
+    fw_upgrade_tried: bool,
 
     /// Latest value per signal (the core's own for now).
     signals: Signals,
@@ -298,6 +301,7 @@ impl Engine {
 
         std::thread::spawn(move || {
             let mut e = Engine::new(path, emit, tx, connected);
+            e.firmware = firmware;
             e.run(rx);
         });
         handle
@@ -367,6 +371,8 @@ impl Engine {
             saver: None,
             scene: Scene::new(),
             swallow: [false; NUM_KEYS],
+            firmware: &[],
+            fw_upgrade_tried: false,
             signals: Signals::default(),
             reads: vec![Reads::default(); NUM_KEYS],
         };
@@ -519,6 +525,25 @@ impl Engine {
         });
         self.publish_availability(true);
         self.publish_state();
+        self.maybe_upgrade_firmware(&version);
+    }
+
+    /// An older d200fw on the device: replace it with the embedded one and restart it.
+    /// The connection drops and comes back with the new version.
+    fn maybe_upgrade_firmware(&mut self, running: &str) {
+        let embedded = env!("D200FW_VERSION");
+        if self.fw_upgrade_tried || self.firmware.is_empty() || std::env::var_os("D200_DIRECT").is_some() || !crate::updater::newer(embedded, running) {
+            return;
+        }
+        self.fw_upgrade_tried = true;
+        let Some(adb) = device::adb_path() else { return };
+        let (firmware, tx) = (self.firmware, self.tx.clone());
+        self.set_status(|s| s.message = format!("Updating d200fw {running} to {embedded}..."));
+        std::thread::spawn(move || {
+            if let Err(e) = device::upgrade_firmware(&adb, firmware) {
+                let _ = tx.send(Msg::Error(format!("d200fw update: {e}")));
+            }
+        });
     }
 
     // -------------------------------------------------------------- tick

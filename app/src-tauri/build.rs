@@ -3,6 +3,12 @@ use std::fmt::Write;
 fn main() {
     // The device firmware is embedded so the app can start it on a D200 by itself.
     println!("cargo:rerun-if-changed=../../bin/d200fw");
+    // The embedded firmware's version (bin/d200fw is built from device/), to upgrade older
+    // d200fw on a connected D200.
+    println!("cargo:rerun-if-changed=../../device/Cargo.toml");
+    let dev = std::fs::read_to_string("../../device/Cargo.toml").expect("device/Cargo.toml");
+    let ver = dev.lines().find_map(|l| l.strip_prefix("version = ")).map(|v| v.trim_matches('"').to_string()).expect("device version");
+    println!("cargo:rustc-env=D200FW_VERSION={ver}");
 
     // Embed the Night Signal icon set (also served to the UI from ui/icons).
     let dir = std::path::Path::new("../ui/icons/night-signal/svg");

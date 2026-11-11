@@ -167,3 +167,13 @@ mod tests {
         assert!(newer("v0.3.0-rc.2", "0.3.0-rc.1"));
     }
 }
+
+#[cfg(test)]
+mod firmware_tests {
+    /// bin/d200fw is the build of device/ at its current version (copy it after device changes).
+    #[test]
+    fn embedded_firmware_matches_device_version() {
+        let v = env!("D200FW_VERSION").as_bytes();
+        assert!(crate::FIRMWARE.windows(v.len()).any(|w| w == v), "bin/d200fw is not d200fw {}", env!("D200FW_VERSION"));
+    }
+}

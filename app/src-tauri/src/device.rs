@@ -123,6 +123,40 @@ pub fn start_firmware(adb_bin: &Path, firmware: &[u8]) -> Result<String, String>
     }
 }
 
+/// Replace an older d200fw on the device with `firmware` and restart it. A boot install
+/// (/userdata/d200fw, see docs/firmware.md) is updated in place and its wrapper restarts
+/// it; otherwise the copy in /tmp is replaced and started. The files are swapped with a
+/// rename, which is safe while the old binary runs.
+pub fn upgrade_firmware(adb_bin: &Path, firmware: &[u8]) -> Result<String, String> {
+    let boot = adb(adb_bin, &["shell", "[ -x /userdata/d200fw/d200fw ] && [ ! -e /userdata/d200fw/disable ] && echo BOOT"])?.contains("BOOT");
+    let dir = if boot { "/userdata/d200fw" } else { "/tmp" };
+    let tmp = std::env::temp_dir().join("d200fw-upgrade");
+    std::fs::write(&tmp, firmware).map_err(|e| e.to_string())?;
+    let push = adb(adb_bin, &["push", &tmp.to_string_lossy(), &format!("{dir}/d200fw.new")]);
+    let _ = std::fs::remove_file(&tmp);
+    push?;
+    // adb shell gives no exit codes: check the marker.
+    let swap = adb(
+        adb_bin,
+        &["shell", &format!("chmod 755 {dir}/d200fw.new && mv -f {dir}/d200fw.new {dir}/d200fw && echo SWAPPED; kill $(pidof d200fw) 2>/dev/null; sleep 1")],
+    )?;
+    if !swap.contains("SWAPPED") {
+        return Err(format!("could not replace {dir}/d200fw: {swap}"));
+    }
+    if boot {
+        // the wrapper starts the new binary (after its short boot prompt)
+        std::thread::sleep(Duration::from_secs(5));
+        return Ok("d200fw updated (boot install).".into());
+    }
+    adb(adb_bin, &["shell", "setsid /tmp/d200fw </dev/null >/tmp/d200fw.log 2>&1 & sleep 2"])?;
+    let net = adb(adb_bin, &["shell", "netstat -tln"])?;
+    if net.contains(&format!(":{} ", port())) {
+        Ok("d200fw updated; it runs until the device reboots.".into())
+    } else {
+        Err("the new d200fw did not start".into())
+    }
+}
+
 // ------------------------------------------------------------------ device
 
 struct Inner {
