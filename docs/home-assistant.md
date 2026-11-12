@@ -63,6 +63,39 @@ What it does:
   (`press` or `long_press`) and `base_topic`, for your own automations.
 - **When a computer takes the D200** (`online` on `d200/availability`), every key is sent again.
 
+**The device D200 Deck** (Settings, Devices) has these entities:
+
+| Entity | Shows |
+|---|---|
+| `event.d200_deck_key_event` | every press, long press and double press on **any** key, with the attributes `key` (0 to 13), `profile` and `page` |
+| `binary_sensor.d200_deck_connected` | a computer has the D200 (MQTT), or the deck answers (Web API only, checked every minute) |
+| `sensor.d200_deck_profile`, `sensor.d200_deck_page` | what the D200 shows; the page is `remote` on the remote page |
+| `sensor.d200_deck_computer` | the computer that has the D200 (MQTT only) |
+
+The key events show up in the logbook and history, and the automation editor offers them as a
+trigger (Entity, State or the device's triggers). Over MQTT they come from `d200/key`; over the
+Web API only, the deck posts them to the webhook (`"events": ["presses", "keys"]`).
+
+Any key, not only Home Assistant keys: key 4 on the page Media pressed twice:
+
+```yaml
+automation:
+  - alias: "D200: key 4 double press"
+    triggers:
+      - trigger: state
+        entity_id: event.d200_deck_key_event
+        not_to: unavailable
+    conditions:
+      - condition: template
+        value_template: >
+          {{ trigger.to_state.attributes.event_type == 'double_press'
+             and trigger.to_state.attributes.key == 4
+             and trigger.to_state.attributes.page == 'Media' }}
+    actions:
+      - action: scene.turn_on
+        target: { entity_id: scene.movie }
+```
+
 Services:
 
 | Service | Does |

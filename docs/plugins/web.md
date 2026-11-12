@@ -40,7 +40,7 @@ wrong token).
 | `POST /api/actions/<action>` | runs an action with `{"params": {...}}`, e.g. `core:page`, `core:profile`, `com.deckling.core:media` |
 | `POST /api/keys/<0-13>/press` | presses a key of the page on the device; `{"event": "long"}` for a long press (also `double`, `down`, `up`) |
 | `GET /api/subscriptions` | webhooks registered over the API, with the seconds they have left |
-| `POST /api/subscriptions` | registers or renews a webhook for presses on Web keys: `{"url": ..., "ttl": 900}` (10 to 3600 s, at most 16) |
+| `POST /api/subscriptions` | registers or renews a webhook: `{"url": ..., "ttl": 900, "events": ["presses", "keys"]}` (10 to 3600 s, at most 16). `presses`: presses on Web keys (the default); `keys`: every key event on any key, posted as `{"type": "key", "key", "event", "profile", "page", "n"}` |
 | `DELETE /api/subscriptions` | removes one: `{"url": ...}` |
 | `GET /api/mqtt` | the deck's shared MQTT settings (the password only as `has_password`) |
 | `PUT /api/mqtt` | sets them and connects: `{"host", "port", "username", "password", "tls", "base_topic"}`; saved to deck.json |

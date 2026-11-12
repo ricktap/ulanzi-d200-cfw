@@ -68,8 +68,9 @@ class DeckApi:
     async def set_mqtt(self, settings: dict[str, Any]) -> None:
         await self.call("PUT", "/api/mqtt", settings)
 
-    async def subscribe(self, url: str, ttl: int) -> None:
-        await self.call("POST", "/api/subscriptions", {"url": url, "ttl": ttl})
+    async def subscribe(self, url: str, ttl: int, keys: bool = False) -> None:
+        events = ["presses", "keys"] if keys else ["presses"]
+        await self.call("POST", "/api/subscriptions", {"url": url, "ttl": ttl, "events": events})
 
     async def unsubscribe(self, url: str) -> None:
         await self.call("DELETE", "/api/subscriptions", {"url": url})

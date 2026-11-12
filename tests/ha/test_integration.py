@@ -162,6 +162,7 @@ async def setup_web(hass, aioclient_mock, entities=("light.kitchen",)):
     for e in entities:
         aioclient_mock.put(f"{DECK}/api/keys/{e}", json={"key": e})
         aioclient_mock.delete(f"{DECK}/api/keys/{e}", json={"removed": e})
+    aioclient_mock.get(f"{DECK}/api", json={"name": "D200 Deck"})
     aioclient_mock.post(f"{DECK}/api/subscriptions", json={"expires_in": 900})
     aioclient_mock.delete(f"{DECK}/api/subscriptions", json={"removed": True})
     aioclient_mock.post(f"{DECK}/api/notify", json={"shown": True})
@@ -184,7 +185,7 @@ async def test_web_keys_subscription_and_presses(hass: HomeAssistant, aioclient_
     assert put and put[-1][0] == {"label": "Kitchen", "kind": "light", "on": True, "value": "on"}
     assert put[-1][1]["Authorization"] == "Bearer t"
     sub = web_calls(aioclient_mock, "POST", "/api/subscriptions")
-    assert sub[-1][0] == {"url": "http://ha.local:8123/api/webhook/hook123", "ttl": 900}
+    assert sub[-1][0] == {"url": "http://ha.local:8123/api/webhook/hook123", "ttl": 900, "events": ["presses", "keys"]}
 
     # the deck posts a press to the webhook
     client = await hass_client_no_auth()
@@ -229,6 +230,7 @@ async def test_web_resync_renews_and_resends(hass: HomeAssistant, aioclient_mock
 async def test_deck_offline_does_not_break_setup(hass: HomeAssistant, aioclient_mock) -> None:
     await async_process_ha_core_config(hass, {"internal_url": "http://ha.local:8123"})
     assert await async_setup_component(hass, "webhook", {})
+    aioclient_mock.get(f"{DECK}/api", exc=aiohttp.ClientError())
     aioclient_mock.put(f"{DECK}/api/keys/light.kitchen", exc=aiohttp.ClientError())
     aioclient_mock.post(f"{DECK}/api/subscriptions", exc=aiohttp.ClientError())
     hass.states.async_set("light.kitchen", "on", {})
@@ -296,3 +298,58 @@ async def test_discovered_deck_without_mqtt_hand_over(hass: HomeAssistant, aiocl
     r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_ENTITIES: []})
     assert r["data"][CONF_TRANSPORT] == "web"
     assert not [c for c in aioclient_mock.mock_calls if c[0] == "PUT"]
+
+
+# ------------------------------------------------------------------ the device and its entities
+
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+
+
+def entity(hass, entry, key):
+    return er.async_get(hass).async_get_entity_id(
+        {"key_event": "event", "connected": "binary_sensor"}.get(key, "sensor"), DOMAIN, f"{entry.entry_id}_{key}"
+    )
+
+
+async def test_device_and_entities_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
+    entry = await setup(hass, mqtt_mock, entities=())
+    dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert dev and dev.name == "D200 Deck" and dev.manufacturer == "Ulanzi"
+    ev, conn, prof, page, comp = (entity(hass, entry, k) for k in ("key_event", "connected", "profile", "page", "computer"))
+    assert all((ev, conn, prof, page, comp))
+    assert hass.states.get(ev).attributes["event_types"] == ["press", "long_press", "double_press"]
+
+    async_fire_mqtt_message(hass, "d200/availability", "online Studio-Mac")
+    async_fire_mqtt_message(hass, "d200/page", json.dumps({"profile": "Work", "page": "Media", "remote": False}))
+    await hass.async_block_till_done()
+    assert hass.states.get(conn).state == "on"
+    assert hass.states.get(comp).state == "Studio-Mac"
+    assert (hass.states.get(prof).state, hass.states.get(page).state) == ("Work", "Media")
+
+    # any key, not just Home Assistant ones; down and up are left out
+    async_fire_mqtt_message(hass, "d200/key", json.dumps({"profile": "Work", "page": "Main", "key": 3, "event": "down"}))
+    await hass.async_block_till_done()
+    assert hass.states.get(ev).state == "unknown"
+    async_fire_mqtt_message(hass, "d200/key", json.dumps({"profile": "Work", "page": "Main", "key": 3, "event": "double_press"}))
+    await hass.async_block_till_done()
+    st = hass.states.get(ev)
+    assert st.attributes["event_type"] == "double_press"
+    assert (st.attributes["key"], st.attributes["profile"], st.attributes["page"]) == (3, "Work", "Main")
+    assert hass.states.get(page).state == "Main"
+
+    async_fire_mqtt_message(hass, "d200/availability", "offline")
+    await hass.async_block_till_done()
+    assert hass.states.get(conn).state == "off"
+    assert hass.states.get(comp).state == "unknown"
+
+
+async def test_key_events_over_the_web_api(hass: HomeAssistant, aioclient_mock, hass_client_no_auth) -> None:
+    entry = await setup_web(hass, aioclient_mock, entities=())
+    assert hass.states.get(entity(hass, entry, "connected")).state == "on"
+    client = await hass_client_no_auth()
+    body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4}
+    assert (await client.post("/api/webhook/hook123", json=body)).status == 200
+    await hass.async_block_till_done()
+    st = hass.states.get(entity(hass, entry, "key_event"))
+    assert st.attributes["event_type"] == "long_press" and st.attributes["key"] == 7
+    assert hass.states.get(entity(hass, entry, "page")).state == "remote"

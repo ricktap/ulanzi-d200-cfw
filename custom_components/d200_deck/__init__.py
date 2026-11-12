@@ -32,6 +32,8 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, Serv
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.const import Platform
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.network import NoURLAvailableError
 
 from .const import (
@@ -61,6 +63,12 @@ from .web import DeckApi, WebError
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+PLATFORMS = [Platform.EVENT, Platform.BINARY_SENSOR, Platform.SENSOR]
+# Key events the event entity shows (down and up would only add noise).
+KEY_EVENTS = ("press", "long_press", "double_press")
+# Web API only: how often to check that the deck answers.
+WEB_PING = timedelta(seconds=60)
 
 # Web API: the webhook subscription lives this long and is renewed (with every key) this often.
 SUBSCRIPTION_TTL = 900
@@ -97,6 +105,25 @@ class Bridge:
         self.entities: list[str] = list(entry.options.get(CONF_ENTITIES, []))
         self.default_actions: bool = entry.options.get(CONF_DEFAULT_ACTIONS, True)
         self._unsub: list[Any] = []
+        # what the entities show
+        self.connected: bool | None = None
+        self.computer: str | None = None
+        self.profile: str | None = None
+        self.page: str | None = None
+        self.signal = f"{DOMAIN}_{entry.entry_id}"
+
+    @callback
+    def _changed(self) -> None:
+        async_dispatcher_send(self.hass, self.signal, None)
+
+    @callback
+    def key_event(self, data: dict[str, Any]) -> None:
+        """A key event from the deck (MQTT `<base>/key` or the webhook)."""
+        if data.get("profile"):
+            self.profile = str(data["profile"])
+        if data.get("page"):
+            self.page = str(data["page"])
+        async_dispatcher_send(self.hass, self.signal, data)
 
     def topic(self, rest: str) -> str:
         return f"{self.base}/{rest}"
@@ -168,14 +195,45 @@ class Bridge:
 
         self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic("ha/+/action"), action))
 
+        def text(msg: mqtt.ReceiveMessage) -> str:
+            return (msg.payload if isinstance(msg.payload, str) else msg.payload.decode()).strip()
+
         @callback
         def availability(msg: mqtt.ReceiveMessage) -> None:
-            # a computer took the D200: make sure it has every key (retained anyway, cheap)
-            payload = msg.payload if isinstance(msg.payload, str) else msg.payload.decode()
-            if payload.startswith("online"):
+            payload = text(msg)
+            self.connected = payload.startswith("online")
+            self.computer = (payload[6:].strip(" :") or None) if self.connected else None
+            self._changed()
+            if self.connected:
+                # a computer took the D200: make sure it has every key (retained anyway, cheap)
                 self.hass.async_create_task(self.publish_all())
 
-        self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic("availability"), availability))
+        @callback
+        def key(msg: mqtt.ReceiveMessage) -> None:
+            try:
+                data = json.loads(text(msg))
+            except ValueError:
+                return
+            if isinstance(data, dict):
+                self.key_event(data)
+
+        @callback
+        def profile(msg: mqtt.ReceiveMessage) -> None:
+            self.profile = text(msg) or None
+            self._changed()
+
+        @callback
+        def page(msg: mqtt.ReceiveMessage) -> None:
+            try:
+                data = json.loads(text(msg))
+            except ValueError:
+                return
+            self.page = "remote" if data.get("remote") else data.get("page")
+            self.profile = data.get("profile", self.profile)
+            self._changed()
+
+        for t, fn in (("availability", availability), ("key", key), ("profile", profile), ("page", page)):
+            self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic(t), fn))
 
     async def _start_web(self) -> None:
         if self.webhook_id:
@@ -185,6 +243,9 @@ class Bridge:
                     data = await request.json()
                 except ValueError:
                     return web.Response(status=400)
+                if data.get("type") == "key":
+                    self.key_event(data)
+                    return web.Response(status=200)
                 kid, what = str(data.get("id", "")), str(data.get("event", "press"))
                 if kid:
                     await self.press(kid, what)
@@ -202,11 +263,30 @@ class Bridge:
             await self._resync()
 
         self._unsub.append(async_track_time_interval(self.hass, tick, RESYNC))
+        if not self.use_mqtt:
+            await self._ping()
+
+            async def ping(_now) -> None:
+                await self._ping()
+
+            self._unsub.append(async_track_time_interval(self.hass, ping, WEB_PING))
+
+    async def _ping(self) -> None:
+        """Web API only: is the deck there?"""
+        try:
+            await self.api.info()
+            ok = True
+        except WebError:
+            ok = False
+        if ok != self.connected:
+            self.connected = ok
+            self._changed()
 
     async def _resync(self) -> None:
         """Renew the webhook subscription; send every key again (the deck may have restarted)."""
         if self.webhook_url:
-            await self._web("subscribe", self.api.subscribe(self.webhook_url, SUBSCRIPTION_TTL))
+            # MQTT brings key events itself; over the Web API the deck posts them to the webhook
+            await self._web("subscribe", self.api.subscribe(self.webhook_url, SUBSCRIPTION_TTL, keys=not self.use_mqtt))
         if self.entities:
             await self.publish_all()
 
@@ -238,8 +318,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if bridge.use_mqtt and not await mqtt.async_wait_for_mqtt_client(hass):
         _LOGGER.error("MQTT is not available; set up the MQTT integration first")
         return False
-    await bridge.start()
     entry.runtime_data = bridge
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await bridge.start()
     entry.async_on_unload(entry.add_update_listener(_options_changed))
     _register_services(hass)
     return True
@@ -248,7 +329,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     bridge: Bridge = entry.runtime_data
     await bridge.stop()
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def _options_changed(hass: HomeAssistant, entry: ConfigEntry) -> None:
