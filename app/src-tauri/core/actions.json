@@ -81,5 +81,85 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": "core:notify_clear",
+    "name": "Clear notifications",
+    "params": []
+  },
+  {
+    "id": "core:screensaver",
+    "name": "Screensaver",
+    "params": [
+      {
+        "key": "on",
+        "label": "Switch",
+        "type": "select",
+        "values": [
+          {
+            "label": "On",
+            "value": "on"
+          },
+          {
+            "label": "Off",
+            "value": "off"
+          },
+          {
+            "label": "Toggle",
+            "value": "toggle"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:display",
+    "name": "Display on or off",
+    "params": [
+      {
+        "key": "on",
+        "label": "Switch",
+        "type": "select",
+        "values": [
+          {
+            "label": "On",
+            "value": "on"
+          },
+          {
+            "label": "Off",
+            "value": "off"
+          },
+          {
+            "label": "Toggle",
+            "value": "toggle"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "core:follow",
+    "name": "Follow the program in front",
+    "params": [
+      {
+        "key": "on",
+        "label": "Switch",
+        "type": "select",
+        "values": [
+          {
+            "label": "On",
+            "value": "on"
+          },
+          {
+            "label": "Off",
+            "value": "off"
+          },
+          {
+            "label": "Toggle",
+            "value": "toggle"
+          }
+        ]
+      }
+    ]
   }
 ]

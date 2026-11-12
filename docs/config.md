@@ -111,6 +111,10 @@ An action is the id of an action a plugin offers, with its parameters. Built-in 
 | `core:state` | `to` | `next` or an index |
 | `core:brightness` | `value` | `128`, `+25`, `-25` |
 | `core:notify` | `text`, `icon`, `color` | card on the status key |
+| `core:notify_clear` | | removes the notification and those waiting |
+| `core:screensaver` | `on` | `on`, `off`, `toggle`: the screensaver now |
+| `core:display` | `on` | `on`, `off`, `toggle`: the display dark (brightness 0) or lit; a key press lights it |
+| `core:follow` | `on` | `on`, `off`, `toggle`: follow the program in front (saved) |
 | `com.deckling.core:command` | `command` | shell command |
 | `com.deckling.core:open` | `target` | app, file, folder or URL |
 | `com.deckling.core:keys` | `combo` | shortcut, for example `cmd+shift+4` |

@@ -163,6 +163,7 @@ async def setup_web(hass, aioclient_mock, entities=("light.kitchen",)):
         aioclient_mock.put(f"{DECK}/api/keys/{e}", json={"key": e})
         aioclient_mock.delete(f"{DECK}/api/keys/{e}", json={"removed": e})
     aioclient_mock.get(f"{DECK}/api", json={"name": "D200 Deck"})
+    aioclient_mock.get(f"{DECK}/api/state", json={"page": "main"})  # unless a test registered one first
     aioclient_mock.post(f"{DECK}/api/subscriptions", json={"expires_in": 900})
     aioclient_mock.delete(f"{DECK}/api/subscriptions", json={"removed": True})
     aioclient_mock.post(f"{DECK}/api/notify", json={"shown": True})
@@ -185,7 +186,7 @@ async def test_web_keys_subscription_and_presses(hass: HomeAssistant, aioclient_
     assert put and put[-1][0] == {"label": "Kitchen", "kind": "light", "on": True, "value": "on"}
     assert put[-1][1]["Authorization"] == "Bearer t"
     sub = web_calls(aioclient_mock, "POST", "/api/subscriptions")
-    assert sub[-1][0] == {"url": "http://ha.local:8123/api/webhook/hook123", "ttl": 900, "events": ["presses", "keys"]}
+    assert sub[-1][0] == {"url": "http://ha.local:8123/api/webhook/hook123", "ttl": 900, "events": ["presses", "keys", "state"]}
 
     # the deck posts a press to the webhook
     client = await hass_client_no_auth()
@@ -230,7 +231,7 @@ async def test_web_resync_renews_and_resends(hass: HomeAssistant, aioclient_mock
 async def test_deck_offline_does_not_break_setup(hass: HomeAssistant, aioclient_mock) -> None:
     await async_process_ha_core_config(hass, {"internal_url": "http://ha.local:8123"})
     assert await async_setup_component(hass, "webhook", {})
-    aioclient_mock.get(f"{DECK}/api", exc=aiohttp.ClientError())
+    aioclient_mock.get(f"{DECK}/api/state", exc=aiohttp.ClientError())
     aioclient_mock.put(f"{DECK}/api/keys/light.kitchen", exc=aiohttp.ClientError())
     aioclient_mock.post(f"{DECK}/api/subscriptions", exc=aiohttp.ClientError())
     hass.states.async_set("light.kitchen", "on", {})
@@ -311,53 +312,140 @@ def entity(hass, entry, key):
     )
 
 
-async def test_device_and_entities_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
-    # 0.13.0 made a device of its own with duplicates of the deck's MQTT entities
-    old_entry = MockConfigEntry(domain=DOMAIN, data={CONF_BASE_TOPIC: "d200"}, options={CONF_ENTITIES: []}, unique_id="d200")
-    old_entry.add_to_hass(hass)
-    devs, ents = dr.async_get(hass), er.async_get(hass)
-    old = devs.async_get_or_create(config_entry_id=old_entry.entry_id, identifiers={(DOMAIN, old_entry.entry_id)}, name="D200 Deck")
-    ents.async_get_or_create("binary_sensor", DOMAIN, f"{old_entry.entry_id}_connected", config_entry=old_entry, device_id=old.id)
-    assert await hass.config_entries.async_setup(old_entry.entry_id)
-    await hass.async_block_till_done()
-    entry = old_entry
+STATE = {
+    "usb": True, "computer": "Studio", "app": "Visual Studio Code", "profile": "Work", "profiles": ["Default", "Work"],
+    "page": "Media", "pages": ["main", "Media"], "remote": False, "brightness": 180, "display": True, "screensaver": False,
+    "follow": True, "notification": False, "version": "0.14.0", "latest": "0.15.0",
+    "teams": {"presence": "Busy", "activity": "InAMeeting", "in_meeting": True, "muted": False},
+    "media": {"playing": True, "title": "Song", "artist": "Band", "album": "LP", "player": "Spotify", "art_url": None},
+    "pomodoro": {"phase": "focus", "running": True, "ends_at": "2026-11-12T12:00:00+00:00"},
+}
 
-    # one device: the one the deck announces over MQTT
+
+def by_unique(hass, platform, unique_id):
+    return er.async_get(hass).async_get_entity_id(platform, "mqtt", unique_id)
+
+
+async def test_one_device_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
+    import pathlib
+
+    # 0.13.0 made a device of its own with copies of the deck's MQTT entities
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_BASE_TOPIC: "d200"}, options={CONF_ENTITIES: []}, unique_id="d200")
+    entry.add_to_hass(hass)
+    devs, ents = dr.async_get(hass), er.async_get(hass)
+    old = devs.async_get_or_create(config_entry_id=entry.entry_id, identifiers={(DOMAIN, entry.entry_id)}, name="D200 Deck")
+    ents.async_get_or_create("binary_sensor", DOMAIN, f"{entry.entry_id}_connected", config_entry=entry, device_id=old.id)
+    ents.async_get_or_create("sensor", DOMAIN, f"{entry.entry_id}_page", config_entry=entry, device_id=old.id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # what the deck announces (tests/ha/discovery.json, written by the deck's own tests)
+    for topic, payload in json.loads((pathlib.Path(__file__).parent / "discovery.json").read_text()).items():
+        async_fire_mqtt_message(hass, topic, payload, retain=True)
+    await hass.async_block_till_done()
+    async_fire_mqtt_message(hass, "d200/availability", "online Studio")
+    async_fire_mqtt_message(hass, "d200/profile", "Work")
+    async_fire_mqtt_message(hass, "d200/brightness", "180")
+    async_fire_mqtt_message(hass, "d200/state", json.dumps(STATE))
+    await hass.async_block_till_done()
+
+    # one device, the deck's: the integration only adds the key events
     assert devs.async_get_device(identifiers={(DOMAIN, entry.entry_id)}) is None
     dev = devs.async_get_device(identifiers={("mqtt", "d200_deck")})
     assert dev and dev.name == "Ulanzi D200" and entry.entry_id in dev.config_entries
-    ev, page = entity(hass, entry, "key_event"), entity(hass, entry, "page")
-    assert ev and page and ents.async_get(ev).device_id == dev.id
-    assert not any(entity(hass, entry, k) for k in ("connected", "computer", "profile"))
-    assert hass.states.get(ev).attributes["event_types"] == ["press", "long_press", "double_press"]
+    mine = er.async_entries_for_config_entry(ents, entry.entry_id)
+    assert [e.unique_id for e in mine] == [f"{entry.entry_id}_key_event"] and mine[0].device_id == dev.id
 
-    async_fire_mqtt_message(hass, "d200/page", json.dumps({"profile": "Work", "page": "Media", "remote": False}))
-    await hass.async_block_till_done()
-    assert hass.states.get(page).state == "Media"
+    st = lambda platform, uid: hass.states.get(by_unique(hass, platform, f"d200_deck_{uid}"))
+    assert st("select", "page").state == "Media"
+    assert st("select", "page").attributes["options"] == ["main", "Media"]
+    assert st("select", "profile").state == "Work"
+    assert float(st("number", "brightness").state) == 180
+    assert (st("switch", "remote_page").state, st("switch", "display").state, st("switch", "screensaver").state) == ("off", "on", "off")
+    assert st("switch", "follow").state == "on"
+    assert st("binary_sensor", "usb").state == "on"
+    assert st("binary_sensor", "connected").state == "on"
+    assert st("sensor", "host").state == "Studio"
+    assert st("sensor", "app").state == "Visual Studio Code"
+    assert st("sensor", "teams_presence").state == "Busy"
+    assert st("binary_sensor", "teams_meeting").state == "on"
+    assert st("sensor", "now_playing").state == "Song – Band"
+    assert st("sensor", "now_playing").attributes["album"] == "LP"
+    assert st("sensor", "pomodoro_phase").state == "focus"
+    up = st("update", "app")
+    assert (up.state, up.attributes["installed_version"], up.attributes["latest_version"]) == ("on", "0.14.0", "0.15.0")
+    assert not any(t.startswith("homeassistant/device_automation") and p for t, p in json.loads((pathlib.Path(__file__).parent / "discovery.json").read_text()).items())
 
-    # any key, not just Home Assistant ones; down and up are left out
+    # controls go to the deck's topics
+    await hass.services.async_call("select", "select_option", {"entity_id": st("select", "page").entity_id, "option": "main"}, blocking=True)
+    assert published(mqtt_mock, "d200/page/set")[-1][0] == "main"
+    await hass.services.async_call("switch", "turn_off", {"entity_id": st("switch", "display").entity_id}, blocking=True)
+    assert published(mqtt_mock, "d200/display/set")[-1][0] == "off"
+    await hass.services.async_call("button", "press", {"entity_id": st("button", "pomodoro_reset").entity_id}, blocking=True)
+    assert published(mqtt_mock, "d200/pomodoro/set")[-1][0] == "reset"
+
+    # key events on the same device; services
+    ev = entity(hass, entry, "key_event")
     async_fire_mqtt_message(hass, "d200/key", json.dumps({"profile": "Work", "page": "Main", "key": 3, "event": "down"}))
     await hass.async_block_till_done()
     assert hass.states.get(ev).state == "unknown"
     async_fire_mqtt_message(hass, "d200/key", json.dumps({"profile": "Work", "page": "Main", "key": 3, "event": "double_press"}))
     await hass.async_block_till_done()
-    st = hass.states.get(ev)
-    assert st.attributes["event_type"] == "double_press"
-    assert (st.attributes["key"], st.attributes["profile"], st.attributes["page"]) == (3, "Work", "Main")
-    assert hass.states.get(page).state == "Main"
+    s3 = hass.states.get(ev)
+    assert (s3.attributes["event_type"], s3.attributes["key"], s3.attributes["page"]) == ("double_press", 3, "Main")
+    await hass.services.async_call(DOMAIN, "press_key", {"key": 4, "event": "long_press"}, blocking=True)
+    assert json.loads(published(mqtt_mock, "d200/press")[-1][0]) == {"key": 4, "event": "long_press"}
+    await hass.services.async_call(DOMAIN, "run_action", {"action": "core:page", "params": {"page": "Media"}}, blocking=True)
+    assert json.loads(published(mqtt_mock, "d200/action")[-1][0]) == {"action": "core:page", "params": {"page": "Media"}}
+    with pytest.raises(Exception):
+        await hass.services.async_call(DOMAIN, "run_action", {"action": "com.deckling.core:command", "params": {"cmd": "rm"}}, blocking=True)
 
 
-async def test_key_events_over_the_web_api(hass: HomeAssistant, aioclient_mock, hass_client_no_auth) -> None:
+async def test_web_api_only_device(hass: HomeAssistant, aioclient_mock, hass_client_no_auth) -> None:
+    aioclient_mock.get(f"{DECK}/api/state", json=STATE)
+    for a in ("core:display", "core:page", "core:back", "core:brightness", "com.deckling.core:pomodoro"):
+        aioclient_mock.post(f"{DECK}/api/actions/{a}", json={"ran": a})
+    aioclient_mock.post(f"{DECK}/api/keys/4/press", json={"pressed": 4})
     entry = await setup_web(hass, aioclient_mock, entities=())
-    # no MQTT device to join: the integration makes its own, with every sensor
+    assert web_calls(aioclient_mock, "POST", "/api/subscriptions")[-1][0]["events"] == ["presses", "keys", "state"]
     dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
     assert dev and dev.name == "Ulanzi D200"
-    assert all(entity(hass, entry, k) for k in ("connected", "computer", "profile", "page"))
-    assert hass.states.get(entity(hass, entry, "connected")).state == "on"
+    ents = {e.unique_id.removeprefix(entry.entry_id + "_"): e.entity_id for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)}
+    st = lambda k: hass.states.get(ents[k])
+    assert st("connected").state == "on" and st("usb").state == "on"
+    assert st("page").state == "Media" and st("page").attributes["options"] == ["main", "Media"]
+    assert st("profile").state == "Work" and st("brightness").state == "180"
+    assert st("display").state == "on" and st("remote_page").state == "off" and st("follow").state == "on"
+    assert st("app").state == "Visual Studio Code" and st("computer").state == "Studio"
+    assert st("teams_presence").state == "Busy" and st("teams_meeting").state == "on"
+    assert st("now_playing").state == "Song – Band" and st("pomodoro").state == "focus"
+    assert st("app_update").state == "on"
+
+    # a state change pushed to the webhook
     client = await hass_client_no_auth()
+    pushed = {**STATE, "type": "state", "display": False, "remote": True, "teams": None, "media": None}
+    assert (await client.post("/api/webhook/hook123", json=pushed)).status == 200
+    await hass.async_block_till_done()
+    assert st("display").state == "off" and st("remote_page").state == "on"
+    assert st("teams_meeting").state == "unknown" and st("now_playing").state == "idle"
+
+    # controls become deck actions
+    await hass.services.async_call("switch", "turn_on", {"entity_id": ents["display"]}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/core:display")[-1][0] == {"params": {"on": "on"}}
+    await hass.services.async_call("switch", "turn_off", {"entity_id": ents["remote_page"]}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/core:back")
+    await hass.services.async_call("select", "select_option", {"entity_id": ents["page"], "option": "main"}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/core:page")[-1][0] == {"params": {"page": "main"}}
+    await hass.services.async_call("number", "set_value", {"entity_id": ents["brightness"], "value": 90}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/core:brightness")[-1][0] == {"params": {"value": "90"}}
+    await hass.services.async_call("button", "press", {"entity_id": ents["pomodoro_toggle"]}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/com.deckling.core:pomodoro")[-1][0] == {"params": {"do": "press"}}
+    await hass.services.async_call(DOMAIN, "press_key", {"key": 4}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/keys/4/press")[-1][0] == {"event": "press"}
+
+    # key events over the webhook
     body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4}
     assert (await client.post("/api/webhook/hook123", json=body)).status == 200
     await hass.async_block_till_done()
-    st = hass.states.get(entity(hass, entry, "key_event"))
-    assert st.attributes["event_type"] == "long_press" and st.attributes["key"] == 7
-    assert hass.states.get(entity(hass, entry, "page")).state == "remote"
+    ev = st("key_event")
+    assert ev.attributes["event_type"] == "long_press" and ev.attributes["key"] == 7

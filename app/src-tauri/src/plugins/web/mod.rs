@@ -31,7 +31,7 @@ use std::time::Duration;
 pub const ID: &str = "com.deckling.web";
 const MAX_BODY: usize = 64 * 1024;
 /// Actions that start programs or type on the computer: refused unless `allow_programs`.
-const PROGRAM_ACTIONS: [&str; 3] = [
+pub const PROGRAM_ACTIONS: [&str; 3] = [
     "com.deckling.core:command",
     "com.deckling.core:open",
     "com.deckling.core:keys",
@@ -135,6 +135,8 @@ pub struct Web {
 struct Sub {
     until: std::time::Instant,
     keys: bool,
+    /// Also every change of `deck.state`.
+    state: bool,
 }
 
 /// At most this many subscriptions; each lives up to an hour unless renewed.
@@ -200,7 +202,7 @@ impl Web {
                 json!({
                     "name": "D200 Deck", "version": env!("CARGO_PKG_VERSION"),
                     "openapi": "/api/openapi.json",
-                    "endpoints": ["GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
+                    "endpoints": ["GET /api/state", "GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
                                   "POST /api/notify", "POST /api/actions/<action>", "POST /api/keys/<0-13>/press",
                                   "GET|POST|DELETE /api/subscriptions", "GET|PUT /api/mqtt"],
                 }),
@@ -240,7 +242,7 @@ impl Web {
             ("GET", ["api", "subscriptions"]) => {
                 let now = std::time::Instant::now();
                 self.subs.retain(|_, s| s.until > now);
-                let list: Vec<Value> = self.subs.iter().map(|(u, s)| json!({ "url": u, "expires_in": s.until.duration_since(now).as_secs(), "keys": s.keys })).collect();
+                let list: Vec<Value> = self.subs.iter().map(|(u, s)| json!({ "url": u, "expires_in": s.until.duration_since(now).as_secs(), "keys": s.keys, "state": s.state })).collect();
                 (200, json!(list))
             }
             ("POST", ["api", "subscriptions"]) => {
@@ -255,9 +257,10 @@ impl Web {
                 }
                 let ttl = body.get("ttl").and_then(Value::as_u64).unwrap_or(900).clamp(10, MAX_TTL);
                 // "events": ["presses"] (default) or ["presses", "keys"]: every key event too
-                let keys = body.get("events").and_then(Value::as_array).is_some_and(|e| e.iter().any(|x| x == "keys"));
-                self.subs.insert(url.clone(), Sub { until: now + Duration::from_secs(ttl), keys });
-                (200, json!({ "url": url, "expires_in": ttl, "keys": keys }))
+                let wants = |w: &str| body.get("events").and_then(Value::as_array).is_some_and(|e| e.iter().any(|x| x == w));
+                let (keys, state) = (wants("keys"), wants("state"));
+                self.subs.insert(url.clone(), Sub { until: now + Duration::from_secs(ttl), keys, state });
+                (200, json!({ "url": url, "expires_in": ttl, "keys": keys, "state": state }))
             }
             ("DELETE", ["api", "subscriptions"]) => {
                 let url = body.get("url").and_then(Value::as_str).unwrap_or("");
@@ -266,6 +269,10 @@ impl Web {
                     None => (404, json!({ "error": "no such subscription" })),
                 }
             }
+            ("GET", ["api", "state"]) => match host.all_signals().into_iter().find(|(n, _)| n == "deck.state") {
+                Some((_, v)) => (200, v),
+                None => (503, json!({ "error": "the deck has no state yet" })),
+            },
             ("GET", ["api", "signals"]) => {
                 let mut all = host.all_signals();
                 all.sort_by(|a, b| a.0.cmp(&b.0));
@@ -434,19 +441,21 @@ impl Plugin for Web {
     }
 
     fn watches(&self) -> &'static [&'static str] {
-        &["key.event"]
+        &["key.event", "deck.state"]
     }
 
-    /// Every key event goes to the subscriptions that asked for it.
+    /// Every key event and state change goes to the subscriptions that asked for it.
     fn on_signal(&mut self, name: &str, value: &Value, _host: &mut Host) {
-        if name != "key.event" {
-            return;
-        }
+        let (kind, wants): (&str, fn(&Sub) -> bool) = match name {
+            "key.event" => ("key", |s| s.keys),
+            "deck.state" => ("state", |s| s.state),
+            _ => return,
+        };
         let now = std::time::Instant::now();
         self.subs.retain(|_, s| s.until > now);
-        for url in self.subs.iter().filter(|(_, s)| s.keys).map(|(u, _)| u.clone()) {
+        for url in self.subs.iter().filter(|(_, s)| wants(s)).map(|(u, _)| u.clone()) {
             let mut body = value.clone();
-            body["type"] = json!("key");
+            body["type"] = json!(kind);
             std::thread::spawn(move || {
                 let _ = ureq::post(&url).timeout(Duration::from_secs(5)).send_json(body);
             });
@@ -489,6 +498,7 @@ pub fn openapi() -> Value {
         "paths": {
             "/api": { "get": { "summary": "What this server offers", "responses": { "200": ok("Name, version, endpoints"), "401": err } } },
             "/api/openapi.json": { "get": { "summary": "This description", "security": [], "responses": { "200": ok("OpenAPI 3.1") } } },
+            "/api/state": { "get": { "summary": "What the deck shows and knows: profile, page, display, screensaver, USB, the program in front, Teams, media, Pomodoro, versions", "responses": { "200": ok("The deck state"), "401": err, "503": err } } },
             "/api/signals": { "get": { "summary": "Every signal with its value", "responses": { "200": ok("Object: signal name to value"), "401": err } } },
             "/api/signals/{name}": {
                 "parameters": [name("name", "A full signal name, e.g. com.deckling.core:system.cpu (GET) or a name in com.deckling.web (PUT)")],
@@ -547,7 +557,7 @@ pub fn openapi() -> Value {
                     "summary": "Register (or renew) a webhook for presses on Web keys",
                     "description": "The deck posts {\"id\", \"event\"} to the URL for every press on a key with the app Web key. A subscription expires after ttl seconds (10 to 3600, default 900); renew it before then.",
                     "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" }, "ttl": { "type": "integer", "minimum": 10, "maximum": 3600 },
-                        "events": { "type": "array", "items": { "type": "string", "enum": ["presses", "keys"] }, "description": "presses: presses on Web keys ({id, event}); keys: also every key event ({type: key, key, event, profile, page, n})" } } } } } },
+                        "events": { "type": "array", "items": { "type": "string", "enum": ["presses", "keys", "state"] }, "description": "presses: presses on Web keys ({id, event}); keys: also every key event ({type: key, key, event, profile, page, n}); state: every change of GET /api/state ({type: state, ...})" } } } } } },
                     "responses": { "200": ok("{url, expires_in}"), "400": err, "401": err },
                 },
                 "delete": {
@@ -835,11 +845,25 @@ mod tests {
     }
 
     #[test]
+    fn state_and_state_subscriptions() {
+        let mut web = Web::default();
+        let mut s = Signals::default();
+        let ((code, _), _) = call(&mut web, &mut s, "GET", "/api/state", Value::Null);
+        assert_eq!(code, 503);
+        s.publish("deck.state", json!({"page": "main", "usb": true}));
+        let ((code, v), _) = call(&mut web, &mut s, "GET", "/api/state", Value::Null);
+        assert_eq!((code, v["page"].as_str()), (200, Some("main")));
+        let ((_, v), _) = call(&mut web, &mut s, "POST", "/api/subscriptions", json!({"url": "http://ha/x", "events": ["presses", "state"]}));
+        assert_eq!((v["keys"].as_bool(), v["state"].as_bool()), (Some(false), Some(true)));
+        assert!(web.watches().contains(&"deck.state"));
+    }
+
+    #[test]
     fn openapi_describes_every_route() {
         let doc = openapi();
         assert_eq!(doc["openapi"], "3.1.0");
         let paths = doc["paths"].as_object().unwrap();
-        for p in ["/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
+        for p in ["/api/state", "/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
             assert!(paths.contains_key(p), "{p}");
         }
         assert_eq!(doc["paths"]["/api/openapi.json"]["get"]["security"], json!([]));

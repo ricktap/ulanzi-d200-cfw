@@ -44,6 +44,7 @@ The Signals view shows them live.
 The deck itself (namespace `core`) publishes `key.event` on every key event:
 `{key, event, profile, page, n}` with `event` one of `press`, `long_press`, `double_press`,
 `down`, `up`. Plugins can follow it (`watches()`); the Web API forwards it to subscriptions with
-`"events": ["keys"]`.
+`"events": ["keys"]`. `deck.state` is what Home Assistant shows of the deck (see
+[Home Assistant](../home-assistant.md)); it changes when any part does.
 
 Code: [app/src-tauri/src/plugins/core](../../app/src-tauri/src/plugins/core/).
