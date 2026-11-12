@@ -1,7 +1,7 @@
 {
-  "name": "Night Signal \u00b7 Complete collection",
+  "name": "Night Signal · Complete collection",
   "version": "2.1",
-  "count": 218,
+  "count": 219,
   "viewBox": "0 0 64 64",
   "strokeWidth": 2.4,
   "palette": {
@@ -816,6 +816,10 @@
     },
     {
       "name": "lock-computer",
+      "group": "Workspace extras"
+    },
+    {
+      "name": "ulanzi-tc001",
       "group": "Workspace extras"
     },
     {

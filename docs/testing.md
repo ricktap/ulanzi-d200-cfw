@@ -10,7 +10,7 @@ They cover:
 
 - **config:** the example config and the UI's output parse; invalid keys are rejected; an
   unparsable file starts fresh
-- **icons:** all 218 icons render; colour overrides; stateful icons
+- **icons:** all 219 icons render; colour overrides; stateful icons
 - **cards:** card priority
 - **screensaver:** the scenes render and move
 - **pomodoro:** the cycle
