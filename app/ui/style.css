@@ -230,3 +230,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); }
 .pkg-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 900px; }
 .drop-zone { border: 1px dashed var(--line-2); border-radius: var(--r-lg); padding: 14px; color: var(--hint); font-size: 13px; max-width: 900px; }
 .drop-zone.over { border-color: var(--on); color: var(--text); }
+
+/* icons per state of an app's widget */
+.state-icon { align-items: center; gap: 8px; padding: 6px; border-radius: 10px; }
+.state-icon.on { background: var(--sel-bg); outline: 1px solid var(--sel-line); }
+.state-icon .thumb { width: 36px; height: 36px; display: grid; place-items: center; flex: none; }
+.state-icon .thumb img { width: 36px; height: 36px; }

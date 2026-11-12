@@ -68,7 +68,6 @@ What it does:
 | Entity | Type | Does or shows |
 |---|---|---|
 | Key pressed | event | press, long press and double press on **any** key. Attributes: `key` (0–13), `profile`, `page`, `key_label`, `key_icon`, `app` (what the key showed when it was pressed) |
-| Key 0 … Key 12, Wide key | event (one per key) | press, long press and double press on that key, on any page; attributes `profile` and `page`. The numbers are the configurator's |
 | Profile, Page | select | what the D200 shows; pick one to switch (Page offers the pages of the current profile) |
 | Brightness | number | 0–255 |
 | Theme | select | Night Signal or an installed full theme |
@@ -89,7 +88,7 @@ What it does:
 | D200 Deck | update | a newer release (install it from the app) |
 
 Over MQTT the deck announces all of these itself (MQTT discovery, from `d200/state` and
-`d200/key/<k>`); the integration adds no entities and no device then. Over the Web API alone
+`d200/key_event`); the integration adds no entities and no device then. Over the Web API alone
 the integration makes the same entities, from `GET /api/state` and the webhook (`"events": ["presses", "keys",
 "state"]`); Computer online is then whether the deck answers. (HACS lists one more device, "D200
 Deck" from HACS: that is HACS's record of the download, not a deck.)
@@ -172,19 +171,24 @@ automation:
           message: "{{ click }} on key {{ key }} ({{ trigger.to_state.attributes.key_label }}) on {{ page }}"
 ```
 
-The per-key entities show which key it was in the logbook ("Key 4 detected an event:
-double_press"), and suit an automation for one key. Key 4 pressed twice on the page Media:
+Home Assistant's dialog for an event entity does not list its attributes; **Developer Tools,
+States** (`event.ulanzi_d200_key_pressed`) shows them, and automations and templates read them.
+Key 4 pressed twice on the page Media:
 
 ```yaml
 automation:
   - alias: "D200: key 4 double press"
     triggers:
       - trigger: event.received
-        target: { entity_id: event.ulanzi_d200_key_4 }
+        target: { entity_id: event.ulanzi_d200_key_pressed }
         options: { event_type: [double_press] }
     conditions:
       - condition: state
-        entity_id: event.ulanzi_d200_key_4
+        entity_id: event.ulanzi_d200_key_pressed
+        attribute: key
+        state: 4
+      - condition: state
+        entity_id: event.ulanzi_d200_key_pressed
         attribute: page
         state: Media
     actions:
@@ -284,7 +288,6 @@ other keys can read it.
 | `d200/remote/show` | to deck | anything shows the Remote page, `off` leaves it |
 | `d200/key` | from deck | `{profile, page, key, event}` for every key on every page |
 | `d200/key_event` | from deck | `{event_type, key, profile, page, key_label, key_icon, app}` for press, long press and double press (Key pressed) |
-| `d200/key/<0-13>` | from deck | the same, for that key's event entity |
 | `d200/profile`, `d200/profile/set` | from / to deck | profile name (`auto` = follow the active app again) |
 | `d200/brightness`, `d200/brightness/set` | from / to deck | 0–255 |
 | `d200/page` | from deck, retained | `{profile, page, remote}` |

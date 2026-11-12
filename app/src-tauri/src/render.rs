@@ -306,6 +306,12 @@ impl Canvas {
     pub fn set_icon_env(&mut self, name: &str, x: f32, y: f32, w: f32, h: f32, overrides: &[(&str, &str)], env: Option<&IconEnv>) -> bool {
         let reg = crate::registry::current();
         let Some(def) = reg.icon(name) else { return false };
+        // a key gave this state of its widget another icon (IconSwap)
+        let def = ICON_SWAP.with(|s| s.borrow().iter().find(|(from, _)| *from == def.id).and_then(|(_, to)| reg.icon(to).cloned()));
+        let def = match &def {
+            Some(d) => d,
+            None => reg.icon(name).expect("looked up above"),
+        };
         let s = w.min(h).max(1.0);
         let empty = IconEnv::empty();
         let env = env.unwrap_or(&empty);
@@ -846,6 +852,27 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
         _ => {}
     }
     c
+}
+
+thread_local! {
+    /// Icon id -> the icon drawn instead, while the engine draws one built-in face (`IconSwap`).
+    static ICON_SWAP: std::cell::RefCell<Vec<(String, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// While it lives, the built-in faces draw `to` wherever they would draw `from` (both icon ids).
+pub struct IconSwap;
+
+impl IconSwap {
+    pub fn set(swaps: Vec<(String, String)>) -> IconSwap {
+        ICON_SWAP.with(|s| *s.borrow_mut() = swaps);
+        IconSwap
+    }
+}
+
+impl Drop for IconSwap {
+    fn drop(&mut self) {
+        ICON_SWAP.with(|s| s.borrow_mut().clear());
+    }
 }
 
 /// What bound icons read while one face is drawn, and what they did read.

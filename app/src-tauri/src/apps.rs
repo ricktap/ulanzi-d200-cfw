@@ -354,6 +354,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn state_icons_and_hidden_pill() {
+        let Ok(f) = Fonts::load() else { return }; // no font on this machine
+        let plain = mute_face(&f, Some(true), BG, IVORY);
+        let swapped = {
+            let _s = crate::render::IconSwap::set(vec![("com.deckling.core:volume-muted".into(), "com.deckling.core:ulanzi-tc001".into())]);
+            mute_face(&f, Some(true), BG, IVORY)
+        };
+        assert_ne!(plain.pm.data(), swapped.pm.data(), "the muted state draws the chosen icon");
+        // the swap ends with its guard
+        assert_eq!(plain.pm.data(), mute_face(&f, Some(true), BG, IVORY).pm.data());
+        let coral = |c: &Canvas| c.pm.data().chunks_exact(4).filter(|p| p[0] == CORAL[0] && p[1] == CORAL[1] && p[2] == CORAL[2]).count();
+        let no_pill = {
+            let _p = PillGuard::hide(true);
+            mute_face(&f, Some(true), BG, IVORY)
+        };
+        assert!(coral(&plain) > 100 && coral(&no_pill) < coral(&plain) / 4, "{} {}", coral(&plain), coral(&no_pill));
+    }
+
+    #[test]
     fn pomodoro_cycle() {
         let cfg = PomodoroCfg { work: 1, short_break: 1, long_break: 2, rounds: 2, sound: false };
         let mut p = Pomodoro::new();

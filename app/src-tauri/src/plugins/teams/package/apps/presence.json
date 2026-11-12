@@ -15,5 +15,27 @@
   "on": {
     "press": [],
     "long": []
-  }
+  },
+  "states": [
+    {
+      "key": "available",
+      "label": "Available",
+      "icon": "com.deckling.core:presence-available"
+    },
+    {
+      "key": "away",
+      "label": "Away",
+      "icon": "com.deckling.core:presence-away"
+    },
+    {
+      "key": "busy",
+      "label": "Busy, do not disturb",
+      "icon": "com.deckling.core:do-not-disturb"
+    },
+    {
+      "key": "offline",
+      "label": "Offline, signed out",
+      "icon": "com.deckling.core:teams"
+    }
+  ]
 }

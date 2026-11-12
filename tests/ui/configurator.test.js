@@ -167,6 +167,21 @@ const fs = require('fs');
   await p.locator('.pkg:has-text("com.deckling.web") label:has-text("Run the web server") input').click(); await wait(800);
   await p.screenshot({ path: OUT + '/13-web.png', fullPage: true });
 
+  // icons per state: Mute on key 9, Muted gets the TC001, then the original again
+  await p.click('#side [data-view="deck"]'); await wait(500);
+  await p.click('.key[data-key="9"]'); await wait(300);
+  await p.click('#insp button:has-text("Clear key")').catch(() => {}); await wait(500);
+  await p.click('#lib-tabs [data-tab="apps"]'); await wait(300);
+  await p.click('.item:has-text("Mute") >> nth=0'); await wait();
+  ok(page0()['9']?.app === 'com.deckling.core:mute', 'Mute on key 9: ' + page0()['9']?.app);
+  ok(await p.locator('#insp .state-icon').count() === 2, 'two states listed with their original icons');
+  await p.locator('#insp .state-icon:has-text("Muted") button:has-text("Change")').click(); await wait(500);
+  await p.locator('#lib-body .icon-cell[title="com.deckling.core:ulanzi-tc001"]').click(); await wait();
+  ok(page0()['9']?.config?.state_icons?.muted === 'com.deckling.core:ulanzi-tc001', 'Muted uses the TC001: ' + JSON.stringify(page0()['9']?.config));
+  await p.screenshot({ path: OUT + '/14-state-icons.png', fullPage: true });
+  await p.locator('#insp .state-icon:has-text("Muted") button:has-text("Original")').click(); await wait();
+  ok(!page0()['9']?.config?.state_icons, 'back to the original icon');
+
   // narrow window
   await p.setViewportSize({ width: 820, height: 1000 }); await wait(500);
   await p.screenshot({ path: OUT + '/10-narrow.png', fullPage: true });

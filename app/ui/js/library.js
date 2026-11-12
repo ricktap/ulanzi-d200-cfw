@@ -5,7 +5,7 @@ import { state, edit, hint, STATUS_KEY, keyObj, ensureKey, ensureState, keyKind,
 import { appDef, byNamespace, iconsForApp, iconUrl, shortRole, withNs, nsOf, pluginOn } from "./catalog.js";
 import { placeApp } from "./apps.js";
 import { addAction } from "./actions.js";
-import { keyHolder, keyWhere } from "./inspector.js";
+import { keyHolder, keyWhere, setStateIcon } from "./inspector.js";
 
 const appRoles = (a) => [...new Set([...(a.roles || []).map(shortRole), "button"])].join(", ");
 
@@ -92,6 +92,8 @@ function iconsTab() {
   const kind = keyKind(key);
   const app = kind === "app" ? appDef(key.app) : null;
   if (kind === "app" && !app) return h("p", { class: "sub" }, "The plugin of this key is missing, so its icons are unknown.");
+  const forState = app?.states?.find((s) => s.key === state.iconFor);
+  if (forState) return stateIconsTab(k, key, app, forState);
   const roles = app ? app.roles : ["button"];
   const cur = withNs(kind === "app" ? key.states?.[0]?.icon : key?.states?.[state.selState]?.icon);
   const all = iconsForApp(app || { roles });
@@ -133,6 +135,35 @@ function iconsTab() {
       h("span", { class: "label" }, "Whole page"),
       h("div", { class: "row" }, setSel, h("button", { class: "btn", type: "button", onclick: () => applySet(setSel.value) }, "Apply set")),
       h("button", { class: "btn", type: "button", onclick: restoreDefaults }, "Restore default icons")),
+  ];
+}
+
+/** Picking an icon for one state of the app's widget: any icon, drawn as it is. */
+function stateIconsTab(k, key, app, st) {
+  const cur = key.config?.state_icons?.[st.key];
+  const all = iconsForApp({ roles: ["button"] });
+  const search = h("input", { placeholder: `Search ${all.length} icons`, value: query });
+  const grid = h("div", { class: "icon-grid" });
+  const pick = (id) => { setStateIcon(k, st.key, id); state.iconFor = null; renderLibrary(); };
+  const draw = () => {
+    const q = search.value.trim().toLowerCase();
+    query = search.value;
+    const list = all.filter((x) => !q || x.icon.id.toLowerCase().includes(q)).slice(0, q ? 400 : 240);
+    put(grid, list.map(({ icon }) =>
+      h("button", { type: "button", class: "icon-cell" + (icon.id === cur ? " on" : ""), title: icon.id, onclick: () => pick(icon.id) },
+        iconImg(icon.id, k), icon.id.split(":").pop().replace(/-/g, " "))));
+  };
+  search.oninput = draw;
+  draw();
+  return [
+    h("p", { class: "sub" }, `Icon for ${app.name} · ${st.label}. It replaces ${st.icon}.`),
+    h("div", { class: "row" },
+      h("button", { type: "button", class: "item" + (!cur ? " on" : ""), onclick: () => pick(null) },
+        h("img", { alt: "", src: iconUrl(st.icon) || iconUrl("grid") }),
+        h("span", { class: "grow" }, h("span", { class: "name" }, "Original icon"), h("span", { class: "meta" }, st.icon))),
+      h("button", { class: "btn small", type: "button", onclick: () => { state.iconFor = null; renderLibrary(); } }, "Done")),
+    search,
+    grid,
   ];
 }
 

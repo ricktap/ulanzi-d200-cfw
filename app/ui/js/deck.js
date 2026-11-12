@@ -70,6 +70,7 @@ export function select(k) {
   if (k !== state.selected) {
     state.selState = 0;
     state.slot = "press";
+    state.iconFor = null;
   }
   state.selected = k;
   markKeys();

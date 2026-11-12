@@ -145,6 +145,10 @@ pub fn discovery(b: &str, profiles: &[String], pages: &[String], themes: &[Strin
         }
     }
     out.push((format!("homeassistant/button/{id}/remote/config"), String::new()));
+    // and the per-key event entities of 0.15 to 0.18 (Key pressed has the key as an attribute)
+    for k in 0..crate::config::NUM_KEYS {
+        out.push((format!("homeassistant/event/{id}/key_{k}/config"), String::new()));
+    }
 
     let mut add = |component: &str, key: &str, mut cfg: serde_json::Value| {
         let o = cfg.as_object_mut().unwrap();
@@ -219,15 +223,9 @@ pub fn discovery(b: &str, profiles: &[String], pages: &[String], themes: &[Strin
         "value_template": "{{ {'installed_version': value_json.version, 'latest_version': value_json.latest, 'title': 'D200 Deck', \
 'release_url': 'https://github.com/ricktap/ulanzi-d200-cfw/releases/tag/v' ~ value_json.latest} | tojson }}" }));
 
-    // ---- key events: one entity for every key (key, page, profile, label, icon as attributes),
-    // and one per key, so the logbook and the automation editor show which key it was
+    // ---- key events: one entity for every key (key, page, profile, label, icon as attributes)
     add("event", "key_pressed", json!({ "name": "Key pressed", "device_class": "button", "icon": "mdi:gesture-tap-button",
         "state_topic": format!("{b}/key_event"), "event_types": ["press", "long_press", "double_press"] }));
-    for k in 0..crate::config::NUM_KEYS {
-        let name = if k == crate::config::NUM_KEYS - 1 { "Wide key".to_string() } else { format!("Key {k}") };
-        add("event", &format!("key_{k}"), json!({ "name": name, "device_class": "button", "icon": "mdi:gesture-tap-button",
-            "state_topic": format!("{b}/key/{k}"), "event_types": ["press", "long_press", "double_press"] }));
-    }
 
     // ---- Teams, while the plugin is on
     let presence = format!("homeassistant/sensor/{id}/teams_presence/config");
@@ -257,6 +255,7 @@ mod tests {
         // the old remote-page device triggers and the remote button are removed
         assert_eq!(get("homeassistant/device_automation/d200_deck/remote_0_press/config"), "");
         assert_eq!(get("homeassistant/button/d200_deck/remote/config"), "");
+        assert_eq!(get("homeassistant/event/d200_deck/key_13/config"), "");
         assert_eq!(get("homeassistant/sensor/d200_deck/teams_presence/config"), "");
         let page: Value = serde_json::from_str(&get("homeassistant/select/d200_deck/page/config")).unwrap();
         assert_eq!(page["options"], serde_json::json!(["main", "Media"]));
@@ -264,8 +263,7 @@ mod tests {
         assert_eq!(page["device"]["identifiers"][0], "d200_deck");
         for t in ["switch/d200_deck/remote_page", "switch/d200_deck/screensaver", "switch/d200_deck/display", "switch/d200_deck/follow",
                   "button/d200_deck/notify_clear", "button/d200_deck/pomodoro", "binary_sensor/d200_deck/usb", "sensor/d200_deck/app",
-                  "sensor/d200_deck/now_playing", "sensor/d200_deck/pomodoro_phase", "update/d200_deck/app", "event/d200_deck/key_0",
-                  "event/d200_deck/key_13"] {
+                  "sensor/d200_deck/now_playing", "sensor/d200_deck/pomodoro_phase", "update/d200_deck/app", "event/d200_deck/key_pressed"] {
             let v: Value = serde_json::from_str(&get(&format!("homeassistant/{t}/config"))).unwrap();
             assert!(v["availability"].is_array(), "{t}");
         }

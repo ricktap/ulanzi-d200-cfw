@@ -406,15 +406,8 @@ async def test_one_device_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
     await hass.services.async_call("button", "press", {"entity_id": st("button", "pomodoro_reset").entity_id}, blocking=True)
     assert published(mqtt_mock, "d200/pomodoro/set")[-1][0] == "reset"
 
-    # one event entity per key on the deck's device
-    k3, wide = st("event", "key_3"), st("event", "key_13")
-    assert k3.name == "Ulanzi D200 Key 3" and wide.name == "Ulanzi D200 Wide key"
-    assert ents.async_get(k3.entity_id).device_id == dev.id
-    async_fire_mqtt_message(hass, "d200/key/3", json.dumps({"event_type": "double_press", "profile": "Work", "page": "Main"}))
-    await hass.async_block_till_done()
-    s3 = st("event", "key_3")
-    assert (s3.attributes["event_type"], s3.attributes["profile"], s3.attributes["page"]) == ("double_press", "Work", "Main")
-    assert st("event", "key_4").state == "unknown"
+    # no per-key entities any more (0.15 to 0.18 had them)
+    assert by_unique(hass, "event", "d200_deck_key_3") is None
     # one entity for every key, with everything as attributes
     anykey = st("event", "key_pressed")
     assert anykey.name == "Ulanzi D200 Key pressed" and anykey.attributes["event_types"] == ["press", "long_press", "double_press"]
@@ -445,7 +438,7 @@ async def test_web_api_only_device(hass: HomeAssistant, aioclient_mock, hass_cli
     dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
     assert dev and dev.name == "Ulanzi D200"
     ents = {e.unique_id.removeprefix(entry.entry_id + "_"): e.entity_id for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)}
-    assert "key_event" not in ents and "key_13" in ents
+    assert "key_event" not in ents and "key_13" not in ents and "key_pressed" in ents
     st = lambda k: hass.states.get(ents[k])
     assert st("connected").state == "on" and st("usb").state == "on"
     assert st("page").state == "Media" and st("page").attributes["options"] == ["main", "Media"]
@@ -489,8 +482,6 @@ async def test_web_api_only_device(hass: HomeAssistant, aioclient_mock, hass_cli
     body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4, "label": "Door", "icon": "lock"}
     assert (await client.post("/api/webhook/hook123", json=body)).status == 200
     await hass.async_block_till_done()
-    ev = st("key_7")
-    assert ev.attributes["event_type"] == "long_press" and ev.attributes["page"] == "remote"
     a = st("key_pressed").attributes
     assert (a["event_type"], a["key"], a["key_label"], a["key_icon"]) == ("long_press", 7, "Door", "lock")
-    assert st("key_6").state == "unknown" and hass.states.get(ents["key_13"]).name == "Ulanzi D200 Wide key"
+    assert a["page"] == "remote"

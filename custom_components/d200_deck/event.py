@@ -1,6 +1,6 @@
-"""Web API only (over MQTT the deck announces these itself): Key pressed, for every key, and one
-event entity per key (Key 0 … Key 12, Wide key). Each shows press, long press and double press;
-the attributes say which key, on which profile and page, with its label, icon and app."""
+"""Web API only (over MQTT the deck announces it itself): Key pressed, for every key. It shows
+press, long press and double press; the attributes say which key, on which profile and page,
+with its label, icon and app."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ KEYS = 14
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     if web_only(entry):  # over MQTT the deck's own device has these
         b = entry.runtime_data
-        async_add_entities([KeyEvent(b, None)] + [KeyEvent(b, k) for k in range(KEYS)])
+        async_add_entities([KeyEvent(b, None)])
 
 
 def attributes(data) -> dict:

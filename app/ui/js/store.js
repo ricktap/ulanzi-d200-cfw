@@ -21,6 +21,7 @@ export const state = {
   selState: 0,
   pane: "deck", // deck | packages | signals
   libTab: "apps", // apps | actions | icons
+  iconFor: null, // the icons tab picks for this state of the app's widget (app.states[].key), else the key's icon
   slot: "press", // the action section the library adds to: press | long | down | up
   editProfile: false,
 };
