@@ -48,6 +48,8 @@ pub enum HostRequest {
     Press { key: usize, event: crate::config::KeyEvent },
     /// Use these settings for the deck's shared MQTT connection (saved to deck.json).
     SetMqtt(crate::config::MqttCfg),
+    /// Put a key on a page, or take it off (saved to deck.json); see `Engine::set_layout_key`.
+    SetLayoutKey(serde_json::Value),
 }
 
 /// What a plugin may touch while it handles one call.

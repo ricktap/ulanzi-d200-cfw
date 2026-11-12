@@ -71,6 +71,12 @@ class DeckApi:
     async def state(self) -> dict[str, Any]:
         return await self.call("GET", "/api/state")
 
+    async def layout(self) -> dict[str, Any]:
+        return await self.call("GET", "/api/layout")
+
+    async def set_layout(self, spec: dict[str, Any]) -> None:
+        await self.call("DELETE" if spec.get("remove") else "PUT", "/api/layout", spec)
+
     async def press(self, key: int, event: str) -> None:
         await self.call("POST", f"/api/keys/{key}/press", {"event": event})
 

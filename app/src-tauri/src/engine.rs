@@ -227,6 +227,7 @@ pub struct Engine {
     /// The last `deck.state` sent (signal, MQTT `<base>/state`), and its pages for discovery.
     last_state: String,
     last_pages: Vec<String>,
+    last_layout: String,
     /// A newer release of the app, if the updater found one.
     latest: Option<String>,
     /// When the Pomodoro phase ends (kept steady between ticks).
@@ -394,6 +395,7 @@ impl Engine {
             display_off: None,
             last_state: String::new(),
             last_pages: Vec::new(),
+            last_layout: String::new(),
             latest: None,
             pomodoro_ends: None,
             note: None,
@@ -1068,8 +1070,117 @@ impl Engine {
                 self.notes.clear();
                 self.dismiss_note();
             }
+            Action::Theme { theme } => {
+                let t = theme.trim();
+                let id = if t.is_empty() || t.eq_ignore_ascii_case(crate::config::DEFAULT_THEME) {
+                    None
+                } else {
+                    let reg = crate::registry::current();
+                    match reg.themes.values().find(|d| d.kind == "full" && (d.id == t || d.name.eq_ignore_ascii_case(t))) {
+                        Some(d) => Some(d.id.clone()),
+                        None => return err(format!("no theme '{t}'")),
+                    }
+                };
+                if id != self.cfg.theme {
+                    let mut c = self.cfg.clone();
+                    c.theme = id;
+                    self.save_changed(c);
+                }
+            }
+            Action::ScreensaverScene { scene } => {
+                let s = scene.trim().to_ascii_lowercase();
+                if !crate::config::SCENES.contains(&s.as_str()) {
+                    return err(format!("no screensaver scene '{s}'"));
+                }
+                if s != self.cfg.settings.screensaver.scene {
+                    let mut c = self.cfg.clone();
+                    c.settings.screensaver.scene = s;
+                    c.sync();
+                    self.save_changed(c);
+                }
+            }
         }
         self.publish_deck_state();
+    }
+
+    /// A change made here, not in the configurator: save it, apply it, tell the UI.
+    fn save_changed(&mut self, c: Config) {
+        match self.apply_config(c) {
+            Ok(()) => (self.emit)("config-changed", json!({})),
+            Err(e) => (self.emit)("error", json!({ "message": e })),
+        }
+    }
+
+    /// Put a key on a page (Home Assistant's key builder): `{key, profile?, page?, label?, icon?,
+    /// color?, text_color?}`; with `"remove": true` the key is taken off. Profile and page are the
+    /// ones the D200 shows unless given; a page that does not exist yet is added to the profile.
+    /// Fields left out stay as they are; `null` clears one.
+    fn set_layout_key(&mut self, spec: &Value) -> Result<(), String> {
+        let k = spec["key"].as_u64().ok_or("key is 0 to 12")? as usize;
+        if k >= STATUS_KEY {
+            return Err("key is 0 to 12 (the wide key is the status key)".into());
+        }
+        let pi = match spec["profile"].as_str().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(name) => self.cfg.profile_index(name).ok_or_else(|| format!("no profile named '{name}'"))?,
+            None => self.view.profile,
+        };
+        let page = match spec["page"].as_str().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(p) => p.to_string(),
+            None if pi == self.view.profile && !self.view.remote => self.view.page.clone(),
+            None => self.cfg.profiles[pi].pages.keys().next().cloned().unwrap_or_default(),
+        };
+        if page.len() > 64 {
+            return Err("page names are at most 64 characters".into());
+        }
+        let mut c = self.cfg.clone();
+        let pg = c.profiles[pi].pages.entry(page).or_default();
+        if spec["remove"].as_bool().unwrap_or(false) {
+            pg.shift_remove(&k.to_string());
+        } else {
+            let key = pg.entry(k.to_string()).or_default();
+            if key.states.is_empty() {
+                key.states.push(Default::default());
+            }
+            let look = &mut key.states[0].look;
+            let text = |v: &Value| v.as_str().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+            for (field, slot) in [("label", &mut look.label), ("icon", &mut look.icon), ("color", &mut look.bg), ("text_color", &mut look.fg)] {
+                if let Some(v) = spec.get(field) {
+                    *slot = text(v);
+                }
+            }
+        }
+        c.sync();
+        self.save_changed(c);
+        Ok(())
+    }
+
+    /// Every profile, page and key with its label, icon, colours and app: for Home Assistant
+    /// (MQTT `<base>/layout`, `GET /api/layout`, signal `deck.layout`).
+    fn layout(&self) -> Value {
+        let profiles: Vec<Value> = self
+            .cfg
+            .profiles
+            .iter()
+            .map(|p| {
+                let pages: Vec<Value> = p
+                    .pages
+                    .iter()
+                    .map(|(name, page)| {
+                        let keys: Map<String, Value> = page
+                            .iter()
+                            .filter(|(_, key)| !key.is_empty())
+                            .map(|(k, key)| {
+                                let look = key.states.first().map(|s| s.look.clone()).unwrap_or_default();
+                                (k.clone(), json!({ "label": look.label, "icon": look.icon, "color": look.bg, "text_color": look.fg, "app": key.app }))
+                            })
+                            .collect();
+                        json!({ "name": name, "keys": keys })
+                    })
+                    .collect();
+                json!({ "name": p.name, "pages": pages })
+            })
+            .collect();
+        json!({ "profiles": profiles })
     }
 
     /// Dark (brightness 0, the level kept) or lit again.
@@ -1132,6 +1243,12 @@ impl Engine {
             "display": self.display_off.is_none(),
             "screensaver": self.saver.is_some(),
             "follow": self.cfg.settings.follow_active_app,
+            "theme": self.cfg.theme.as_deref().and_then(|id| crate::registry::current().themes.get(id).map(|t| t.name.clone()))
+                .unwrap_or_else(|| crate::config::DEFAULT_THEME.to_string()),
+            "themes": std::iter::once(crate::config::DEFAULT_THEME.to_string())
+                .chain(crate::registry::current().themes.values().filter(|t| t.kind == "full").map(|t| t.name.clone()))
+                .collect::<Vec<_>>(),
+            "scene": self.cfg.settings.screensaver.scene,
             "notification": self.note.is_some(),
             "version": env!("CARGO_PKG_VERSION"),
             "latest": self.latest.clone().unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string()),
@@ -1142,13 +1259,15 @@ impl Engine {
     }
 
     fn publish_deck_state(&mut self) {
+        self.publish_layout();
         let v = self.deck_state();
         let text = v.to_string();
         if text == self.last_state {
             return;
         }
         self.last_state = text.clone();
-        let pages: Vec<String> = serde_json::from_value(v["pages"].clone()).unwrap_or_default();
+        let mut pages: Vec<String> = serde_json::from_value(v["pages"].clone()).unwrap_or_default();
+        pages.extend(serde_json::from_value::<Vec<String>>(v["themes"].clone()).unwrap_or_default());
         if pages != self.last_pages {
             self.last_pages = pages;
             self.publish_discovery(); // the page select offers this profile's pages
@@ -1160,6 +1279,21 @@ impl Engine {
         }
         self.signals.publish("deck.state", v.clone());
         self.tell_watchers("deck.state", &v);
+    }
+
+    fn publish_layout(&mut self) {
+        let v = self.layout();
+        let text = v.to_string();
+        if text == self.last_layout {
+            return;
+        }
+        self.last_layout = text.clone();
+        if let Some(m) = &self.mqtt {
+            if self.mqtt_up {
+                m.publish(&m.topic("layout"), text, true);
+            }
+        }
+        self.signals.publish("deck.layout", v);
     }
 
     /// Plugins that follow a core signal (`watches()`) get its new value.
@@ -2232,6 +2366,14 @@ impl Engine {
             "display/set" => self.run_action(&Action::Display { on: text }, None),
             "follow/set" => self.run_action(&Action::Follow { on: text }, None),
             "notify/clear" => self.run_action(&Action::NotifyClear, None),
+            "theme/set" => self.run_action(&Action::Theme { theme: text }, None),
+            "screensaver/scene/set" => self.run_action(&Action::ScreensaverScene { scene: text }, None),
+            "layout/set" => {
+                let spec: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+                if let Err(e) = self.set_layout_key(&spec) {
+                    (self.emit)("error", json!({ "message": format!("layout/set: {e}") }));
+                }
+            }
             "pomodoro/set" => {
                 let what = if text == "reset" { "reset" } else { "press" };
                 self.run_plugin_action("com.deckling.core:pomodoro", json!({ "do": what }));
@@ -2346,6 +2488,11 @@ impl Engine {
                         self.fire(key, event);
                     }
                 }
+                HostRequest::SetLayoutKey(spec) => {
+                    if let Err(e) = self.set_layout_key(&spec) {
+                        (self.emit)("error", json!({ "message": e }));
+                    }
+                }
                 HostRequest::SetMqtt(m) => {
                     // Home Assistant set up the deck's MQTT connection over the Web API
                     if self.cfg.settings.mqtt != m {
@@ -2402,7 +2549,10 @@ impl Engine {
         let names: Vec<String> = self.cfg.profiles.iter().map(|p| p.name.clone()).collect();
         let pages: Vec<String> = self.cfg.profiles.get(self.view.profile).map(|p| p.pages.keys().cloned().collect()).unwrap_or_default();
         let teams = self.plugin_enabled(crate::plugins::teams::ID);
-        for (t, p) in m.discovery(&names, &pages, teams) {
+        let themes: Vec<String> = std::iter::once(crate::config::DEFAULT_THEME.to_string())
+            .chain(crate::registry::current().themes.values().filter(|t| t.kind == "full").map(|t| t.name.clone()))
+            .collect();
+        for (t, p) in m.discovery(&names, &pages, &themes, teams) {
             m.publish(&t, p, true);
         }
     }
@@ -2512,6 +2662,9 @@ impl Engine {
                     "core:profiles" => [json!({ "label": "Next profile", "value": "next" }), json!({ "label": "Automatic", "value": "auto" })]
                         .into_iter()
                         .chain(self.cfg.profiles.iter().map(|p| json!({ "label": p.name, "value": p.name })))
+                        .collect(),
+                    "core:themes" => std::iter::once(json!({ "label": crate::config::DEFAULT_THEME, "value": "" }))
+                        .chain(crate::registry::current().themes.values().filter(|t| t.kind == "full").map(|t| json!({ "label": t.name, "value": t.id })))
                         .collect(),
                     "core:pages" => self
                         .cfg

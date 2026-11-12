@@ -114,6 +114,8 @@ An action is the id of an action a plugin offers, with its parameters. Built-in 
 | `core:notify_clear` | | removes the notification and those waiting |
 | `core:screensaver` | `on` | `on`, `off`, `toggle`: the screensaver now |
 | `core:display` | `on` | `on`, `off`, `toggle`: the display dark (brightness 0) or lit; a key press lights it |
+| `core:theme` | `theme` | a full theme's id or name; empty or `Night Signal` for the built-in one |
+| `core:screensaver_scene` | `scene` | `auto`, `snow`, `pink`, `beach`, `leaves`, `rain` |
 | `core:follow` | `on` | `on`, `off`, `toggle`: follow the program in front (saved) |
 | `com.deckling.core:command` | `command` | shell command |
 | `com.deckling.core:open` | `target` | app, file, folder or URL |

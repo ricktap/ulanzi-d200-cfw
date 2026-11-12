@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 pub mod apps;
 pub mod bind;
 #[cfg(test)]

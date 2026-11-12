@@ -71,6 +71,8 @@ What it does:
 | Key 0 … Key 12, Wide key | event (one per key) | press, long press and double press on that key, on any page; attributes `profile` and `page`. The numbers are the configurator's |
 | Profile, Page | select | what the D200 shows; pick one to switch (Page offers the pages of the current profile) |
 | Brightness | number | 0–255 |
+| Theme | select | Night Signal or an installed full theme |
+| Screensaver scene | select (config) | `auto` (by season), `snow`, `pink`, `beach`, `leaves`, `rain` |
 | Remote page | switch | the Home Assistant remote page on or off |
 | Screensaver | switch | start or stop it now |
 | Display | switch | dark (brightness 0) or lit again; a key press also lights it |
@@ -97,7 +99,43 @@ Two services work with any key or action:
 | Service | Does |
 |---|---|
 | `d200_deck.press_key` | presses key `key` (0–13) of the page the D200 shows: `event` `press`, `long_press` or `double_press` |
+| `d200_deck.configure_key` | puts key `key` (0–12) on a page with `label`, `icon` (an icon id such as `core:light`, or an emoji), `color` and `text_color`. `profile` and `page` are the ones the D200 shows unless given; a new page is added to the profile. Saved in deck.json, so the configurator shows it too |
+| `d200_deck.remove_key` | takes key `key` off a page (`profile`, `page` as above) |
+| `d200_deck.get_layout` | answers with every profile, page and key: `{profiles: [{name, pages: [{name, keys: {"0": {label, icon, color, text_color, app}}}]}]}` |
 | `d200_deck.run_action` | runs a deck action: `action` (e.g. `core:page`, `core:profile`, `com.deckling.core:media`) with `params` (e.g. `{page: Media}`). Actions that start programs or type (`com.deckling.core:command`, `:open`, `:keys`) are refused |
+
+**Building keys from Home Assistant.** `configure_key` puts a key on the deck; its presses come
+back as **Key pressed** with the label, page and profile, so one automation can act on them. A
+page "Home" with a lamp on key 0:
+
+```yaml
+action: d200_deck.configure_key
+data: { key: 0, page: Home, label: Lamp, icon: core:light, color: "#1F2937" }
+```
+
+```yaml
+automation:
+  - alias: "D200: Home page"
+    triggers:
+      - trigger: state
+        entity_id: event.ulanzi_d200_key_pressed
+        not_to: unavailable
+    conditions:
+      - condition: state
+        entity_id: event.ulanzi_d200_key_pressed
+        attribute: page
+        state: Home
+    actions:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: event.ulanzi_d200_key_pressed
+                attribute: key_label
+                state: Lamp
+            sequence:
+              - action: light.toggle
+                target: { entity_id: light.living_room }
+```
 
 An "on air" lamp at the door:
 
@@ -256,6 +294,10 @@ other keys can read it.
 | `d200/notify/clear` | to deck | anything: removes the notifications |
 | `d200/pomodoro/set` | to deck | `press` (start, pause, resume) or `reset` |
 | `d200/press` | to deck | `{key, event}`: presses a key (`press`, `long_press`, `double_press`) |
+| `d200/theme/set` | to deck | a theme name (or id); `Night Signal` for the built-in one |
+| `d200/screensaver/scene/set` | to deck | `auto`, `snow`, `pink`, `beach`, `leaves`, `rain` |
+| `d200/layout` | from deck, retained | every profile, page and key (as `get_layout`) |
+| `d200/layout/set` | to deck | `{key, profile?, page?, label?, icon?, color?, text_color?}` puts a key on a page; with `"remove": true` it is taken off |
 | `d200/action` | to deck | `{action, params}`: runs an action; not those that start programs or type |
 | `d200/availability` | from deck, retained | `online <computer>` / `offline` |
 
