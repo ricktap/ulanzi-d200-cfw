@@ -30,13 +30,15 @@ export function schemaField(f, read, write, { labelled = false } = {}) {
     case "select": {
       if (f.multiple) return multiSelect(f, cur, write, label);
       ctl = h("select", { title: label });
+      // unset: the field's default shows (no "Choose…" when there is one)
+      const shown = cur === undefined || cur === null ? f.default : cur;
       const fill = (opts) => {
         const list = [...opts];
         // Keep a value the options do not know (a deleted page, "next", ...).
-        if (cur !== undefined && cur !== null && !list.some((o) => String(o.value) === String(cur))) list.unshift({ label: String(cur), value: cur });
-        if (cur === undefined || cur === null) list.unshift({ label: "Choose…", value: "" });
+        if (shown !== undefined && shown !== null && !list.some((o) => String(o.value) === String(shown))) list.unshift({ label: String(shown), value: shown });
+        if (shown === undefined || shown === null) list.unshift({ label: "Choose…", value: "" });
         ctl.replaceChildren(...list.map((o) => h("option", { value: String(o.value) }, o.label ?? String(o.value))));
-        ctl.value = cur === undefined || cur === null ? "" : String(cur);
+        ctl.value = shown === undefined || shown === null ? "" : String(shown);
         ctl._opts = list;
       };
       fill(Array.isArray(f.values) ? f.values : []);

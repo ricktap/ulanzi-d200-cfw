@@ -15,5 +15,17 @@
   "on": {
     "press": [],
     "long": []
-  }
+  },
+  "states": [
+    {
+      "key": "on",
+      "label": "Camera on",
+      "icon": "com.deckling.core:camera-on"
+    },
+    {
+      "key": "off",
+      "label": "Camera off",
+      "icon": "com.deckling.core:camera-off"
+    }
+  ]
 }

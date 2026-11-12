@@ -15,5 +15,17 @@
   "on": {
     "press": [],
     "long": []
-  }
+  },
+  "states": [
+    {
+      "key": "on",
+      "label": "Sound on",
+      "icon": "com.deckling.core:volume-on"
+    },
+    {
+      "key": "muted",
+      "label": "Muted",
+      "icon": "com.deckling.core:volume-muted"
+    }
+  ]
 }

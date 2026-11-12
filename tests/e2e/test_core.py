@@ -130,6 +130,8 @@ mint11 = int((np.abs(snap()[y11 + 120:y11 + 196, x11:x11 + 196].astype(int) - [0
 check("... with the text below as On/Off: a mint ON pill", mint11 > 300, mint11)
 tap(12); time.sleep(0.6)
 check("HA key press goes back to HA", b"press" in broker.got("d200/ha/light.kitchen/action"), broker.got("d200/ha/light.kitchen/action"))
+ke = [json.loads(m[2]) for m in broker.log if m[1] == "d200/key_event"]
+check("Key pressed has the HA key's label and icon", bool(ke) and ke[-1].get("key") == 12 and ke[-1].get("key_label") == "Kitchen" and bool(ke[-1].get("key_icon")), ke[-1:])
 
 # the deck's state for Home Assistant, and its commands
 def state():
@@ -153,7 +155,7 @@ n = len([m for m in broker.log if m[1] == "d200/key"])
 broker.publish("d200/press", json.dumps({"key": 3, "event": "long_press"})); time.sleep(0.8)
 check("press over MQTT fires a key event", any(m[1] == "d200/key" and json.loads(m[2]).get("event") == "long_press" for m in broker.log[n:]), broker.log[-3:])
 check("... and Key pressed (key_event) with the key", any(m[1] == "d200/key_event" and json.loads(m[2]).get("key") == 3 and "key_label" in json.loads(m[2]) for m in broker.log[n:]), broker.log[-3:])
-check("... and the key's own event topic", any(m[1] == "d200/key/3" and json.loads(m[2]).get("event_type") == "long_press" for m in broker.log[n:]), broker.log[-3:])
+check("... and no per-key event topic any more", not any(m[1].startswith("d200/key/") for m in broker.log[n:]), broker.log[-3:])
 
 # the key builder and the look, as Home Assistant uses them
 broker.publish("d200/layout/set", json.dumps({"key": 4, "profile": "Default", "page": "HA built", "label": "Fan", "icon": "🌀", "color": "#102030"})); time.sleep(1.5)

@@ -15,5 +15,17 @@
   "on": {
     "press": [],
     "long": []
-  }
+  },
+  "states": [
+    {
+      "key": "live",
+      "label": "Microphone on",
+      "icon": "com.deckling.core:microphone-on"
+    },
+    {
+      "key": "muted",
+      "label": "Microphone muted",
+      "icon": "com.deckling.core:microphone-muted"
+    }
+  ]
 }

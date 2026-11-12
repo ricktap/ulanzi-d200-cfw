@@ -16,5 +16,42 @@
   "on": {
     "press": [],
     "long": []
-  }
+  },
+  "states": [
+    {
+      "key": "sun",
+      "label": "Clear",
+      "icon": "com.deckling.core:weather-sun"
+    },
+    {
+      "key": "moon",
+      "label": "Clear night",
+      "icon": "com.deckling.core:weather-moon"
+    },
+    {
+      "key": "partly",
+      "label": "Partly cloudy",
+      "icon": "com.deckling.core:weather-partly-cloudy"
+    },
+    {
+      "key": "cloudy",
+      "label": "Cloudy, fog",
+      "icon": "com.deckling.core:weather-cloudy"
+    },
+    {
+      "key": "rain",
+      "label": "Rain",
+      "icon": "com.deckling.core:weather-rain"
+    },
+    {
+      "key": "snow",
+      "label": "Snow",
+      "icon": "com.deckling.core:weather-snow"
+    },
+    {
+      "key": "storm",
+      "label": "Thunderstorm",
+      "icon": "com.deckling.core:weather-storm"
+    }
+  ]
 }

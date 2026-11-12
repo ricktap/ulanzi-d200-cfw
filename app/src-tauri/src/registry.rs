@@ -87,6 +87,18 @@ pub struct AppDef {
     /// Preset actions for a new key.
     #[serde(default)]
     pub on: Value,
+    /// Core only: the states a built-in widget draws with their own icons (muted, sound on, …).
+    /// A key can give each one another icon (`config.state_icons`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub states: Vec<AppState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppState {
+    pub key: String,
+    pub label: String,
+    /// The icon the widget draws in this state.
+    pub icon: String,
 }
 
 impl AppDef {

@@ -58,7 +58,8 @@
           "label": "Value",
           "value": "value"
         }
-      ]
+      ],
+      "default": "auto"
     }
   ],
   "implements": {

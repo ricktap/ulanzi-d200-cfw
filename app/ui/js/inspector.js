@@ -9,6 +9,7 @@ import { textField } from "./controls.js";
 import { actionSections, testPress } from "./actions.js";
 import { appHelp, clearKey } from "./apps.js";
 import { keyEl } from "./deck.js";
+import { iconImg } from "./library.js";
 
 /** The object that carries `on` for key k (state 0 of an app key, the shown state of a button, status_key). */
 export function keyHolder(k) {
@@ -55,6 +56,7 @@ export function renderInspector() {
     app ? settingsBox(k, key, app) : null,
     app ? null : statesBox(k, key),
     iconBox(k, key, app),
+    app ? stateIconsBox(k, key, app) : null,
     app ? null : propsBox(k, key),
     coloursBox(k, key, app),
     actionSections(keyHolder(k), { where: keyWhere(k) }),
@@ -74,7 +76,7 @@ function appBox(key, app) {
 
 /** Every app key: the text under the icon (the status pill or the value). */
 const TEXT_BELOW = {
-  key: "pill", label: "Text below", type: "select",
+  key: "pill", label: "Text below", type: "select", default: "auto",
   values: [
     { label: "Automatic", value: "auto" },
     { label: "None", value: "none" },
@@ -98,6 +100,50 @@ function settingsBox(k, key, app) {
     }, { labelled: true })));
 }
 
+/** Apps whose widget draws several states (muted, sound on): an icon per state, the
+ *  original next to it. Only while the widget is drawn (the app's default icon). */
+function stateIconsBox(k, key, app) {
+  if (!app.states?.length || key.states?.[0]?.icon) return null;
+  const chosen = key.config?.state_icons || {};
+  const set = (st, id) => edit(`${app.name} · ${st.label} icon`, () => {
+    const c = (ensureKey(k).config ||= {});
+    const m = (c.state_icons ||= {});
+    if (id) m[st.key] = id;
+    else delete m[st.key];
+    if (!Object.keys(m).length) delete c.state_icons;
+    if (!Object.keys(c).length) delete ensureKey(k).config;
+  });
+  return h("div", { class: "box" },
+    h("span", { class: "label" }, "Icons per state"),
+    h("p", { class: "sub" }, "The app draws a different icon in each state. Give a state another one; the original is on the left."),
+    app.states.map((st) => {
+      const mine = chosen[st.key];
+      return h("div", { class: "row state-icon" + (state.iconFor === st.key ? " on" : "") },
+        h("span", { class: "thumb", title: `original: ${st.icon}` }, iconImg(st.icon, k)),
+        h("span", { class: "sub" }, "→"),
+        h("span", { class: "thumb", title: mine || "the original" }, mine ? iconImg(mine, k) : h("span", { class: "sub" }, "same")),
+        h("span", { class: "grow" }, h("div", {}, st.label), h("div", { class: "sub" }, (mine || st.icon).split(":").pop().replace(/-/g, " "))),
+        h("button", { class: "btn small", type: "button", onclick: () => { state.iconFor = st.key; state.libTab = "icons"; render("library", "inspector"); } }, "Change"),
+        mine ? h("button", { class: "btn small", type: "button", onclick: () => set(st, null) }, "Original") : null);
+    }));
+}
+
+/** Set a widget state's icon (library, icons tab while `state.iconFor` is set). */
+export function setStateIcon(k, stateKey, id) {
+  const app = appDef(keyObj(k)?.app);
+  const st = app?.states?.find((s) => s.key === stateKey);
+  if (!st) return;
+  edit(`${app.name} · ${st.label} icon`, () => {
+    const c = (ensureKey(k).config ||= {});
+    const m = (c.state_icons ||= {});
+    if (id) m[st.key] = id;
+    else delete m[st.key];
+    if (!Object.keys(m).length) delete c.state_icons;
+    if (!Object.keys(c).length) delete ensureKey(k).config;
+  });
+  hint(id ? `Key ${k}: ${st.label} shows ${id} now.` : `Key ${k}: ${st.label} shows its original icon again.`);
+}
+
 /** The richest role the icon shares with the app. */
 function readsRole(iconId, app) {
   const icon = iconDef(iconId);
@@ -116,7 +162,7 @@ function iconBox(k, key, app) {
   const where = `key ${k}`;
   return h("div", { class: "box" },
     h("div", { class: "head" }, h("span", { class: "label grow" }, "Icon"),
-      h("button", { class: "btn small", type: "button", onclick: () => { state.libTab = "icons"; render("library"); } }, "Change icon")),
+      h("button", { class: "btn small", type: "button", onclick: () => { state.iconFor = null; state.libTab = "icons"; render("library"); } }, "Change icon")),
     h("span", { class: "sub mono" }, shown || "none", chosen ? "" : app ? " (default)" : ""),
     role ? h("span", { class: "sub" }, "Reads: " + shortRole(role)) : null,
     textField("Label", read, holder, "label", { area: true, rows: 2, ph: app ? "Empty: the app's own text" : "Text on the key", name: "Label", where }),

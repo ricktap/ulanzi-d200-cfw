@@ -55,7 +55,7 @@ Keys `0`-`12` are the square keys. The wide key (13) is the **status key** and i
 | Field | Meaning |
 |---|---|
 | `app` | app id, see below. Missing: a plain button (`core:button`) |
-| `config` | the app's settings for this key, by the schema in the app's `config`. Every app key also takes `pill` (Text below): `auto`, `none`, `state` (On/Off), `value` (the value, Off while off); built-in apps only know `none` (no status pill). The Home Assistant and Web key apps take `as` (Show as): `auto`, `button`, `toggle`, `rgb`, `progress`, `value` |
+| `config` | the app's settings for this key, by the schema in the app's `config`. Every app key also takes `pill` (Text below): `auto`, `none`, `state` (On/Off), `value` (the value, Off while off); built-in apps only know `none` (no status pill). The Home Assistant and Web key apps take `as` (Show as): `auto`, `button`, `toggle`, `rgb`, `progress`, `value`. Built-in apps that draw several states (Mute, Teams mute, camera and presence, Weather) take `state_icons`: state -> icon id, e.g. `{"muted": "com.deckling.core:ulanzi-tc001"}`; the states are listed in the app's `states` |
 | `states` | list of states. State 0 is the first one. A `core:state` action cycles through them |
 
 A key whose app comes from a plugin that is not installed shows "Plugin missing" and keeps all

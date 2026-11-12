@@ -843,8 +843,20 @@ impl Engine {
         }
         let key = self.key_cfg(k);
         let cur = self.rt.states.get(&self.key_path(k)).copied().unwrap_or(0);
-        let look = &key.state(cur).look;
-        (look.label.clone(), look.icon.clone(), key.app.clone())
+        let look = key.state(cur).look.clone();
+        // an app key without its own label or icon shows the app's (Home Assistant sends them)
+        let reg = crate::registry::current();
+        let def = key.app.as_deref().and_then(|id| reg.app(id));
+        let from_app = |b: &Option<Value>| -> Option<String> {
+            let d = def?;
+            let vars = self.theme_vars();
+            let ctx = Ctx { implements: Some(&d.implements), props: Some(&look.props), config: &key.config, signals: &self.signals, theme: &vars };
+            let v = bind::resolve(b.as_ref()?, &ctx, &mut Default::default())?;
+            Some(bind::text(&v)).filter(|t| !t.is_empty())
+        };
+        let label = look.label.clone().or_else(|| def.and_then(|d| from_app(&d.label)));
+        let icon = look.icon.clone().or_else(|| def.and_then(|d| from_app(&d.icon).or_else(|| d.icon_static().map(str::to_string))));
+        (label, icon, key.app.clone())
     }
 
     /// Does key k have double-press actions right now? Only those wait before a press.
@@ -874,13 +886,12 @@ impl Engine {
         if let Some(m) = &self.mqtt {
             m.publish(&m.topic("key"), json!({ "profile": v["profile"], "page": v["page"], "key": k, "event": ev.name(),
                                                 "label": v["label"], "icon": v["icon"], "app": v["app"] }).to_string(), false);
-            // Home Assistant event entities (MQTT discovery): Key pressed (any key) and one per key.
+            // Home Assistant's event entity Key pressed (MQTT discovery).
             // `icon` would become the entity's icon in Home Assistant: key_icon, key_label.
             if matches!(ev, KeyEvent::Press | KeyEvent::Long | KeyEvent::Double) {
                 let e = json!({ "event_type": ev.name(), "key": k, "profile": v["profile"], "page": v["page"],
                                 "key_label": v["label"], "key_icon": v["icon"], "app": v["app"] });
                 m.publish(&m.topic("key_event"), e.to_string(), false);
-                m.publish(&m.topic(&format!("key/{k}")), e.to_string(), false);
             }
         }
         // remote page keys belong to Home Assistant: its own broker, if it has one
@@ -2024,6 +2035,21 @@ impl Engine {
                     let mode = self.rt.modes.get(&path).copied().unwrap_or(0);
                     // "Text below" None: the built-in faces leave their status pill out
                     let _pill = apps::PillGuard::hide(key.cfg_str("pill") == Some("none"));
+                    // icons the key gave the widget's states (config.state_icons: state -> icon)
+                    let swaps: Vec<(String, String)> = def
+                        .map(|d| {
+                            let reg = crate::registry::current();
+                            d.states
+                                .iter()
+                                .filter_map(|s| {
+                                    let to = key.config.get("state_icons")?.get(&s.key)?.as_str()?.to_string();
+                                    let from = reg.icon(&s.icon)?.id.clone();
+                                    Some((from, to))
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let _swap = render::IconSwap::set(swaps);
                     match kind {
                         AppKind::Sysmon => {
                             let modes = apps::sysmon_modes(&key);

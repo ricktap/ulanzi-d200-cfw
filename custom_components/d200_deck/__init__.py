@@ -372,9 +372,10 @@ def _tidy_registry(hass: HomeAssistant, bridge: Bridge) -> None:
         for dev in dr.async_entries_for_config_entry(devs, entry.entry_id):
             devs.async_update_device(dev.id, remove_config_entry_id=entry.entry_id)
         return
-    # Web API only: one key event entity per key replaced the single one (0.13, 0.14)
-    if eid := ents.async_get_entity_id("event", DOMAIN, f"{entry.entry_id}_key_event"):
-        ents.async_remove(eid)
+    # Web API only: Key pressed replaced Key event (0.13, 0.14) and the per-key entities (0.15 to 0.18)
+    for old in ["key_event", *(f"key_{k}" for k in range(14))]:
+        if eid := ents.async_get_entity_id("event", DOMAIN, f"{entry.entry_id}_{old}"):
+            ents.async_remove(eid)
     wanted = device_identifiers(bridge)
     for dev in dr.async_entries_for_config_entry(devs, entry.entry_id):
         if not dev.identifiers & wanted:
