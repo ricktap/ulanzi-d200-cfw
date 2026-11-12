@@ -342,6 +342,17 @@ mod tests {
         let idle = draw("com.deckling.core:downloads", 64, json!({}));
         let busy = draw("com.deckling.core:downloads", 64, json!({"toggle.on": true}));
         assert!(count(&busy, [0x69, 0xE0, 0xC1]) > count(&idle, [0x69, 0xE0, 0xC1]));
+        // TC001: lit digits on, muted off; lit as a plain button
+        let cyan = [0xAD, 0xE6, 0xEE];
+        let tc_on = draw("com.deckling.core:ulanzi-tc001", 128, json!({"toggle.on": true}));
+        let tc_off = draw("com.deckling.core:ulanzi-tc001", 128, json!({"toggle.on": false}));
+        let tc_btn = draw("com.deckling.core:ulanzi-tc001", 128, json!({}));
+        assert!(count(&tc_on, cyan) > 100 && count(&tc_off, cyan) == 0 && count(&tc_btn, cyan) > 100, "{} {}", count(&tc_on, cyan), count(&tc_off, cyan));
+        assert!(count(&tc_off, [0x87, 0x90, 0x9E]) > 100);
+        if let Ok(dir) = std::env::var("ICON_PNG_DIR") {
+            tc_on.save_png(format!("{dir}/tc001-on.png")).unwrap();
+            tc_off.save_png(format!("{dir}/tc001-off.png")).unwrap();
+        }
         // without any values the fallbacks draw the old defaults
         assert!(count(&draw("com.deckling.core:light", 64, json!({})), [0x69, 0xE0, 0xC1]) > 200);
     }

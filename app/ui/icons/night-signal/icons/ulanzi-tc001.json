@@ -1,0 +1,36 @@
+{
+  "id": "com.deckling.core:ulanzi-tc001",
+  "roles": [
+    "toggle",
+    "button"
+  ],
+  "file": "ulanzi-tc001.svg",
+  "parts": {
+    "tc001-calendar-header": {
+      "fill": {
+        "prop": "toggle.on",
+        "fallback": "#FF6B6B",
+        "steps": [
+          {
+            "tone": "muted",
+            "fallback": "#87909E"
+          },
+          "#FF6B6B"
+        ]
+      }
+    },
+    "tc001-digits": {
+      "fill": {
+        "prop": "toggle.on",
+        "fallback": "#ADE6EE",
+        "steps": [
+          {
+            "tone": "muted",
+            "fallback": "#87909E"
+          },
+          "#ADE6EE"
+        ]
+      }
+    }
+  }
+}

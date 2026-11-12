@@ -820,7 +820,8 @@
     },
     {
       "name": "ulanzi-tc001",
-      "group": "Workspace extras"
+      "group": "Workspace extras",
+      "stateful": true
     },
     {
       "name": "desk-standing",
