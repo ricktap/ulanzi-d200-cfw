@@ -373,6 +373,13 @@ impl Plugin for Web {
         }
     }
 
+    fn stop(&mut self) {
+        // dropping the server stops its thread and the mDNS announcement
+        self.server = None;
+        self.error = None;
+        self.subs.clear();
+    }
+
     fn on_message(&mut self, msg: PluginMsg, host: &mut Host) {
         if let Ok(req) = msg.downcast::<Request>() {
             let r = self.handle(&req.method, &req.path, req.body, host);
@@ -806,6 +813,30 @@ mod tests {
             assert!(paths.contains_key(p), "{p}");
         }
         assert_eq!(doc["paths"]["/api/openapi.json"]["get"]["security"], json!([]));
+    }
+
+    #[test]
+    fn switching_off_stops_the_server() {
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let (cfg, _) = Config::from_value(json!({
+            "version": 6,
+            "plugins": {"com.deckling.web": {"config": {"serve": true, "port": port, "token": "t"}}},
+            "profiles": [{"name": "Default", "apps": [], "pages": {"main": {}}}],
+        }))
+        .unwrap();
+        std::env::set_var("D200_NO_MDNS", "1");
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let mut s = Signals::default();
+        let mut web = Web::default();
+        {
+            let mut h = Host::new(ID, &mut s, "d200".into()).with_engine(std::env::temp_dir(), crate::plugins::Sender::new(ID, tx));
+            web.configure(&cfg, &mut h);
+        }
+        assert!(web.server.is_some());
+        assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_ok(), "listening");
+        web.stop();
+        std::thread::sleep(Duration::from_millis(400));
+        assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_err(), "stopped");
     }
 
     #[test]

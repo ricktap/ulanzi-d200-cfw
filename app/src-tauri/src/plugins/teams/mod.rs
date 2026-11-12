@@ -228,6 +228,13 @@ impl Plugin for Teams {
         self.publish(host);
     }
 
+    fn stop(&mut self) {
+        if self.link.is_some() {
+            self.stop_link();
+        }
+        self.meeting = None;
+    }
+
     fn tick(&mut self, ticks: u64, _cfg: &Config, host: &mut Host) {
         if self.graph.is_none() {
             return;

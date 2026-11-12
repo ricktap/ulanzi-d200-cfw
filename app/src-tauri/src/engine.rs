@@ -1034,7 +1034,10 @@ impl Engine {
             if self.plugin_enabled(id) {
                 self.call_plugin(id, |p, h, c| p.configure(c, h));
             } else {
-                // a plugin switched off leaves nothing behind
+                // a plugin switched off leaves nothing behind: no connections, no signals
+                if let Some(p) = self.plugins.iter_mut().flatten().find(|p| p.id() == id) {
+                    p.stop();
+                }
                 let prefix = format!("{id}:");
                 let names: Vec<String> = self.signals.all().map(|(n, _)| n.clone()).filter(|n| n.starts_with(&prefix)).collect();
                 for n in names {

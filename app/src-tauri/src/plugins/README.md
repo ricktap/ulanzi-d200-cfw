@@ -36,6 +36,7 @@ profiles, the clock signals, MQTT). It lives in `app/src-tauri/core/`.
 - `mqtt_topics` / `on_mqtt` for MQTT through the app's connection;
 - `on_action` for its actions, `options` for `select` fields with a `source`;
 - `on_message` for results of its own background threads (`Host::sender`);
+- `stop` when it is switched off: close connections, stop servers and threads;
 - `status` for the Packages view.
 
 Through `Host` it publishes signals in its own namespace, publishes MQTT, reports errors and
