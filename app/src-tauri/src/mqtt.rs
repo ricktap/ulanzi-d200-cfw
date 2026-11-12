@@ -214,6 +214,13 @@ pub fn discovery(b: &str, profiles: &[String], pages: &[String], teams: bool) ->
         "value_template": "{{ {'installed_version': value_json.version, 'latest_version': value_json.latest, 'title': 'D200 Deck', \
 'release_url': 'https://github.com/ricktap/ulanzi-d200-cfw/releases/tag/v' ~ value_json.latest} | tojson }}" }));
 
+    // ---- one event entity per key: what was pressed shows in the logbook and the automation editor
+    for k in 0..crate::config::NUM_KEYS {
+        let name = if k == crate::config::NUM_KEYS - 1 { "Wide key".to_string() } else { format!("Key {k}") };
+        add("event", &format!("key_{k}"), json!({ "name": name, "device_class": "button", "icon": "mdi:gesture-tap-button",
+            "state_topic": format!("{b}/key/{k}"), "event_types": ["press", "long_press", "double_press"] }));
+    }
+
     // ---- Teams, while the plugin is on
     let presence = format!("homeassistant/sensor/{id}/teams_presence/config");
     let meeting = format!("homeassistant/binary_sensor/{id}/teams_meeting/config");
@@ -249,7 +256,8 @@ mod tests {
         assert_eq!(page["device"]["identifiers"][0], "d200_deck");
         for t in ["switch/d200_deck/remote_page", "switch/d200_deck/screensaver", "switch/d200_deck/display", "switch/d200_deck/follow",
                   "button/d200_deck/notify_clear", "button/d200_deck/pomodoro", "binary_sensor/d200_deck/usb", "sensor/d200_deck/app",
-                  "sensor/d200_deck/now_playing", "sensor/d200_deck/pomodoro_phase", "update/d200_deck/app"] {
+                  "sensor/d200_deck/now_playing", "sensor/d200_deck/pomodoro_phase", "update/d200_deck/app", "event/d200_deck/key_0",
+                  "event/d200_deck/key_13"] {
             let v: Value = serde_json::from_str(&get(&format!("homeassistant/{t}/config"))).unwrap();
             assert!(v["availability"].is_array(), "{t}");
         }

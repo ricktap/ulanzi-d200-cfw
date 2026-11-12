@@ -855,6 +855,10 @@ impl Engine {
             let profile = self.cfg.profiles.get(self.view.profile).map(|p| p.name.clone()).unwrap_or_default();
             let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };
             m.publish(&m.topic("key"), json!({ "profile": profile, "page": page, "key": k, "event": ev.name() }).to_string(), false);
+            // one Home Assistant event entity per key (MQTT discovery: Key 0 … Wide key)
+            if matches!(ev, KeyEvent::Press | KeyEvent::Long | KeyEvent::Double) {
+                m.publish(&m.topic(&format!("key/{k}")), json!({ "event_type": ev.name(), "profile": profile, "page": page }).to_string(), false);
+            }
         }
         // remote page keys belong to Home Assistant: its own broker, if it has one
         if self.view.remote && k != STATUS_KEY {

@@ -228,16 +228,7 @@ class Bridge:
                 # a computer took the D200: make sure it has every key (retained anyway, cheap)
                 self.hass.async_create_task(self.publish_all())
 
-        @callback
-        def key(msg: mqtt.ReceiveMessage) -> None:
-            try:
-                data = json.loads(text(msg))
-            except ValueError:
-                return
-            if isinstance(data, dict):
-                self.key_event(data)
-
-        for t, fn in (("availability", availability), ("key", key)):
+        for t, fn in (("availability", availability),):
             self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic(t), fn))
 
     async def _start_web(self) -> None:
@@ -345,10 +336,16 @@ def _tidy_registry(hass: HomeAssistant, bridge: Bridge) -> None:
     entry = bridge.entry
     ents, devs = er.async_get(hass), dr.async_get(hass)
     if bridge.use_mqtt:
-        # the deck's own device has these (0.13 made copies)
+        # Over MQTT the deck's own device has every entity, the key events too: nothing of ours
+        # (0.13 and 0.14 made a key event entity, and with it a second device).
         for e in er.async_entries_for_config_entry(ents, entry.entry_id):
-            if e.unique_id != f"{entry.entry_id}_key_event":
-                ents.async_remove(e.entity_id)
+            ents.async_remove(e.entity_id)
+        for dev in dr.async_entries_for_config_entry(devs, entry.entry_id):
+            devs.async_update_device(dev.id, remove_config_entry_id=entry.entry_id)
+        return
+    # Web API only: one key event entity per key replaced the single one (0.13, 0.14)
+    if eid := ents.async_get_entity_id("event", DOMAIN, f"{entry.entry_id}_key_event"):
+        ents.async_remove(eid)
     wanted = device_identifiers(bridge)
     for dev in dr.async_entries_for_config_entry(devs, entry.entry_id):
         if not dev.identifiers & wanted:

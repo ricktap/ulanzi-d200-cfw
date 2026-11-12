@@ -1,9 +1,9 @@
 """The device the D200 Deck entities belong to.
 
-Over MQTT the deck announces a device itself, "Ulanzi D200", with every control and sensor
-(MQTT discovery). The integration joins that device and adds only the key events. Over the
-Web API alone there is no such device; the integration makes it, with the same entities, read
-from the deck's state (`GET /api/state`, pushed to the webhook when it changes).
+Over MQTT the deck announces a device itself, "Ulanzi D200", with every control, sensor and
+key event (MQTT discovery); the integration adds no entities then. Over the Web API alone
+there is no such device; the integration makes it, with the same entities, read from the
+deck's state (`GET /api/state`, pushed to the webhook when it changes).
 """
 
 from __future__ import annotations
@@ -20,9 +20,7 @@ from .const import DOMAIN
 
 
 def device_identifiers(bridge) -> set[tuple[str, str]]:
-    if bridge.use_mqtt:
-        # the identifier the deck uses in its MQTT discovery (mqtt.rs: `<base>_deck`)
-        return {("mqtt", f"{bridge.base.replace('/', '_')}_deck")}
+    """Web API only (over MQTT the integration has no entities)."""
     return {(DOMAIN, bridge.entry.entry_id)}
 
 

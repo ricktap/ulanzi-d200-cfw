@@ -67,7 +67,7 @@ What it does:
 
 | Entity | Type | Does or shows |
 |---|---|---|
-| Key event | event | every press, long press and double press on **any** key, with `key` (0 to 13), `profile` and `page` |
+| Key 0 … Key 12, Wide key | event (one per key) | press, long press and double press on that key, on any page; attributes `profile` and `page`. The numbers are the configurator's |
 | Profile, Page | select | what the D200 shows; pick one to switch (Page offers the pages of the current profile) |
 | Brightness | number | 0–255 |
 | Remote page | switch | the Home Assistant remote page on or off |
@@ -85,9 +85,9 @@ What it does:
 | Computer online, Computer | diagnostic | a computer has the D200, and which one |
 | D200 Deck | update | a newer release (install it from the app) |
 
-Over MQTT the deck announces all of these itself (MQTT discovery, from `d200/state`); the
-integration joins that device and adds the key events. Over the Web API alone the integration
-makes the same entities, from `GET /api/state` and the webhook (`"events": ["presses", "keys",
+Over MQTT the deck announces all of these itself (MQTT discovery, from `d200/state` and
+`d200/key/<k>`); the integration adds no entities and no device then. Over the Web API alone
+the integration makes the same entities, from `GET /api/state` and the webhook (`"events": ["presses", "keys",
 "state"]`); Computer online is then whether the deck answers. (HACS lists one more device, "D200
 Deck" from HACS: that is HACS's record of the download, not a deck.)
 
@@ -111,25 +111,21 @@ automation:
         target: { entity_id: light.door }
 ```
 
-The key events show up in the logbook and history, and the automation editor offers them as a
-trigger (Entity, State or the device's triggers). Over MQTT they come from `d200/key`; over the
-Web API only, the deck posts them to the webhook (`"events": ["presses", "keys"]`).
-
-Any key, not only Home Assistant keys: key 4 on the page Media pressed twice:
+The key events show up in the logbook ("Key 4 detected an event: double_press") and history,
+and the automation editor offers them as a trigger. Key 4 pressed twice on the page Media:
 
 ```yaml
 automation:
   - alias: "D200: key 4 double press"
     triggers:
-      - trigger: state
-        entity_id: event.ulanzi_d200_key_event
-        not_to: unavailable
+      - trigger: event.received
+        target: { entity_id: event.ulanzi_d200_key_4 }
+        options: { event_type: [double_press] }
     conditions:
-      - condition: template
-        value_template: >
-          {{ trigger.to_state.attributes.event_type == 'double_press'
-             and trigger.to_state.attributes.key == 4
-             and trigger.to_state.attributes.page == 'Media' }}
+      - condition: state
+        entity_id: event.ulanzi_d200_key_4
+        attribute: page
+        state: Media
     actions:
       - action: scene.turn_on
         target: { entity_id: scene.movie }
@@ -226,6 +222,7 @@ other keys can read it.
 | `d200/remote/<0-12>/action` | from deck | `press`, `long_press`, `down`, `up` |
 | `d200/remote/show` | to deck | anything shows the Remote page, `off` leaves it |
 | `d200/key` | from deck | `{profile, page, key, event}` for every key on every page |
+| `d200/key/<0-13>` | from deck | `{event_type, profile, page}` for press, long press and double press (the key's event entity) |
 | `d200/profile`, `d200/profile/set` | from / to deck | profile name (`auto` = follow the active app again) |
 | `d200/brightness`, `d200/brightness/set` | from / to deck | 0–255 |
 | `d200/page` | from deck, retained | `{profile, page, remote}` |
@@ -284,7 +281,7 @@ Toggle it on press, dim it on long press:
                 data: { brightness_pct: 20 }
 ```
 
-(With the integration, the **Key event** entity has these presses too: `key` 2 on `page` `remote`.)
+(The event entity **Key 2** has these presses too, with `page` `remote`.)
 
 Animated doorbell notification:
 
