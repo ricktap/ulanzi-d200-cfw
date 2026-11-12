@@ -57,15 +57,15 @@ The engine owns all state. It decides what each key shows and sends only the key
 | `icons.rs` | Night Signal SVGs compiled in (`build.rs` → `icons_gen.rs`), resvg rendering, `apply_parts` for bound icons |
 | `device.rs` | adb detection, pushing the binary, port forwarding, the protocol client |
 | `mqtt.rs` | rumqttc client, topics, Home Assistant discovery |
-| `plugins.rs` | the interface for built-in plugins (signals, actions, options, MQTT, ticks, background results) |
-| `ha.rs` | plugin `com.deckling.ha`: Home Assistant entities, the remote page, printer |
-| `teams_plugin.rs` | plugin `com.deckling.teams`: meeting link, presence, mail, calendar as signals |
-| `jetbrains.rs` | plugin `com.deckling.jetbrains`: debugger state |
-| `web.rs` | plugin `com.deckling.web`: the HTTP API (its own server thread, requests handled in the engine's thread) |
-| `core_plugin.rs` | plugin `com.deckling.core`: system, mute and volume, weather, Pomodoro, media, commands |
-| `teams.rs` | Teams local WebSocket API (meetings) and Microsoft Graph (presence, mail, calendar) |
-| `media.rs` | Spotify / Music through AppleScript |
-| `ide.rs` | debugger detection (process scan, used by `jetbrains.rs`) and the Steam game currently running |
+| `plugins/mod.rs` | the interface for built-in plugins (signals, actions, options, MQTT, ticks, background results, requests to the core) |
+| `plugins/ha/` | plugin `com.deckling.ha`: Home Assistant entities, the remote page, printer |
+| `plugins/teams/` | plugin `com.deckling.teams`: meeting link, presence, mail, calendar as signals |
+| `plugins/jetbrains/` | plugin `com.deckling.jetbrains`: debugger state |
+| `plugins/web/` | plugin `com.deckling.web`: the HTTP API (its own server thread, requests handled in the engine's thread) |
+| `plugins/core/` | plugin `com.deckling.core`: system, mute and volume, weather, Pomodoro, media, commands |
+| `plugins/teams/api.rs` | Teams local WebSocket API (meetings) and Microsoft Graph (presence, mail, calendar) |
+| `plugins/core/media.rs` | Spotify / Music through AppleScript |
+| `plugins/jetbrains/ide.rs` | debugger detection (process scan) and the Steam game currently running |
 | `platform.rs` | front app, keyboard shortcuts, volume, open, per OS |
 
 The UI (`app/ui/`) is plain HTML/CSS/JS with `withGlobalTauri`, so there is no build step. It

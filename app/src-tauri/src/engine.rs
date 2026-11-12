@@ -9,10 +9,10 @@ use crate::plugins::{Host, Plugin};
 use serde_json::Map;
 use crate::cards::{self, Card, Kind, Printer};
 use std::collections::HashSet;
-use crate::ide::DebugWatch;
+use crate::plugins::jetbrains::ide::DebugWatch;
 use crate::screensaver::{Scene, Season};
-use crate::media::{self, NowPlaying};
-use crate::teams::{self, Tokens};
+use crate::plugins::core::media::{self, NowPlaying};
+use crate::plugins::teams::api::{self as teams, Tokens};
 use image::DynamicImage;
 use crate::config::{Action, AppKind, Config, Key, KeyEvent, NUM_KEYS, STATUS_KEY};
 use crate::device::{self, DevEvent, Device};
@@ -192,7 +192,7 @@ pub struct Engine {
     mail_dismissed: Option<String>,
     announced: HashSet<String>,
     meeting_dismissed: Option<String>,
-    game: Option<crate::ide::Game>,
+    game: Option<crate::plugins::jetbrains::ide::Game>,
     game_cover: Option<(u32, Option<Arc<DynamicImage>>)>,
     game_hidden: bool,
     printer: Option<Printer>,
@@ -368,11 +368,11 @@ impl Engine {
             note: None,
             next_frame: now,
             plugins: vec![
-                Some(Box::new(crate::core_plugin::Core::default())),
-                Some(Box::new(crate::ha::Ha::default())),
-                Some(Box::new(crate::teams_plugin::Teams::default())),
-                Some(Box::new(crate::jetbrains::JetBrains::default())),
-                Some(Box::new(crate::web::Web::default())),
+                Some(Box::new(crate::plugins::core::Core::default())),
+                Some(Box::new(crate::plugins::ha::Ha::default())),
+                Some(Box::new(crate::plugins::teams::Teams::default())),
+                Some(Box::new(crate::plugins::jetbrains::JetBrains::default())),
+                Some(Box::new(crate::plugins::web::Web::default())),
             ],
             mqtt: None,
             mqtt_gen: 0,
@@ -687,10 +687,10 @@ impl Engine {
             return self.cfg.key(v.profile, &v.page, k);
         }
         let id = format!("remote-{k}");
-        if self.signals.get(&format!("{}:{id}.present", crate::ha::ID)).is_none() {
+        if self.signals.get(&format!("{}:{id}.present", crate::plugins::ha::ID)).is_none() {
             return Key::default();
         }
-        let mut key = Key { app: Some(format!("{}:entity", crate::ha::ID)), ..Default::default() };
+        let mut key = Key { app: Some(format!("{}:entity", crate::plugins::ha::ID)), ..Default::default() };
         key.config.insert("id".into(), json!(id));
         key
     }
@@ -875,7 +875,7 @@ impl Engine {
             (AppKind::Debugger, KeyEvent::Press) | (AppKind::Debugger, KeyEvent::Long) => {
                 let key = self.key_cfg(k);
                 let pick = |name: &str, def: &str| key.cfg_str(name).unwrap_or(def).to_string();
-                let combo = match (crate::jetbrains::active(&self.signals).is_some(), ev) {
+                let combo = match (crate::plugins::jetbrains::active(&self.signals).is_some(), ev) {
                     (true, KeyEvent::Press) => pick("active_keys", "cmd+alt+r"),
                     (true, _) => pick("stop_keys", "cmd+f2"),
                     (false, KeyEvent::Press) => pick("idle_keys", "ctrl+d"),
@@ -980,7 +980,7 @@ impl Engine {
         let mut v = json!({
             "game": self.game.as_ref().map(|g| g.name.clone()),
             "printer": self.printer.as_ref().map(|p| p.state.clone()),
-            "debugging": crate::jetbrains::active(&self.signals),
+            "debugging": crate::plugins::jetbrains::active(&self.signals),
         });
         // what the plugins report about their connections
         for p in self.plugins.iter().flatten() {
@@ -1027,7 +1027,7 @@ impl Engine {
     /// The player changed (com.deckling.core media signals): keep the track for the
     /// status key, fetch its artwork, redraw.
     fn on_media(&mut self) {
-        let np = crate::core_plugin::now_playing(&self.signals);
+        let np = crate::plugins::core::now_playing(&self.signals);
         self.np_at = Instant::now();
         let key = np.as_ref().map(NowPlaying::track_key);
         if np != self.np {
@@ -1051,7 +1051,7 @@ impl Engine {
 
     /// Cards that follow plugin signals: pairing with Teams, a new mail, Pomodoro phases.
     fn plugin_cards(&mut self) {
-        let (n, last) = crate::core_plugin::pomodoro_events(&self.signals);
+        let (n, last) = crate::plugins::core::pomodoro_events(&self.signals);
         if self.pomo_seen.is_some_and(|seen| n > seen) {
             let (text, icon, color) = match last.as_deref() {
                 Some("long_break") => ("Long break!", "pomodoro-break", "#16a34a"),
@@ -1061,12 +1061,12 @@ impl Engine {
             self.notify(Notification { title: Some("Pomodoro".into()), style: Some("flash".into()), ..Notification::simple(text, Some(icon), Some(color)) });
         }
         self.pomo_seen = Some(n);
-        let paired = crate::teams_plugin::link_state(&self.signals).paired;
+        let paired = crate::plugins::teams::link_state(&self.signals).paired;
         if self.paired_seen == Some(false) && paired {
             self.notify(Notification::simple("Paired with Teams", Some("check"), Some("#4f46e5")));
         }
         self.paired_seen = Some(paired);
-        if let Some(m) = crate::teams_plugin::mail(&self.signals) {
+        if let Some(m) = crate::plugins::teams::mail(&self.signals) {
             let latest = m.latest.as_ref().map(|l| l.id.clone());
             let first = self.mail_seen.is_none();
             if !first && latest.is_some() && self.mail_seen.as_ref() != Some(&latest) && self.cfg.settings.cards.email {
@@ -1232,7 +1232,7 @@ impl Engine {
             return;
         }
         let now = chrono::Utc::now().timestamp();
-        let due: Vec<(String, teams::CalEvent)> = crate::teams_plugin::events(&self.signals)
+        let due: Vec<(String, teams::CalEvent)> = crate::plugins::teams::events(&self.signals)
             .into_iter()
             .filter_map(|e| {
                 let d = e.start - now;
@@ -1253,7 +1253,7 @@ impl Engine {
         }
     }
 
-    fn on_game(&mut self, game: Option<crate::ide::Game>) {
+    fn on_game(&mut self, game: Option<crate::plugins::jetbrains::ide::Game>) {
         if game.as_ref().map(|g| (&g.name, g.started)) == self.game.as_ref().map(|g| (&g.name, g.started)) {
             return;
         }
@@ -1294,7 +1294,7 @@ impl Engine {
         }
     }
 
-    fn game_card(&self, g: &crate::ide::Game) -> Card {
+    fn game_card(&self, g: &crate::plugins::jetbrains::ide::Game) -> Card {
         let mins = (now_secs().saturating_sub(g.started)) / 60;
         Card {
             kind: Kind::Steam,
@@ -1333,11 +1333,11 @@ impl Engine {
                 None => Card { kind: Kind::Media, source: Some("Media".into()), title: "Nothing playing".into(), icon: Some("now-playing".into()), ..Default::default() },
             }),
             "meeting" => {
-                if !crate::teams_plugin::signed_in(&self.signals) {
+                if !crate::plugins::teams::signed_in(&self.signals) {
                     return Some(signed_out());
                 }
                 let now = chrono::Utc::now().timestamp();
-                let events = crate::teams_plugin::events(&self.signals);
+                let events = crate::plugins::teams::events(&self.signals);
                 let next = events.iter().find(|e| e.end > now && self.meeting_dismissed.as_ref() != Some(&e.id));
                 Some(match next {
                     Some(e) => self.meeting_card(e, now),
@@ -1345,11 +1345,11 @@ impl Engine {
                 })
             }
             "email" => {
-                if !crate::teams_plugin::signed_in(&self.signals) {
+                if !crate::plugins::teams::signed_in(&self.signals) {
                     return Some(signed_out());
                 }
                 let mail_err = self.signals.get("com.deckling.teams:mail.error").and_then(Value::as_str).map(str::to_string);
-                match (crate::teams_plugin::mail(&self.signals), &mail_err) {
+                match (crate::plugins::teams::mail(&self.signals), &mail_err) {
                     (Some(m), _) => self.mail_card(&m, false),
                     (None, Some(e)) => Some(Card { kind: Kind::Email, source: Some("Mail".into()), title: "Unavailable".into(), detail: Some(e.clone()), color: Some("#87909E".into()), ..Default::default() }),
                     _ => Some(Card { kind: Kind::Email, source: Some("Mail".into()), title: "—".into(), detail: Some("Loading".into()), ..Default::default() }),
@@ -1407,14 +1407,14 @@ impl Engine {
                 }
                 ("meeting", KeyEvent::Long) => {
                     let now = chrono::Utc::now().timestamp();
-                    self.meeting_dismissed = crate::teams_plugin::events(&self.signals).into_iter().find(|e| e.end > now).map(|e| e.id);
+                    self.meeting_dismissed = crate::plugins::teams::events(&self.signals).into_iter().find(|e| e.end > now).map(|e| e.id);
                 }
                 ("email", KeyEvent::Press) => {
-                    let url = crate::teams_plugin::mail(&self.signals).and_then(|m| m.latest).and_then(|l| l.link);
+                    let url = crate::plugins::teams::mail(&self.signals).and_then(|m| m.latest).and_then(|l| l.link);
                     let _ = platform::open(url.as_deref().unwrap_or("Microsoft Outlook"), &dir);
                 }
                 ("email", KeyEvent::Long) => {
-                    self.mail_dismissed = crate::teams_plugin::mail(&self.signals).and_then(|m| m.latest).map(|l| l.id);
+                    self.mail_dismissed = crate::plugins::teams::mail(&self.signals).and_then(|m| m.latest).map(|l| l.id);
                 }
                 ("steam", KeyEvent::Press) => {
                     let url = self.game.as_ref().and_then(|g| g.appid).map(|id| format!("steam://nav/games/details/{id}"));
@@ -1687,11 +1687,11 @@ impl Engine {
                                 th.bg = bg;
                             }
                             let _ = fg;
-                            apps::sysmon_face(f, &crate::core_plugin::sys(&self.signals), modes[i], i, modes.len(), &th)
+                            apps::sysmon_face(f, &crate::plugins::core::sys(&self.signals), modes[i], i, modes.len(), &th)
                         }
-                        AppKind::Mute => apps::mute_face(f, crate::core_plugin::muted(&self.signals), bg, fg),
+                        AppKind::Mute => apps::mute_face(f, crate::plugins::core::muted(&self.signals), bg, fg),
                         AppKind::Weather => {
-                            let (w, err, configured) = crate::core_plugin::weather(&self.signals);
+                            let (w, err, configured) = crate::plugins::core::weather(&self.signals);
                             apps::weather_face(f, w.as_ref(), err.as_deref(), configured, bg, fg)
                         }
                         AppKind::Clock => {
@@ -1701,7 +1701,7 @@ impl Engine {
                             }
                             apps::clock_face(f, mode, key.cfg_bool("h12"), &th)
                         }
-                        AppKind::Pomodoro => apps::pomodoro_face(f, &crate::core_plugin::pomodoro(&self.signals), &self.cfg.settings.pomodoro, bg, fg),
+                        AppKind::Pomodoro => apps::pomodoro_face(f, &crate::plugins::core::pomodoro(&self.signals), &self.cfg.settings.pomodoro, bg, fg),
                         AppKind::Media => {
                             let np = self.np_now();
                             let art = np.as_ref().and_then(|n| {
@@ -1712,16 +1712,16 @@ impl Engine {
                         AppKind::TeamsMute | AppKind::TeamsCamera => {
                             let which = if kind == AppKind::TeamsMute { "mute" } else { "camera" };
                             let s = &self.signals;
-                            apps::teams_face(f, which, &crate::teams_plugin::link_state(s), crate::teams_plugin::meeting(s).as_ref(), bg)
+                            apps::teams_face(f, which, &crate::plugins::teams::link_state(s), crate::plugins::teams::meeting(s).as_ref(), bg)
                         }
                         AppKind::TeamsPresence => apps::presence_face(
                             f,
-                            crate::teams_plugin::presence(&self.signals).as_ref(),
-                            crate::teams_plugin::signed_in(&self.signals),
-                            crate::teams_plugin::presence_error(&self.signals).as_deref(),
+                            crate::plugins::teams::presence(&self.signals).as_ref(),
+                            crate::plugins::teams::signed_in(&self.signals),
+                            crate::plugins::teams::presence_error(&self.signals).as_deref(),
                             bg,
                         ),
-                        AppKind::Debugger => apps::debugger_face(f, crate::jetbrains::active(&self.signals).as_deref(), bg, fg),
+                        AppKind::Debugger => apps::debugger_face(f, crate::plugins::jetbrains::active(&self.signals).as_deref(), bg, fg),
                     }
                 }
                 _ if key.app.is_some() && def.is_none() => render::missing_plugin(f, key.app.as_deref().unwrap_or(""), size),
@@ -2033,7 +2033,7 @@ impl Engine {
 
     /// The printer card follows the printer signals of com.deckling.ha.
     fn on_printer(&mut self) {
-        let g = |n: &str| self.signals.get(&format!("{}:printer.{n}", crate::ha::ID)).cloned();
+        let g = |n: &str| self.signals.get(&format!("{}:printer.{n}", crate::plugins::ha::ID)).cloned();
         let text = |n: &str| g(n).and_then(|v| v.as_str().map(str::to_string));
         let Some(state) = text("state") else {
             self.printer = None;
@@ -2108,7 +2108,7 @@ impl Engine {
 
     fn snapshot(&self) -> Value {
         // Remote keys as Home Assistant described them (com.deckling.ha signals).
-        let ha = |k: usize, f: &str| self.signals.get(&format!("{}:remote-{k}.{f}", crate::ha::ID)).cloned();
+        let ha = |k: usize, f: &str| self.signals.get(&format!("{}:remote-{k}.{f}", crate::plugins::ha::ID)).cloned();
         let remote: HashMap<String, Value> = (0..STATUS_KEY)
             .filter(|k| ha(*k, "present").is_some())
             .map(|k| (k.to_string(), json!({ "look": { "label": ha(k, "label"), "icon": ha(k, "icon") }, "value": ha(k, "value") })))
@@ -2240,7 +2240,7 @@ impl Engine {
                 }
             }
             Ui::GraphTokens(t) => {
-                self.call_plugin(crate::teams_plugin::ID, |p, h, _| p.on_message(Box::new(crate::teams_plugin::TeamsMsg::SignedIn(t)), h));
+                self.call_plugin(crate::plugins::teams::ID, |p, h, _| p.on_message(Box::new(crate::plugins::teams::TeamsMsg::SignedIn(t)), h));
                 self.emit_integrations();
             }
         }

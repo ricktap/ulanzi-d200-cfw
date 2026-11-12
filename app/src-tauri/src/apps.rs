@@ -405,8 +405,8 @@ mod tests {
 
 // ------------------------------------------------------------------ media
 
-use crate::media::NowPlaying;
-use crate::teams::{presence_style, Meeting, Presence};
+use crate::plugins::core::media::NowPlaying;
+use crate::plugins::teams::api::{presence_style, Meeting, Presence};
 use image::DynamicImage;
 
 // ------------------------------------------------------------------ Teams
@@ -504,7 +504,7 @@ fn short_bytes(b: u64) -> String {
 }
 
 /// Square system widgets (CPU, RAM, disk, network), per the Night Signal widget spec.
-pub fn sysmon_face(f: &Fonts, s: &crate::core_plugin::SysView, mode: &str, idx: usize, n: usize, th: &Th) -> Canvas {
+pub fn sysmon_face(f: &Fonts, s: &crate::plugins::core::SysView, mode: &str, idx: usize, n: usize, th: &Th) -> Canvas {
     let mut c = key(th.bg);
     th.surface(&mut c, true);
     let (ivory, secondary) = (th.text, th.secondary);

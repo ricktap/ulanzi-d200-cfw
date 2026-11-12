@@ -12,12 +12,12 @@ of `docs/deckling/briefing.md` are in place; 8 (third-party plugins) is not.
 | `icons.rs` | `apply_parts` sets resolved bindings into an SVG (`progress`, `visible`, `text`, any attribute); `render_bound` rasterises with resvg |
 | `migrate.rs` | deck.json version 1 to 2, and `legacy_props` for the old `icon_state` objects |
 | `app/src-tauri/core/` | `core`, what is fixed in the app: primitive interfaces, `time.*` signals, navigation actions, the plain button |
-| `app/src-tauri/plugins/<id>/` | The built-in plugins as data: `com.deckling.core`, `com.deckling.teams`, `com.deckling.jetbrains`, `com.deckling.ha` |
+| `app/src-tauri/src/plugins/<name>/` | The built-in plugins ([list](../app/src-tauri/src/plugins/README.md)): code in `mod.rs`, package data (manifest, signals, actions, apps, icon set) in `package/`, a README each |
 | `app/ui/icons/night-signal/` | Night Signal, the icon set embedded in `com.deckling.core`: `deckling.json`, `svg/`, binding files in `icons/`, interface copies in `interfaces/` |
 
 ## Built-in plugins
 
-`plugins.rs` is the interface for plugins that run in the engine's thread. A plugin publishes
+`plugins/mod.rs` is the interface for plugins that run in the engine's thread. A plugin publishes
 signals in its own namespace (the host prefixes the id), takes its actions, fills `select`
 fields from a `source`, and reads and writes MQTT through the app's connection: it names topics
 relative to the base topic and publishes through the host. It never draws, sets no colour on a
@@ -25,18 +25,18 @@ key and sees no key presses.
 
 | Plugin | Behind the plugin interface | Still in the engine |
 |---|---|---|
-| `com.deckling.ha` (`ha.rs`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
-| `com.deckling.teams` (`teams_plugin.rs`, protocol in `teams.rs`) | meeting link, pairing, Microsoft 365 sign-in, presence, mail, calendar, `meeting` and `presence` actions | |
-| `com.deckling.jetbrains` (`jetbrains.rs`) | debugger detection | |
-| `com.deckling.web` (`web.rs`) | the HTTP API ([web-api.md](web-api.md)): keys by id, signals, notifications, presses, actions; the app `Web key` | |
-| `com.deckling.core` (`core_plugin.rs`) | system monitor, mute and volume, weather, Pomodoro, media, commands, open, shortcuts | |
+| `com.deckling.ha` (`plugins/ha`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
+| `com.deckling.teams` (`plugins/teams`, protocol in `api.rs`) | meeting link, pairing, Microsoft 365 sign-in, presence, mail, calendar, `meeting` and `presence` actions | |
+| `com.deckling.jetbrains` (`plugins/jetbrains`) | debugger detection | |
+| `com.deckling.web` (`plugins/web`) | the HTTP API ([web-api.md](web-api.md)): keys by id, signals, notifications, presses, actions; the app `Web key` | |
+| `com.deckling.core` (`plugins/core`) | system monitor, mute and volume, weather, Pomodoro, media, commands, open, shortcuts | |
 
 A plugin's calls: `mqtt_topics`/`on_mqtt`, `on_action`, `options`, `configure` (at start and
 after every config change), `tick` (once a second), `on_message` (results of its own background
 threads, sent with `Host::sender`) and `status` (merged into the UI's `integrations` event).
 
 The cards on the wide key and the built-in Teams and debugger widgets are part of the core.
-They read the plugins' signals back (`teams_plugin::mail`, `events`, `meeting`, `presence`,
+They read the plugins' signals back (`plugins::teams::mail`, `events`, `meeting`, `presence`,
 `jetbrains::active`): a new mail, a meeting starting soon and pairing with Teams are seen as
 signal changes.
 

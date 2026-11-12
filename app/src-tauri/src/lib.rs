@@ -4,18 +4,10 @@ pub mod bind;
 mod guide_tests;
 pub mod cards;
 pub mod config;
-pub mod core_plugin;
 pub mod device;
 pub mod engine;
-pub mod ha;
 pub mod icons;
-pub mod ide;
-pub mod jetbrains;
-pub mod web;
-pub mod media;
 pub mod migrate;
-pub mod teams;
-pub mod teams_plugin;
 pub mod updater;
 pub mod mqtt;
 pub mod platform;
@@ -106,11 +98,11 @@ async fn geocode(query: String) -> Result<Vec<Value>, String> {
 async fn teams_sign_in(app: AppHandle, h: H<'_>, client_id: String, tenant: String) -> Result<Value, String> {
     let h = h.inner().clone();
     blocking(move || {
-        let dc = teams::start_device_code(&client_id, &tenant)?;
+        let dc = plugins::teams::api::start_device_code(&client_id, &tenant)?;
         let out = serde_json::json!({ "user_code": dc.user_code, "verification_uri": dc.verification_uri });
         let _ = platform::open(&dc.verification_uri, std::path::Path::new("/"));
         std::thread::spawn(move || {
-            let r = teams::wait_device_code(&client_id, &tenant, &dc);
+            let r = plugins::teams::api::wait_device_code(&client_id, &tenant, &dc);
             match r {
                 Ok(t) => {
                     let account = t.account.clone();

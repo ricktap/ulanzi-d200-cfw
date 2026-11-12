@@ -1,13 +1,15 @@
 //! com.deckling.teams: Microsoft Teams meetings (local API) and Microsoft 365
-//! (presence, mail, calendar through Graph). `teams.rs` holds the protocol code.
+//! (presence, mail, calendar through Graph). `api.rs` holds the protocol code.
 //!
 //! Everything the deck shows goes out as signals; the core's cards and the built-in
 //! widgets read them back with the readers at the bottom of this file.
 
+pub mod api;
+
 use crate::apps::TeamsLinkState;
 use crate::config::{AppKind, Config, TeamsCfg};
 use crate::plugins::{Host, Plugin, PluginMsg};
-use crate::teams::{self, CalEvent, Mail, MailMsg, Meeting, Presence, TeamsEvent, TeamsLink, Tokens};
+use crate::plugins::teams::api::{self as teams, CalEvent, Mail, MailMsg, Meeting, Presence, TeamsEvent, TeamsLink, Tokens};
 use crate::bind::Signals;
 use serde_json::{json, Map, Value};
 use std::time::Duration;

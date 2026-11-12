@@ -6,6 +6,12 @@
 //! key and never sees key presses. MQTT is part of the app: a plugin names the topics
 //! it reads (relative to the base topic) and may publish through the host.
 
+pub mod core;
+pub mod ha;
+pub mod jetbrains;
+pub mod teams;
+pub mod web;
+
 use crate::bind::Signals;
 use crate::config::Config;
 use serde_json::{Map, Value};

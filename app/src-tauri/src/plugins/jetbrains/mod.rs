@@ -2,8 +2,10 @@
 //! Publishes `debugger.active` and `debugger.name`; the debugger app's widget and its
 //! press handling read them.
 
+pub mod ide;
+
 use crate::config::{AppKind, Config};
-use crate::ide::DebugWatch;
+use crate::plugins::jetbrains::ide::DebugWatch;
 use crate::plugins::{Host, Plugin};
 use serde_json::{json, Value};
 
@@ -34,7 +36,7 @@ impl Plugin for JetBrains {
             return;
         }
         // Scan the processes only while an IDE is in front; keep the last state otherwise.
-        if host.front_known && !host.front.as_ref().is_some_and(crate::ide::is_ide_app) {
+        if host.front_known && !host.front.as_ref().is_some_and(crate::plugins::jetbrains::ide::is_ide_app) {
             return;
         }
         let active = self.watch.get_or_insert_with(DebugWatch::new).active();

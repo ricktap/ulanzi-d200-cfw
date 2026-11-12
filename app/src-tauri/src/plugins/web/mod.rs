@@ -218,7 +218,7 @@ impl Web {
                 } else {
                     json!({ "label": crate::bind::text(&body) })
                 };
-                let label = crate::ha::describe(id, &v, host);
+                let label = crate::plugins::ha::describe(id, &v, host);
                 self.ids.insert(id.to_string(), label);
                 (200, json!({ "key": id }))
             }

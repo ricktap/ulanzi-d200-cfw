@@ -29,7 +29,20 @@ fn main() {
     // The core plugin and the Night Signal icon set as package files, parsed at
     // runtime by the package loader (registry.rs): (package path, contents).
     out += "pub static PACKAGE_FILES: &[(&str, &str)] = &[\n";
-    for (root, prefix) in [("core", "core"), ("plugins", "plugins"), ("themes", "themes"), ("../ui/icons/night-signal", NIGHT_SIGNAL)] {
+    // Each built-in plugin keeps its package data next to its code, in
+    // src/plugins/<name>/package; it is embedded as plugins/<package id>.
+    let mut roots: Vec<(String, String)> = vec![("core".into(), "core".into()), ("themes".into(), "themes".into())];
+    println!("cargo:rerun-if-changed=src/plugins");
+    let mut pkgs: Vec<_> = std::fs::read_dir("src/plugins").expect("src/plugins").flatten().map(|e| e.path().join("package")).filter(|p| p.is_dir()).collect();
+    pkgs.sort();
+    for p in pkgs {
+        let manifest = std::fs::read_to_string(p.join("deckling.json")).expect("package/deckling.json");
+        let id = package_id(&manifest).unwrap_or_else(|| panic!("{}: no id", p.display()));
+        roots.push((p.to_str().unwrap().replace('\\', "/"), format!("plugins/{id}")));
+    }
+    roots.push(("../ui/icons/night-signal".into(), NIGHT_SIGNAL.into()));
+    for (root, prefix) in &roots {
+        let (root, prefix) = (root.as_str(), prefix.as_str());
         println!("cargo:rerun-if-changed={root}");
         let mut files = vec![];
         // Night Signal's SVGs are in ICONS already; other icon sets bring theirs as package files.
@@ -48,6 +61,15 @@ fn main() {
     std::fs::write(std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("icons_gen.rs"), out).unwrap();
 
     tauri_build::build()
+}
+
+/// `"id": "..."` of a package manifest (no JSON parser in the build script).
+fn package_id(manifest: &str) -> Option<String> {
+    let at = manifest.find("\"id\"")?;
+    let rest = &manifest[at + 4..];
+    let start = rest.find('"')? + 1;
+    let end = start + rest[start..].find('"')?;
+    Some(rest[start..end].to_string())
 }
 
 /// Where Night Signal sits in the package files: the icon set embedded in com.deckling.core.

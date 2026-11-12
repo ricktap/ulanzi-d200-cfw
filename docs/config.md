@@ -118,7 +118,7 @@ An action is the id of an action a plugin offers, with its parameters. Built-in 
 | `com.deckling.ha:remote` | | show the Home Assistant remote page |
 
 The list, with a parameter schema per action, comes from the Tauri command `catalog`
-(`actions.json` in `app/src-tauri/core/` and in each plugin under `app/src-tauri/plugins/`).
+(`actions.json` in `app/src-tauri/core/` and in each plugin's `package/` under `app/src-tauri/src/plugins/`).
 
 ## Apps
 
@@ -147,7 +147,7 @@ schema and the interfaces it fulfils (`implements`). See [packages.md](packages.
 ## plugins
 
 Each plugin's settings are in `plugins.<id>.config`, by the schema in its manifest's `config`
-(`app/src-tauri/core/deckling.json`, `app/src-tauri/plugins/<id>/deckling.json`).
+(`app/src-tauri/core/deckling.json`, `app/src-tauri/src/plugins/<name>/package/deckling.json`).
 `"enabled": false` switches a plugin off: its actions report that, and its signals are cleared.
 Unknown keys in a config are kept.
 

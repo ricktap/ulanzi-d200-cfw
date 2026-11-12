@@ -5,10 +5,12 @@
 //! Like any plugin it only publishes signals. The core's built-in widgets read them back
 //! with the readers at the bottom of this file.
 
+pub mod media;
+
 use crate::apps::{self, Phase, PomoEvent, Pomodoro, SysStats, Weather};
 use crate::bind::Signals;
 use crate::config::{AppKind, Config, Location, PomodoroCfg};
-use crate::media::{self, NowPlaying};
+use media::NowPlaying;
 use crate::platform;
 use crate::plugins::{Host, Plugin, PluginMsg};
 use serde_json::{json, Map, Value};

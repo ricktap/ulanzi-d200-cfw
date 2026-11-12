@@ -914,7 +914,7 @@ pub struct StatusInfo<'a> {
     pub mqtt: Option<bool>,
     pub app: Option<&'a str>,
     /// Song for the right-hand column; the clock is shown otherwise.
-    pub media: Option<(&'a crate::media::NowPlaying, Option<&'a DynamicImage>)>,
+    pub media: Option<(&'a crate::plugins::core::media::NowPlaying, Option<&'a DynamicImage>)>,
 }
 
 /// Status key: profile on the left, music or clock on the right.

@@ -12,6 +12,8 @@ Custom software for the Ulanzi D200 stream controller:
   over MQTT. `payload.py` is plain Python; tests in `tests/ha/` (`tests/ha/run.sh`).
 - `app/`: D200 Deck, a Tauri v2 desktop app. The Rust engine is in `app/src-tauri/src/`, the
   plain HTML/JS UI in `app/ui/`. It draws all keys and runs the actions.
+  The built-in plugins are in `app/src-tauri/src/plugins/<name>/` (code, `package/` data,
+  README each; see its README).
 
 Read `docs/architecture.md` first, then `docs/config.md` and `docs/protocol.md`.
 
