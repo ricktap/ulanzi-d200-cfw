@@ -23,12 +23,13 @@ The entity ids above are what HA usually generates. Check yours in the device pa
 ([plugins/web.md](plugins/web.md): switch on the server and copy the token), or **both**.
 
 **Install:**
-- With HACS: add this repository as a custom repository of type Integration, install
-  **D200 Deck**, restart Home Assistant.
+- With HACS: [open this repository in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=ricktap&repository=ulanzi-d200-cfw&category=integration) (My Home Assistant link; it adds the
+  repository as a custom repository), install **D200 Deck**, restart Home Assistant.
 - By hand: copy `custom_components/d200_deck` into the `custom_components` folder of your
   Home Assistant configuration, then restart.
 
-**Set up:** Settings, Devices & services, Add integration, **D200 Deck**:
+**Set up:** [add the integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=d200_deck) (or Settings, Devices & services, Add integration,
+**D200 Deck**):
 1. Choose the connection: MQTT, Web API, or both.
 2. MQTT: the base topic (`d200` unless you changed it in D200 Deck).
 3. Web API: the computer running D200 Deck (name or address), the port (8765) and the token. The

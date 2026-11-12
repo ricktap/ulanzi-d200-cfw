@@ -27,6 +27,21 @@ This installs the latest release to `/Applications` and starts it (Intel and App
 macOS 11 or newer). From then on the app updates itself. You also need `adb` for the USB
 connection: `brew install android-platform-tools`. Details: [Install on macOS](#install-on-macos).
 
+## Install in Home Assistant
+
+The integration **D200 Deck** puts Home Assistant entities on the deck's keys, over MQTT or the
+Web API.
+
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ricktap&repository=ulanzi-d200-cfw&category=integration)
+
+1. Install it with the button above (HACS), then restart Home Assistant. Without HACS, copy
+   `custom_components/d200_deck` into your Home Assistant configuration folder.
+2. Add it:
+
+   [![Open your Home Assistant instance and start setting up D200 Deck.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=d200_deck)
+
+Details: [docs/home-assistant.md](docs/home-assistant.md).
+
 ![Main page on the device](docs/img/device-main.png)
 
 ## Repository layout
