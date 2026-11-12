@@ -146,6 +146,7 @@ check("action core:page over MQTT", state().get("page") == "main", state().get("
 n = len([m for m in broker.log if m[1] == "d200/key"])
 broker.publish("d200/press", json.dumps({"key": 3, "event": "long_press"})); time.sleep(0.8)
 check("press over MQTT fires a key event", any(m[1] == "d200/key" and json.loads(m[2]).get("event") == "long_press" for m in broker.log[n:]), broker.log[-3:])
+check("... and Key pressed (key_event) with the key", any(m[1] == "d200/key_event" and json.loads(m[2]).get("key") == 3 and "key_label" in json.loads(m[2]) for m in broker.log[n:]), broker.log[-3:])
 check("... and the key's own event topic", any(m[1] == "d200/key/3" and json.loads(m[2]).get("event_type") == "long_press" for m in broker.log[n:]), broker.log[-3:])
 
 # status key press -> home; long -> remote

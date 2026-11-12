@@ -818,13 +818,31 @@ impl Engine {
 
     /// The core signal `key.event` for every key event, handed to the plugins that follow it
     /// (the Web API forwards it to Home Assistant). `n` counts, so equal events differ.
-    fn publish_key_event(&mut self, k: usize, ev: KeyEvent) {
+    fn publish_key_event(&mut self, k: usize, ev: KeyEvent) -> Value {
         self.key_events += 1;
         let profile = self.cfg.profiles.get(self.view.profile).map(|p| p.name.clone()).unwrap_or_default();
         let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };
-        let v = json!({ "key": k, "event": ev.name(), "profile": profile, "page": page, "n": self.key_events });
+        let (label, icon, app) = self.key_info(k);
+        let v = json!({ "key": k, "event": ev.name(), "profile": profile, "page": page, "n": self.key_events,
+                        "label": label, "icon": icon, "app": app });
         self.signals.publish("key.event", v.clone());
         self.tell_watchers("key.event", &v);
+        v
+    }
+
+    /// What key k shows now: its label, its icon and its app (for key events).
+    fn key_info(&self, k: usize) -> (Option<String>, Option<String>, Option<String>) {
+        if k == STATUS_KEY {
+            return (Some("Wide key".into()), None, Some(format!("status:{}", self.cfg.status_key.show)));
+        }
+        if self.view.remote {
+            let ha = |f: &str| self.signals.get(&format!("{}:remote-{k}.{f}", crate::plugins::ha::ID)).and_then(Value::as_str).map(str::to_string);
+            return (ha("label"), ha("icon"), Some(format!("{}:entity", crate::plugins::ha::ID)));
+        }
+        let key = self.key_cfg(k);
+        let cur = self.rt.states.get(&self.key_path(k)).copied().unwrap_or(0);
+        let look = &key.state(cur).look;
+        (look.label.clone(), look.icon.clone(), key.app.clone())
     }
 
     /// Does key k have double-press actions right now? Only those wait before a press.
@@ -850,14 +868,17 @@ impl Engine {
     }
 
     fn fire(&mut self, k: usize, ev: KeyEvent) {
-        self.publish_key_event(k, ev);
+        let v = self.publish_key_event(k, ev);
         if let Some(m) = &self.mqtt {
-            let profile = self.cfg.profiles.get(self.view.profile).map(|p| p.name.clone()).unwrap_or_default();
-            let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };
-            m.publish(&m.topic("key"), json!({ "profile": profile, "page": page, "key": k, "event": ev.name() }).to_string(), false);
-            // one Home Assistant event entity per key (MQTT discovery: Key 0 … Wide key)
+            m.publish(&m.topic("key"), json!({ "profile": v["profile"], "page": v["page"], "key": k, "event": ev.name(),
+                                                "label": v["label"], "icon": v["icon"], "app": v["app"] }).to_string(), false);
+            // Home Assistant event entities (MQTT discovery): Key pressed (any key) and one per key.
+            // `icon` would become the entity's icon in Home Assistant: key_icon, key_label.
             if matches!(ev, KeyEvent::Press | KeyEvent::Long | KeyEvent::Double) {
-                m.publish(&m.topic(&format!("key/{k}")), json!({ "event_type": ev.name(), "profile": profile, "page": page }).to_string(), false);
+                let e = json!({ "event_type": ev.name(), "key": k, "profile": v["profile"], "page": v["page"],
+                                "key_label": v["label"], "key_icon": v["icon"], "app": v["app"] });
+                m.publish(&m.topic("key_event"), e.to_string(), false);
+                m.publish(&m.topic(&format!("key/{k}")), e.to_string(), false);
             }
         }
         // remote page keys belong to Home Assistant: its own broker, if it has one

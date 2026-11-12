@@ -214,7 +214,10 @@ pub fn discovery(b: &str, profiles: &[String], pages: &[String], teams: bool) ->
         "value_template": "{{ {'installed_version': value_json.version, 'latest_version': value_json.latest, 'title': 'D200 Deck', \
 'release_url': 'https://github.com/ricktap/ulanzi-d200-cfw/releases/tag/v' ~ value_json.latest} | tojson }}" }));
 
-    // ---- one event entity per key: what was pressed shows in the logbook and the automation editor
+    // ---- key events: one entity for every key (key, page, profile, label, icon as attributes),
+    // and one per key, so the logbook and the automation editor show which key it was
+    add("event", "key_pressed", json!({ "name": "Key pressed", "device_class": "button", "icon": "mdi:gesture-tap-button",
+        "state_topic": format!("{b}/key_event"), "event_types": ["press", "long_press", "double_press"] }));
     for k in 0..crate::config::NUM_KEYS {
         let name = if k == crate::config::NUM_KEYS - 1 { "Wide key".to_string() } else { format!("Key {k}") };
         add("event", &format!("key_{k}"), json!({ "name": name, "device_class": "button", "icon": "mdi:gesture-tap-button",

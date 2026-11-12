@@ -396,6 +396,15 @@ async def test_one_device_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
     s3 = st("event", "key_3")
     assert (s3.attributes["event_type"], s3.attributes["profile"], s3.attributes["page"]) == ("double_press", "Work", "Main")
     assert st("event", "key_4").state == "unknown"
+    # one entity for every key, with everything as attributes
+    anykey = st("event", "key_pressed")
+    assert anykey.name == "Ulanzi D200 Key pressed" and anykey.attributes["event_types"] == ["press", "long_press", "double_press"]
+    async_fire_mqtt_message(hass, "d200/key_event", json.dumps({"event_type": "long_press", "key": 5, "profile": "Work", "page": "Main",
+                                                                 "key_label": "Lamp", "key_icon": "core:light", "app": None}))
+    await hass.async_block_till_done()
+    a = st("event", "key_pressed").attributes
+    assert (a["event_type"], a["key"], a["page"], a["profile"], a["key_label"], a["key_icon"]) == ("long_press", 5, "Main", "Work", "Lamp", "core:light")
+    assert "icon" not in a or a["icon"] == "mdi:gesture-tap-button"
     await hass.services.async_call(DOMAIN, "press_key", {"key": 4, "event": "long_press"}, blocking=True)
     assert json.loads(published(mqtt_mock, "d200/press")[-1][0]) == {"key": 4, "event": "long_press"}
     await hass.services.async_call(DOMAIN, "run_action", {"action": "core:page", "params": {"page": "Media"}}, blocking=True)
@@ -448,9 +457,11 @@ async def test_web_api_only_device(hass: HomeAssistant, aioclient_mock, hass_cli
     assert web_calls(aioclient_mock, "POST", "/api/keys/4/press")[-1][0] == {"event": "press"}
 
     # key events over the webhook
-    body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4}
+    body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4, "label": "Door", "icon": "lock"}
     assert (await client.post("/api/webhook/hook123", json=body)).status == 200
     await hass.async_block_till_done()
     ev = st("key_7")
     assert ev.attributes["event_type"] == "long_press" and ev.attributes["page"] == "remote"
+    a = st("key_pressed").attributes
+    assert (a["event_type"], a["key"], a["key_label"], a["key_icon"]) == ("long_press", 7, "Door", "lock")
     assert st("key_6").state == "unknown" and hass.states.get(ents["key_13"]).name == "Ulanzi D200 Wide key"
