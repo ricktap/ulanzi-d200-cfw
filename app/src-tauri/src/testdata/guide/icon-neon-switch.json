@@ -1,0 +1,18 @@
+{
+  "id": "com.jemand.neon:switch",
+  "roles": ["toggle", "button"],
+  "file": "switch.svg",
+  "parts": {
+    "pill": {
+      "fill": {
+        "prop": "toggle.on",
+        "steps": [{ "tone": "muted" }, { "tone": "accent" }],
+        "fallback": { "tone": "muted" }
+      }
+    },
+    "knob": {
+      "fill": { "tone": "base" },
+      "cx": { "prop": "toggle.on", "steps": [34, 66], "fallback": 34 }
+    }
+  }
+}

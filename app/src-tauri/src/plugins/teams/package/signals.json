@@ -1,0 +1,126 @@
+[
+  {
+    "name": "com.deckling.teams:connected",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:paired",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:error",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:in_meeting",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:mic_on",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:video",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.muted",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.hand_raised",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.blurred",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.recording",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.sharing",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.can_toggle_mute",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:meeting.can_toggle_video",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:signed_in",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.teams:account",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:presence",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:presence.activity",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:presence.error",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:mail.unread",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.teams:mail.latest.id",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:mail.latest.from",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:mail.latest.subject",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:mail.latest.link",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:mail.error",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:calendar.count",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.teams:calendar.{n}.id",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:calendar.{n}.subject",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:calendar.{n}.start",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.teams:calendar.{n}.end",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.teams:calendar.{n}.join",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.teams:calendar.{n}.teams",
+    "type": "flag"
+  }
+]

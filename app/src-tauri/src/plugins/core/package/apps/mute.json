@@ -1,0 +1,19 @@
+{
+  "id": "com.deckling.core:mute",
+  "name": "Mute",
+  "description": "Shows whether the computer is muted. Press mutes or unmutes.",
+  "icon": "com.deckling.core:volume-muted",
+  "face": "mute",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.core:audio.muted",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

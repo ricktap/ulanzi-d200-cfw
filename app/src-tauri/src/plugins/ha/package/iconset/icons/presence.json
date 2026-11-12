@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:presence",
+  "roles": [
+    "button"
+  ],
+  "file": "presence.svg"
+}

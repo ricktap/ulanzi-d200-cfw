@@ -1,0 +1,170 @@
+[
+  {
+    "name": "com.deckling.core:system.cpu",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.core:system.ram",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.core:system.disk",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.core:system.net_down",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:system.net_up",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:audio.muted",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.core:weather.temperature",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:weather.summary",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.progress",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.running",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.phase",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.remaining",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:media.playing",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.core:media.title",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:media.artist",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:media.progress",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.core:system.ram_used",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:system.ram_total",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:system.disk_used",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:system.disk_total",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:system.disk_name",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:system.temperature",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:system.history.cpu",
+    "type": "series"
+  },
+  {
+    "name": "com.deckling.core:system.history.ram",
+    "type": "series"
+  },
+  {
+    "name": "com.deckling.core:system.history.net_down",
+    "type": "series"
+  },
+  {
+    "name": "com.deckling.core:system.history.net_up",
+    "type": "series"
+  },
+  {
+    "name": "com.deckling.core:weather.configured",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.core:weather.code",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:weather.is_day",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.core:weather.max",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:weather.min",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:weather.place",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:weather.error",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.done",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.remaining_ms",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.events",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:pomodoro.last_event",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:media.player",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:media.album",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.core:media.position",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:media.duration",
+    "type": "number"
+  },
+  {
+    "name": "com.deckling.core:media.art_url",
+    "type": "text"
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "id": "com.deckling.amber",
+  "type": "theme",
+  "name": "Amber",
+  "version": "1.0.0",
+  "description": "Warm dark theme: amber accent on brown-black keys.",
+  "theme": {
+    "type": "full",
+    "variables": {
+      "background": "#211A14",
+      "base": "#FFE6C2",
+      "muted": "#5A4A3A",
+      "accent": "#FF9F43",
+      "info": "#E8B887",
+      "warning": "#FFD166",
+      "danger": "#FF6B5B"
+    }
+  }
+}

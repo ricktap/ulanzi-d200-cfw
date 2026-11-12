@@ -50,6 +50,48 @@ mod mac {
         })
     }
 
+    /// Is an app with one of these bundle ids running? Native and cheap (no AppleScript).
+    pub fn any_running(bundle_ids: &[&str]) -> bool {
+        autoreleasepool(|_| {
+            let ws = NSWorkspace::sharedWorkspace();
+            ws.runningApplications()
+                .iter()
+                .any(|a| a.bundleIdentifier().is_some_and(|b| bundle_ids.iter().any(|id| b.to_string() == *id)))
+        })
+    }
+
+    /// Default output device muted, from CoreAudio. None when the device has no mute
+    /// control (then the caller asks AppleScript).
+    pub fn output_muted() -> Option<bool> {
+        use std::ffi::c_void;
+        #[repr(C)]
+        struct Address {
+            selector: u32,
+            scope: u32,
+            element: u32,
+        }
+        #[link(name = "CoreAudio", kind = "framework")]
+        extern "C" {
+            fn AudioObjectGetPropertyData(id: u32, addr: *const Address, qsize: u32, qdata: *const c_void, size: *mut u32, data: *mut c_void) -> i32;
+        }
+        let cc = |s: &[u8; 4]| u32::from_be_bytes(*s);
+        const SYSTEM_OBJECT: u32 = 1;
+        let mut device: u32 = 0;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        let addr = Address { selector: cc(b"dOut"), scope: cc(b"glob"), element: 0 };
+        // SAFETY: plain C call with a valid address struct and an out-buffer of `size` bytes.
+        let st = unsafe { AudioObjectGetPropertyData(SYSTEM_OBJECT, &addr, 0, std::ptr::null(), &mut size, &mut device as *mut u32 as *mut c_void) };
+        if st != 0 || device == 0 {
+            return None;
+        }
+        let mut muted: u32 = 0;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        let addr = Address { selector: cc(b"mute"), scope: cc(b"outp"), element: 0 };
+        // SAFETY: as above.
+        let st = unsafe { AudioObjectGetPropertyData(device, &addr, 0, std::ptr::null(), &mut size, &mut muted as *mut u32 as *mut c_void) };
+        (st == 0).then_some(muted != 0)
+    }
+
     pub fn running() -> Vec<AppInfo> {
         autoreleasepool(|_| {
             let ws = NSWorkspace::sharedWorkspace();
@@ -101,6 +143,23 @@ mod win {
 }
 
 /// The app in front. macOS and Windows; `None` elsewhere.
+/// Can this OS tell the frontmost app? Then scans for games and debuggers run only when
+/// the front app changes or is the one they look for.
+pub fn front_app_supported() -> bool {
+    cfg!(any(target_os = "macos", windows))
+}
+
+/// Is one of these apps running? (bundle ids on macOS). Elsewhere: assume yes.
+pub fn any_running(bundle_ids: &[&str]) -> bool {
+    #[cfg(target_os = "macos")]
+    return mac::any_running(bundle_ids);
+    #[allow(unreachable_code)]
+    {
+        let _ = bundle_ids;
+        true
+    }
+}
+
 pub fn frontmost_app() -> Option<AppInfo> {
     #[cfg(target_os = "macos")]
     return mac::frontmost();
@@ -285,6 +344,11 @@ pub fn applescript_for_combo(combo: &str) -> Result<String, String> {
 
 /// System output muted? `None` if it cannot be read on this OS.
 pub fn get_muted() -> Option<bool> {
+    // CoreAudio first: no process to start. AppleScript only for devices without a mute control.
+    #[cfg(target_os = "macos")]
+    if let Some(m) = mac::output_muted() {
+        return Some(m);
+    }
     #[cfg(target_os = "macos")]
     return output(Command::new("osascript").args(["-e", "output muted of (get volume settings)"])).and_then(|s| {
         match s.as_str() {

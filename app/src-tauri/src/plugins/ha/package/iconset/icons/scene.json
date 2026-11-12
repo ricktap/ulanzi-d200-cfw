@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:scene",
+  "roles": [
+    "button"
+  ],
+  "file": "scene.svg"
+}

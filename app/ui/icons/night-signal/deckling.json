@@ -1,0 +1,12 @@
+{
+  "id": "com.deckling.core",
+  "type": "iconset",
+  "name": "Night Signal",
+  "version": "1.0.0",
+  "description": "Line icons on dark keys. Embedded in com.deckling.core.",
+  "contributes": {
+    "icons": "icons/",
+    "svg": "svg/",
+    "interfaces": "interfaces/"
+  }
+}

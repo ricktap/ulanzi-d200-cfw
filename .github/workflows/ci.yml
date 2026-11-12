@@ -3,9 +3,11 @@
 #   push / pull request -> unit tests, e2e tests, device build, macOS app build
 #   tag vX.Y.Z[-pre]    -> the same, then a GitHub release with the DMG and d200fw
 #
-# Release: git tag v1.2.3 && git push origin v1.2.3
-# The version is taken from the tag (scripts/set-version.sh), so the files in the repo
-# don't have to be bumped first. Tags with a pre-release part (v1.2.3-rc.1) become pre-releases.
+# Release, either way:
+#   git tag v1.2.3 && git push origin v1.2.3
+#   Actions → CI → Run workflow, "release" = 1.2.3  (creates tag v1.2.3 on that commit)
+# The version is taken from the tag or the input (scripts/set-version.sh), so the files in
+# the repo don't have to be bumped first. A pre-release part (1.2.3-rc.1) makes a pre-release.
 name: CI
 
 on:
@@ -16,28 +18,65 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+-*"
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Release this commit as version X.Y.Z (creates tag vX.Y.Z). Empty: just build."
+        required: false
+        default: ""
 
+# A new push to a branch cancels that branch's older run; releases (tags, or runs
+# started with a release version) are never cancelled and do not cancel others.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}-${{ inputs.release || 'build' }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+  # The release tag: the pushed tag, or v<input> for a release started by hand.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (inputs.release != '' && format('v{0}', inputs.release) || '') }}
 
 jobs:
   test:
     name: Tests (unit + e2e)
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # Canonical's mirrors (azure.archive / archive.ubuntu.com) once stopped answering the
+      # runners for hours and held releases. Each attempt is time-limited; after the Azure
+      # mirror come independent mirrors (same packages, checked against Ubuntu's signatures).
       - name: Linux packages for Tauri
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+          PKGS="libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev"
+          OPTS="-o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          PREV="http://azure.archive.ubuntu.com/ubuntu/"
+          mirror() {  # point every Ubuntu source at $1
+            for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+              [ -f "$f" ] || continue
+              sudo sed -i -E \
+                -e "s#mirror\+file:/etc/apt/apt-mirrors\.txt#$1#g" \
+                -e "s#https?://(azure\.)?archive\.ubuntu\.com/ubuntu/?#$1#g" \
+                -e "s#https?://security\.ubuntu\.com/ubuntu/?#$1#g" \
+                -e "s#$PREV#$1#g" "$f"
+            done
+            PREV="$1"
+          }
+          for m in https://azure.archive.ubuntu.com/ubuntu/ https://mirrors.edge.kernel.org/ubuntu/ \
+                   https://mirror.us.leaseweb.net/ubuntu/ https://ftp.halifax.rwth-aachen.de/ubuntu/; do
+            mirror "$m"
+            echo "apt mirror: $m"
+            if timeout 100 sudo apt-get update $OPTS && timeout 360 sudo apt-get install -y $OPTS $PKGS; then
+              exit 0
+            fi
+            echo "::warning::apt failed with $m"
+            sleep 5
+          done
+          exit 1
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -73,8 +112,27 @@ jobs:
           path: ${{ runner.temp }}/e2e
           retention-days: 7
 
+  ha:
+    name: Home Assistant integration
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tests/ha/requirements.txt
+      - name: Home Assistant test harness
+        run: pip install -r tests/ha/requirements.txt
+      - name: Tests
+        run: tests/ha/run.sh
+      - name: hassfest-style checks
+        run: python3 -c "import json; m = json.load(open('custom_components/d200_deck/manifest.json')); k = list(m); assert k[:2] == ['domain', 'name'] and k[2:] == sorted(k[2:]), k"
+
   device:
     name: Device binary (armv7)
+    timeout-minutes: 40
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -99,6 +157,7 @@ jobs:
 
   app:
     name: Desktop app (macOS universal)
+    timeout-minutes: 40
     needs: device
     runs-on: macos-latest
     steps:
@@ -110,9 +169,9 @@ jobs:
           name: d200fw
           path: bin
 
-      - name: Version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: scripts/set-version.sh "${GITHUB_REF_NAME}"
+      - name: Version from the release tag
+        if: env.RELEASE_TAG != ''
+        run: scripts/set-version.sh "$RELEASE_TAG"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -132,24 +191,90 @@ jobs:
         working-directory: app
         run: npm ci
 
+      # The updater package (.app.tar.gz + .sig) is signed with the key in the
+      # TAURI_SIGNING_PRIVATE_KEY secret; without it the build skips that package.
       - name: Build
         working-directory: app
-        run: npx tauri build --target universal-apple-darwin
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            npx tauri build --target universal-apple-darwin
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: building without the updater package"
+            npx tauri build --target universal-apple-darwin --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+
+      # Not notarised: the app is signed ad hoc (tauri.conf.json, signingIdentity "-"),
+      # so it runs on Apple Silicon. The .pkg installs it to /Applications and clears the
+      # quarantine flag, so only the installer needs the Gatekeeper exception.
+      - name: Installer (.pkg)
+        run: |
+          set -e
+          BUNDLE=app/src-tauri/target/universal-apple-darwin/release/bundle
+          VERSION=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          codesign --verify --verbose "$BUNDLE/macos/D200 Deck.app"
+          mkdir -p "$BUNDLE/pkg" stage
+          cp -R "$BUNDLE/macos/D200 Deck.app" stage/
+          # always install to /Applications, even if a copy exists elsewhere
+          pkgbuild --analyze --root stage component.plist
+          plutil -replace 0.BundleIsRelocatable -bool NO component.plist
+          pkgbuild --root stage --component-plist component.plist \
+            --install-location /Applications \
+            --scripts packaging/macos/scripts \
+            --identifier dev.d200fw.deck \
+            --version "$VERSION" \
+            "$BUNDLE/pkg/D200 Deck_${VERSION}_universal.pkg"
+          ls -l "$BUNDLE/dmg" "$BUNDLE/pkg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: d200-deck-macos
-          path: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          path: |
+            app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            app/src-tauri/target/universal-apple-darwin/release/bundle/pkg/*.pkg
+            app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+            app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
 
   release:
     name: GitHub release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, device, app]
+    timeout-minutes: 40
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
+    needs: [test, ha, device, app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # all tags and history, for the changes since the last release
+
+      # The release text: every commit since the previous release tag (title and body),
+      # then how to install. Also the updater's notes in latest.json.
+      - name: Release notes
+        run: |
+          PREV=$(git tag --list 'v[0-9]*' --sort=-v:refname --merged HEAD | grep -vx "$RELEASE_TAG" | head -1 || true)
+          RANGE=${PREV:+$PREV..}HEAD
+          {
+            echo "## Changes${PREV:+ since $PREV}"
+            echo
+            git log --no-merges --reverse --format='### %s%n%n%b' "$RANGE" \
+              | grep -v -e '^Co-Authored-By:' -e '^Claude-Session:'
+            echo
+            echo "## Install"
+            echo
+            echo 'macOS (Intel and Apple Silicon, macOS 11+):'
+            echo
+            echo '```sh'
+            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/install.sh | sh"
+            echo '```'
+            echo
+            echo 'An installed D200 Deck offers new releases itself (Update button in the header).'
+          } > notes.md
+          cat notes.md
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -157,13 +282,32 @@ jobs:
       - name: Collect files
         run: |
           mkdir out
-          cp dist/d200-deck-macos/*.dmg out/
-          cp dist/d200fw/d200fw "out/d200fw-${GITHUB_REF_NAME}-armv7"
+          cp dist/d200-deck-macos/dmg/*.dmg dist/d200-deck-macos/pkg/*.pkg out/
+          echo "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' || { echo "not a semver tag: $RELEASE_TAG"; exit 1; }
+          cp dist/d200fw/d200fw "out/d200fw-${RELEASE_TAG}-armv7"
+          cp install.sh out/  # releases/latest/download/install.sh is always the newest
+          # updater: the signed package and latest.json (the app reads it from releases/latest)
+          VERSION="${RELEASE_TAG#v}"
+          TAR=$(ls dist/d200-deck-macos/macos/*.app.tar.gz 2>/dev/null | head -1 || true)
+          if [ -n "$TAR" ] && [ -f "$TAR.sig" ]; then
+            NAME="D200-Deck_${VERSION}_universal.app.tar.gz"
+            cp "$TAR" "out/$NAME"
+            URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${NAME}"
+            jq -n --arg v "$VERSION" --arg sig "$(cat "$TAR.sig")" --arg url "$URL" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --rawfile notes notes.md \
+              '{version: $v, notes: $notes, pub_date: $date,
+                platforms: {"darwin-aarch64": {signature: $sig, url: $url}, "darwin-x86_64": {signature: $sig, url: $url}}}' > out/latest.json
+          else
+            echo "::warning::no signed updater package: the release has no latest.json"
+          fi
           (cd out && sha256sum * > SHA256SUMS)
           ls -l out
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: D200 Deck ${{ env.RELEASE_TAG }}
           files: out/*
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: notes.md
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}

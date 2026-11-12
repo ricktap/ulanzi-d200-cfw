@@ -1,7 +1,7 @@
 //! Built-in key apps: system monitor, mute, weather, clock, pomodoro.
 //! Data collection lives here; the engine owns the instances and calls the faces.
 
-use crate::config::{AppCfg, Location, PomodoroCfg};
+use crate::config::{Key, Location, PomodoroCfg};
 use crate::render::{hex, Canvas, Fonts, Rgb, Th, AMBER, BG, CORAL, IVORY, LINE, MINT, MUTED};
 use serde_json::Value;
 use std::collections::VecDeque;
@@ -152,8 +152,9 @@ pub fn fmt_bytes(b: f64) -> String {
     }
 }
 
-pub fn sysmon_modes(cfg: &AppCfg) -> Vec<&'static str> {
-    let m: Vec<&'static str> = SYSMON_MODES.iter().copied().filter(|m| cfg.modes.is_empty() || cfg.modes.iter().any(|x| x == m)).collect();
+pub fn sysmon_modes(key: &Key) -> Vec<&'static str> {
+    let modes = key.cfg_list("modes");
+    let m: Vec<&'static str> = SYSMON_MODES.iter().copied().filter(|m| modes.is_empty() || modes.iter().any(|x| x == m)).collect();
     if m.is_empty() {
         SYSMON_MODES.to_vec()
     } else {
@@ -317,6 +318,11 @@ impl Pomodoro {
     }
 
     /// Long press: reset.
+    /// A timer as the core reads it back from signals (`core_plugin::pomodoro`).
+    pub fn from_parts(phase: Phase, done: u32, running: bool, remaining: Duration) -> Self {
+        Pomodoro { phase, done, running, remaining, deadline: running.then(|| Instant::now() + remaining) }
+    }
+
     pub fn reset(&mut self) {
         *self = Pomodoro::new();
     }
@@ -399,8 +405,8 @@ mod tests {
 
 // ------------------------------------------------------------------ media
 
-use crate::media::NowPlaying;
-use crate::teams::{presence_style, Meeting, Presence};
+use crate::plugins::core::media::NowPlaying;
+use crate::plugins::teams::api::{presence_style, Meeting, Presence};
 use image::DynamicImage;
 
 // ------------------------------------------------------------------ Teams
@@ -498,7 +504,7 @@ fn short_bytes(b: u64) -> String {
 }
 
 /// Square system widgets (CPU, RAM, disk, network), per the Night Signal widget spec.
-pub fn sysmon_face(f: &Fonts, s: &SysStats, mode: &str, idx: usize, n: usize, th: &Th) -> Canvas {
+pub fn sysmon_face(f: &Fonts, s: &crate::plugins::core::SysView, mode: &str, idx: usize, n: usize, th: &Th) -> Canvas {
     let mut c = key(th.bg);
     th.surface(&mut c, true);
     let (ivory, secondary) = (th.text, th.secondary);
@@ -511,7 +517,7 @@ pub fn sysmon_face(f: &Fonts, s: &SysStats, mode: &str, idx: usize, n: usize, th
     }
     let pct = |a: u64, b: u64| if b > 0 { a as f32 * 100.0 / b as f32 } else { 0.0 };
     let gib = |b: u64| b as f64 / (1u64 << 30) as f64;
-    let range = |h: &VecDeque<f32>| {
+    let range = |h: &Vec<f32>| {
         let lo = h.iter().copied().fold(f32::MAX, f32::min);
         let hi = h.iter().copied().fold(f32::MIN, f32::max);
         if lo > hi { (0.0, 100.0) } else { ((lo - 4.0).max(0.0), (hi + 4.0).min(100.0).max(lo + 8.0)) }
@@ -612,12 +618,17 @@ pub fn clock_face(f: &Fonts, mode: usize, h12: bool, th: &Th) -> Canvas {
     if mode % 2 == 0 {
         c.caps_at(f, "CLOCK", 16.0, PAD + 2.0, 32.0, ivory);
         // live analog clock: hands follow the time, the ring the seconds
-        let st = serde_json::json!({
-            "progress": now.second() as f64 * 100.0 / 60.0,
-            "color": hex(th.accent),
-            "time": {"hours": now.hour(), "minutes": now.minute(), "seconds": now.second()},
-        });
-        c.set_icon_state("analog-clock", K - PAD - 30.0, 7.0, 32.0, 32.0, &[], Some(&st));
+        let props = crate::migrate::legacy_props(
+            "analog-clock",
+            &serde_json::json!({
+                "progress": now.second() as f64 * 100.0 / 60.0,
+                "time": {"hours": now.hour(), "minutes": now.minute(), "seconds": now.second()},
+            }),
+        );
+        let theme: serde_json::Map<String, serde_json::Value> = [("accent".to_string(), serde_json::json!(hex(th.accent)))].into_iter().collect();
+        let mut env = crate::render::IconEnv::with_props(&props);
+        env.ctx.theme = &theme;
+        c.set_icon_env("analog-clock", K - PAD - 30.0, 7.0, 32.0, 32.0, &[], Some(&env));
         let t = if h12 { now.format("%-I:%M").to_string() } else { now.format("%H:%M").to_string() };
         c.figure_left(f, &t, 60.0, PAD, 104.0, ivory, K - 2.0 * PAD);
         let sub = if h12 { now.format("%a · %-d %b · %p").to_string() } else { now.format("%a · %-d %b").to_string() };

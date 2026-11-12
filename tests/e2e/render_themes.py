@@ -23,20 +23,20 @@ class Q(http.server.SimpleHTTPRequestHandler):
 srv = http.server.ThreadingHTTPServer(("127.0.0.1", port + 1000), Q); threading.Thread(target=srv.serve_forever, daemon=True).start()
 broker = Broker(bport)
 cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-cfg["settings"]["follow_active_app"] = False
-cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=bport)
-cfg["settings"]["screensaver"]["enabled"] = False
+cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+cfg["plugins"]["core"]["config"]["mqtt"].update(enabled=True, host="127.0.0.1", port=bport)
+cfg["plugins"]["core"]["config"]["screensaver"]["enabled"] = False
 cfg["status_key"]["app"] = "media"
 pg = cfg["profiles"][0]["pages"]["main"]
-pg["0"] = {"app": {"type": "sysmon", "modes": ["cpu"]}}; pg["1"] = {"app": {"type": "sysmon", "modes": ["ram"]}}
-pg["2"] = {"app": {"type": "sysmon", "modes": ["disk"]}}; pg["3"] = {"app": {"type": "sysmon", "modes": ["net"]}}; pg["4"] = {"app": {"type": "clock"}}
-pg["5"] = {"states": [{"label": "Desk", "icon": "light", "icon_state": {"on": True, "color": "#B79AF7"}}]}
-pg["6"] = {"states": [{"label": "Hall", "icon": "light", "icon_state": {"on": False}}]}
-pg["7"] = {"states": [{"label": "Office", "icon": "thermostat", "icon_state": {"temperature": 21.5, "progress": 55, "color": "#FFBF69"}}]}
-pg["8"] = {"states": [{"label": "Focus", "icon": "pomodoro", "icon_state": {"progress": 40}}]}
-pg["9"] = {"states": [{"label": "AMS", "icon": "bambu-ams-lite", "icon_state": {"spools": [{"color": "#69E0C1", "progress": 80}, {"color": "#B79AF7", "progress": 30}, {"color": "#FFBF69", "progress": 60}, {"color": "#FF8278", "progress": 95}]}}]}
+pg["0"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["cpu"]}}; pg["1"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["ram"]}}
+pg["2"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["disk"]}}; pg["3"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["net"]}}; pg["4"] = {"app": "com.deckling.core:clock"}
+pg["5"] = {"states": [{"label": "Desk", "icon": "com.deckling.core:light", "props": {"toggle.on": True, "rgb.color": "#B79AF7"}}]}
+pg["6"] = {"states": [{"label": "Hall", "icon": "com.deckling.core:light", "props": {"toggle.on": False}}]}
+pg["7"] = {"states": [{"label": "Office", "icon": "com.deckling.core:thermostat", "props": {"label.text": "21.5", "progress.value": 55}}]}
+pg["8"] = {"states": [{"label": "Focus", "icon": "com.deckling.core:pomodoro", "props": {"progress.value": 40}}]}
+pg["9"] = {"states": [{"label": "AMS", "icon": "com.deckling.core:bambu-ams-lite", "props": {f"com.ricktap.bambu:ams.slot{i+1}_{k}": v for i, (c, r) in enumerate([("#69E0C1", 80), ("#B79AF7", 30), ("#FFBF69", 60), ("#FF8278", 95)]) for k, v in (("color", c), ("remaining", r))}}]}
 if variant == "themed":
-    cfg["settings"]["theme"] = {
+    cfg["plugins"]["core"]["config"]["theme"] = {
         "palette": {"active": "#74b9ff", "info": "#c7a8ff", "attention": "#ffd166", "error": "#ff6b81", "background": "#101820"},
         "widgets": {"music": {"accent": "#c7a8ff", "light": "#8970dd", "light_opacity": 0.65, "layout": "airy"},
                     "network": {"network_up": "#69e0c1", "network_down": "#74b9ff"},

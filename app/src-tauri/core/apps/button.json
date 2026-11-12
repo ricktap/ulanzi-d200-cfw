@@ -1,0 +1,10 @@
+{
+  "id": "core:button",
+  "name": "Button",
+  "description": "A key with your own icon, label and actions.",
+  "implements": {},
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

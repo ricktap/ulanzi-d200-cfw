@@ -1,0 +1,8 @@
+[package]
+name = "scene"
+version = "0.1.0"
+edition = "2021"
+description = "The Night Signal screensaver scenes, drawn by the app or on the D200 itself"
+
+[dependencies]
+tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }

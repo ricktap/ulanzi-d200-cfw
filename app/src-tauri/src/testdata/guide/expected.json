@@ -1,0 +1,709 @@
+{
+ "signals": {
+  "time.clock": "10:08",
+  "time.second": 7,
+  "time.tick": 3,
+  "time.hour_angle": 304,
+  "time.minute_angle": 48,
+  "com.ricktap.hue:lamp.power": 1,
+  "com.ricktap.hue:lamp.color": "hsl(120, 85%, 60%)",
+  "com.ricktap.hue:lamp.brightness": 64,
+  "com.ricktap.media:playing": 1,
+  "com.ricktap.media:title": "Nachtfahrt",
+  "com.ricktap.media:color": "#E86A92",
+  "com.ricktap.media:progress": 37,
+  "com.ricktap.bambu:ams1.slot1.color": "#69E0C1",
+  "com.ricktap.bambu:ams1.slot1.remaining": 100,
+  "com.ricktap.bambu:ams1.slot2.color": "#FFBF69",
+  "com.ricktap.bambu:ams1.slot2.remaining": 72,
+  "com.ricktap.bambu:ams1.slot3.color": "#FF8278",
+  "com.ricktap.bambu:ams1.slot3.remaining": 45,
+  "com.ricktap.bambu:ams1.slot4.color": "hsl(40, 80%, 62%)",
+  "com.ricktap.bambu:ams1.slot4.remaining": 80,
+  "com.ricktap.bambu:ams2.slot1.color": "#5B8DEF",
+  "com.ricktap.bambu:ams2.slot1.remaining": 30,
+  "com.ricktap.bambu:ams2.slot2.color": "#F4F1E8",
+  "com.ricktap.bambu:ams2.slot2.remaining": 95,
+  "com.ricktap.bambu:ams2.slot3.color": "#3DDC84",
+  "com.ricktap.bambu:ams2.slot3.remaining": 60,
+  "com.ricktap.bambu:ams2.slot4.color": "#E86A92",
+  "com.ricktap.bambu:ams2.slot4.remaining": 12
+ },
+ "cases": [
+  {
+   "name": "hue",
+   "app": "app-hue",
+   "icon": "icon-hue-bulb",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "outline": {
+     "stroke": "#F4F1E8"
+    },
+    "glass": {
+     "visible": 1,
+     "fill": "hsl(120, 85%, 60%)"
+    },
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "level": {
+     "stroke": "hsl(120, 85%, 60%)",
+     "progress": 64
+    }
+   }
+  },
+  {
+   "name": "hue",
+   "app": "app-hue",
+   "icon": "icon-neon-bulb",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "outline": {
+     "stroke": "#F4F1E8"
+    },
+    "glass": {
+     "visible": 1,
+     "fill": "hsl(120, 85%, 60%)"
+    }
+   }
+  },
+  {
+   "name": "hue",
+   "app": "app-hue",
+   "icon": "icon-neon-switch",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "pill": {
+     "fill": "#69E0C1"
+    },
+    "knob": {
+     "fill": "#F4F1E8",
+     "cx": 66
+    }
+   }
+  },
+  {
+   "name": "hue",
+   "app": "app-hue",
+   "icon": "icon-neon-lamp",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "outline": {
+     "stroke": "#F4F1E8"
+    }
+   }
+  },
+  {
+   "name": "hue off",
+   "app": "app-hue",
+   "icon": "icon-hue-bulb",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {
+    "com.ricktap.hue:lamp.power": 0
+   },
+   "expect": {
+    "outline": {
+     "stroke": "#F4F1E8"
+    },
+    "glass": {
+     "visible": 0,
+     "fill": "hsl(120, 85%, 60%)"
+    },
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "level": {
+     "stroke": "hsl(120, 85%, 60%)",
+     "progress": 64
+    }
+   }
+  },
+  {
+   "name": "hue off",
+   "app": "app-hue",
+   "icon": "icon-neon-bulb",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {
+    "com.ricktap.hue:lamp.power": 0
+   },
+   "expect": {
+    "outline": {
+     "stroke": "#F4F1E8"
+    },
+    "glass": {
+     "visible": 0,
+     "fill": "hsl(120, 85%, 60%)"
+    }
+   }
+  },
+  {
+   "name": "hue off",
+   "app": "app-hue",
+   "icon": "icon-neon-switch",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {
+    "com.ricktap.hue:lamp.power": 0
+   },
+   "expect": {
+    "pill": {
+     "fill": "#3A4350"
+    },
+    "knob": {
+     "fill": "#F4F1E8",
+     "cx": 34
+    }
+   }
+  },
+  {
+   "name": "clock analog",
+   "app": "app-clock",
+   "icon": "icon-core-clock",
+   "config": {
+    "display": "analog"
+   },
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "analog": {
+     "visible": true
+    },
+    "ring": {
+     "stroke": "#F4F1E8"
+    },
+    "hour": {
+     "stroke": "#F4F1E8",
+     "transform": "rotate(304 50 50)"
+    },
+    "minute": {
+     "stroke": "#69E0C1",
+     "transform": "rotate(48 50 50)"
+    },
+    "digital": {
+     "fill": "#F4F1E8",
+     "visible": false,
+     "text": "10:08"
+    }
+   }
+  },
+  {
+   "name": "clock digital",
+   "app": "app-clock",
+   "icon": "icon-core-clock",
+   "config": {
+    "display": "digital"
+   },
+   "theme": "b",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "analog": {
+     "visible": false
+    },
+    "ring": {
+     "stroke": "#FFE6C2"
+    },
+    "hour": {
+     "stroke": "#FFE6C2",
+     "transform": "rotate(304 50 50)"
+    },
+    "minute": {
+     "stroke": "#FF9F43",
+     "transform": "rotate(48 50 50)"
+    },
+    "digital": {
+     "fill": "#FFE6C2",
+     "visible": true,
+     "text": "10:08"
+    }
+   }
+  },
+  {
+   "name": "ams 1",
+   "app": "app-ams",
+   "icon": "icon-bambu-rings",
+   "config": {
+    "unit": "ams1"
+   },
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#F4F1E8"
+    },
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "led": {
+     "fill": "#3B82F6"
+    },
+    "spool-1": {
+     "stroke": "#69E0C1",
+     "progress": 100
+    },
+    "spool-2": {
+     "stroke": "#FFBF69",
+     "progress": 72
+    },
+    "spool-3": {
+     "stroke": "#FF8278",
+     "progress": 45
+    },
+    "spool-4": {
+     "stroke": "hsl(40, 80%, 62%)",
+     "progress": 80
+    }
+   }
+  },
+  {
+   "name": "ams 1",
+   "app": "app-ams",
+   "icon": "icon-neon-spools",
+   "config": {
+    "unit": "ams1"
+   },
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#F4F1E8"
+    },
+    "spool-1": {
+     "stroke": "#69E0C1",
+     "progress": 100
+    },
+    "spool-2": {
+     "stroke": "#FFBF69",
+     "progress": 72
+    },
+    "spool-3": {
+     "stroke": "#FF8278",
+     "progress": 45
+    },
+    "spool-4": {
+     "stroke": "hsl(40, 80%, 62%)",
+     "progress": 80
+    }
+   }
+  },
+  {
+   "name": "ams 2 bernstein",
+   "app": "app-ams",
+   "icon": "icon-bambu-rings",
+   "config": {
+    "unit": "ams2"
+   },
+   "theme": "b",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#FFE6C2"
+    },
+    "track": {
+     "stroke": "#5A4A3A"
+    },
+    "led": {
+     "fill": "#3DDC84"
+    },
+    "spool-1": {
+     "stroke": "#5B8DEF",
+     "progress": 30
+    },
+    "spool-2": {
+     "stroke": "#F4F1E8",
+     "progress": 95
+    },
+    "spool-3": {
+     "stroke": "#3DDC84",
+     "progress": 60
+    },
+    "spool-4": {
+     "stroke": "#E86A92",
+     "progress": 12
+    }
+   }
+  },
+  {
+   "name": "ams 2 bernstein",
+   "app": "app-ams",
+   "icon": "icon-neon-spools",
+   "config": {
+    "unit": "ams2"
+   },
+   "theme": "b",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#FFE6C2"
+    },
+    "spool-1": {
+     "stroke": "#5B8DEF",
+     "progress": 30
+    },
+    "spool-2": {
+     "stroke": "#F4F1E8",
+     "progress": 95
+    },
+    "spool-3": {
+     "stroke": "#3DDC84",
+     "progress": 60
+    },
+    "spool-4": {
+     "stroke": "#E86A92",
+     "progress": 12
+    }
+   }
+  },
+  {
+   "name": "ams overlays",
+   "app": "app-ams",
+   "icon": "icon-bambu-rings",
+   "config": {
+    "unit": "ams1"
+   },
+   "theme": "a",
+   "overlays": [
+    "com.jemand.ams-blau",
+    "com.jemand.regenbogen"
+   ],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#6F8FD9"
+    },
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "led": {
+     "fill": "#3B82F6"
+    },
+    "spool-1": {
+     "stroke": "#69E0C1",
+     "progress": 100
+    },
+    "spool-2": {
+     "stroke": "#FFBF69",
+     "progress": 72
+    },
+    "spool-3": {
+     "stroke": "#FF8278",
+     "progress": 45
+    },
+    "spool-4": {
+     "stroke": "hsl(40, 80%, 62%)",
+     "progress": 80
+    }
+   }
+  },
+  {
+   "name": "hue sync",
+   "app": "app-ams",
+   "icon": "icon-bambu-rings",
+   "config": {
+    "unit": "ams2"
+   },
+   "theme": "a",
+   "overlays": [
+    "com.jemand.regenbogen",
+    "com.ricktap.hue-sync"
+   ],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#F4F1E8"
+    },
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "led": {
+     "fill": "#3B82F6"
+    },
+    "spool-1": {
+     "stroke": "#5B8DEF",
+     "progress": 30
+    },
+    "spool-2": {
+     "stroke": "#F4F1E8",
+     "progress": 95
+    },
+    "spool-3": {
+     "stroke": "#3DDC84",
+     "progress": 60
+    },
+    "spool-4": {
+     "stroke": "#E86A92",
+     "progress": 12
+    }
+   }
+  },
+  {
+   "name": "hue sync",
+   "app": "app-ams",
+   "icon": "icon-neon-dial",
+   "config": {
+    "unit": "ams2"
+   },
+   "theme": "a",
+   "overlays": [
+    "com.jemand.regenbogen",
+    "com.ricktap.hue-sync"
+   ],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "level": {
+     "stroke": "hsl(120, 85%, 60%)",
+     "progress": 0
+    }
+   }
+  },
+  {
+   "name": "hue sync, no hue",
+   "app": "app-ams",
+   "icon": "icon-bambu-rings",
+   "config": {
+    "unit": "ams2"
+   },
+   "theme": "b",
+   "overlays": [
+    "com.ricktap.hue-sync"
+   ],
+   "drop": [
+    "com.ricktap.hue:lamp.color"
+   ],
+   "set": {},
+   "expect": {
+    "housing": {
+     "stroke": "#FFE6C2"
+    },
+    "track": {
+     "stroke": "#5A4A3A"
+    },
+    "led": {
+     "fill": "#3DDC84"
+    },
+    "spool-1": {
+     "stroke": "#5B8DEF",
+     "progress": 30
+    },
+    "spool-2": {
+     "stroke": "#F4F1E8",
+     "progress": 95
+    },
+    "spool-3": {
+     "stroke": "#3DDC84",
+     "progress": 60
+    },
+    "spool-4": {
+     "stroke": "#E86A92",
+     "progress": 12
+    }
+   }
+  },
+  {
+   "name": "media",
+   "app": "app-media",
+   "icon": "icon-media-disc",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "ring": {
+     "stroke": "#E86A92",
+     "progress": 37
+    },
+    "glyph": {
+     "fill": "#F4F1E8"
+    },
+    "play": {
+     "visible": false
+    },
+    "pause": {
+     "visible": true
+    },
+    "title": {
+     "fill": "#F4F1E8",
+     "text": "Nachtfahrt"
+    }
+   }
+  },
+  {
+   "name": "media",
+   "app": "app-media",
+   "icon": "icon-neon-dial",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "level": {
+     "stroke": "#69E0C1",
+     "progress": 37
+    }
+   }
+  },
+  {
+   "name": "media",
+   "app": "app-media",
+   "icon": "icon-neon-switch",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [],
+   "set": {},
+   "expect": {
+    "pill": {
+     "fill": "#69E0C1"
+    },
+    "knob": {
+     "fill": "#F4F1E8",
+     "cx": 66
+    }
+   }
+  },
+  {
+   "name": "media paused",
+   "app": "app-media",
+   "icon": "icon-media-disc",
+   "config": {},
+   "theme": "b",
+   "overlays": [],
+   "drop": [],
+   "set": {
+    "com.ricktap.media:playing": 0
+   },
+   "expect": {
+    "track": {
+     "stroke": "#5A4A3A"
+    },
+    "ring": {
+     "stroke": "#E86A92",
+     "progress": 37
+    },
+    "glyph": {
+     "fill": "#FFE6C2"
+    },
+    "play": {
+     "visible": true
+    },
+    "pause": {
+     "visible": false
+    },
+    "title": {
+     "fill": "#FFE6C2",
+     "text": "Nachtfahrt"
+    }
+   }
+  },
+  {
+   "name": "media gone",
+   "app": "app-media",
+   "icon": "icon-media-disc",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [
+    "com.ricktap.media:playing",
+    "com.ricktap.media:title",
+    "com.ricktap.media:color",
+    "com.ricktap.media:progress"
+   ],
+   "set": {},
+   "expect": {
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "ring": {
+     "stroke": "#87909E",
+     "progress": 0
+    },
+    "glyph": {
+     "fill": "#F4F1E8"
+    },
+    "play": {
+     "visible": true
+    },
+    "pause": {
+     "visible": false
+    },
+    "title": {
+     "fill": "#F4F1E8",
+     "text": ""
+    }
+   }
+  },
+  {
+   "name": "media gone",
+   "app": "app-media",
+   "icon": "icon-neon-dial",
+   "config": {},
+   "theme": "a",
+   "overlays": [],
+   "drop": [
+    "com.ricktap.media:playing",
+    "com.ricktap.media:title",
+    "com.ricktap.media:color",
+    "com.ricktap.media:progress"
+   ],
+   "set": {},
+   "expect": {
+    "track": {
+     "stroke": "#3A4350"
+    },
+    "level": {
+     "stroke": "#69E0C1",
+     "progress": 0
+    }
+   }
+  }
+ ]
+}

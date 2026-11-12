@@ -1,0 +1,70 @@
+{
+  "id": "com.deckling.core",
+  "type": "plugin",
+  "name": "Core apps",
+  "version": "1.0.0",
+  "description": "System monitor, mute, weather, clock, pomodoro and media, with the Night Signal icons.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "config": [
+    {
+      "key": "weather.location",
+      "label": "Place",
+      "type": "place",
+      "group": "Weather"
+    },
+    {
+      "key": "weather.fahrenheit",
+      "label": "Fahrenheit",
+      "type": "toggle",
+      "default": false,
+      "group": "Weather"
+    },
+    {
+      "key": "pomodoro.work",
+      "label": "Focus (min)",
+      "type": "number",
+      "default": 25,
+      "group": "Pomodoro",
+      "min": 1
+    },
+    {
+      "key": "pomodoro.short_break",
+      "label": "Short break (min)",
+      "type": "number",
+      "default": 5,
+      "group": "Pomodoro",
+      "min": 1
+    },
+    {
+      "key": "pomodoro.long_break",
+      "label": "Long break (min)",
+      "type": "number",
+      "default": 15,
+      "group": "Pomodoro",
+      "min": 1
+    },
+    {
+      "key": "pomodoro.rounds",
+      "label": "Rounds before a long break",
+      "type": "number",
+      "default": 4,
+      "group": "Pomodoro",
+      "min": 1
+    },
+    {
+      "key": "pomodoro.sound",
+      "label": "Sound",
+      "type": "toggle",
+      "default": true,
+      "group": "Pomodoro"
+    }
+  ],
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/",
+    "iconset": "iconset/"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "com.ricktap.hue:bulb",
+  "roles": ["com.ricktap.hue:rgb_light"],
+  "file": "bulb.svg",
+  "parts": {
+    "outline": { "stroke": { "tone": "base" } },
+    "glass": {
+      "visible": { "prop": "com.ricktap.hue:rgb_light.on", "fallback": false },
+      "fill": { "prop": "com.ricktap.hue:rgb_light.color", "fallback": "#FFD84D" }
+    },
+    "track": { "stroke": { "tone": "muted" } },
+    "level": {
+      "stroke": { "prop": "com.ricktap.hue:rgb_light.color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.hue:rgb_light.brightness", "fallback": 0 }
+    }
+  }
+}

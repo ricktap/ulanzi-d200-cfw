@@ -1,0 +1,101 @@
+notify:
+  fields:
+    message:
+      required: true
+      example: "Washing machine done"
+      selector:
+        text:
+    title:
+      example: "Laundry"
+      selector:
+        text:
+    icon:
+      example: "notification"
+      selector:
+        text:
+    color:
+      example: "#FFBF69"
+      selector:
+        text:
+    duration:
+      selector:
+        number:
+          min: 1
+          max: 600
+          unit_of_measurement: s
+    critical:
+      default: false
+      selector:
+        boolean:
+    base_topic:
+      advanced: true
+      selector:
+        text:
+
+set_key:
+  fields:
+    key_id:
+      required: true
+      example: "doorbell"
+      selector:
+        text:
+    label:
+      example: "Door"
+      selector:
+        text:
+    kind:
+      example: "presence"
+      selector:
+        select:
+          options: [light, switch, sensor, climate, lock, unlock, cover, scene, vacuum, automation, presence, energy]
+    icon:
+      example: "bell"
+      selector:
+        text:
+    value:
+      example: "open"
+      selector:
+        text:
+    "on":
+      selector:
+        boolean:
+    color:
+      example: "#69E0C1"
+      selector:
+        text:
+    progress:
+      selector:
+        number:
+          min: 0
+          max: 100
+    background:
+      example: "#1F2937"
+      selector:
+        text:
+    base_topic:
+      advanced: true
+      selector:
+        text:
+
+clear_key:
+  fields:
+    key_id:
+      required: true
+      example: "doorbell"
+      selector:
+        text:
+    base_topic:
+      advanced: true
+      selector:
+        text:
+
+show_remote_page:
+  fields:
+    show:
+      default: true
+      selector:
+        boolean:
+    base_topic:
+      advanced: true
+      selector:
+        text:

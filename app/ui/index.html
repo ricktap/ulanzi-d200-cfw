@@ -9,274 +9,96 @@
 <body>
   <header class="topbar">
     <div class="brand"><img src="icons/night-signal/svg/grid.svg" alt=""><span>D200 Deck</span></div>
-    <div class="top-status">
-      <div class="pill" id="st-dev"><span class="dot"></span><span class="txt">Starting…</span></div>
-      <span class="top-sep"></span>
-      <div class="pill plain" id="st-mqtt"><img src="icons/night-signal/svg/home-assistant.svg" alt=""><span class="txt">Home Assistant · off</span></div>
-    </div>
-    <div class="top-actions">
-      <button id="btn-firmware" class="btn primary" hidden>Start firmware</button>
-      <button class="tbtn" id="btn-notify" title="Show a test notification on the status key"><img src="icons/night-signal/svg/notification.svg" alt=""><span>Notify</span></button>
-      <button class="tbtn" id="btn-settings"><img src="icons/night-signal/svg/settings.svg" alt=""><span>Settings</span></button>
-      <span class="top-sep"></span>
-      <button class="tbtn" id="btn-json"><img src="icons/night-signal/svg/arrow-up.svg" alt=""><span>Import / Export</span></button>
-    </div>
+    <div class="pill" id="st-dev"><span class="dot"></span><span class="txt">Starting…</span></div>
+    <div class="pill" id="st-mqtt" hidden><span class="dot"></span><span class="txt">Home Assistant</span></div>
+    <span class="app-chip" id="app-chip" hidden title=""><span class="txt" id="app-name"></span></span>
+    <span class="grow"></span>
+    <span class="saved" id="saved">Saved</span>
+    <button class="btn primary" id="btn-firmware" hidden>Start firmware</button>
+    <button class="btn" id="btn-update" hidden><span id="btn-update-label">Update</span></button>
+    <button class="btn" id="btn-notify" title="Show a test notification on the wide key">Notify</button>
+    <button class="btn" id="btn-undo" disabled title="Nothing to undo">Undo</button>
   </header>
 
   <div class="shell">
-    <nav class="rail" id="rail">
-      <button data-view="editor" class="on"><img src="icons/night-signal/svg/window-split.svg" alt=""><span>Editor</span></button>
-      <button data-view="profiles"><img src="icons/night-signal/svg/profile-switch.svg" alt=""><span>Profiles</span></button>
-      <button data-view="apps"><img src="icons/night-signal/svg/grid.svg" alt=""><span>Apps</span></button>
-      <button data-view="assets"><img src="icons/night-signal/svg/files.svg" alt=""><span>Assets</span></button>
-      <button data-view="remote"><img src="icons/night-signal/svg/remote-control.svg" alt=""><span>Remote</span></button>
-      <span class="grow"></span>
-      <button data-action="settings"><img src="icons/night-signal/svg/settings.svg" alt=""><span>Settings</span></button>
+    <nav class="side" id="side" aria-label="Areas">
+      <button data-view="deck" class="on">Deck</button>
+      <button data-view="packages">Packages</button>
+      <button data-view="signals">Signals</button>
     </nav>
 
-    <main class="main">
-      <div class="toolbar card">
-        <span class="crumb"><a id="crumb-profiles">Profiles</a> / <b id="crumb-name"></b></span>
+    <!-- Deck: library, device, inspector -->
+    <section class="lib panel" data-pane="deck" aria-label="Library">
+      <h2>Library</h2>
+      <div class="tabs" id="lib-tabs">
+        <button data-tab="apps" class="on">Apps</button>
+        <button data-tab="actions">Actions</button>
+        <button data-tab="icons">Icons</button>
+      </div>
+      <div class="lib-body" id="lib-body"></div>
+    </section>
+
+    <section class="device-col" data-pane="deck" aria-label="Device">
+      <div class="profile-bar">
         <select id="sel-profile" title="Profile"></select>
-        <select id="sel-page" title="Page"></select>
-        <button class="icon-square" id="pg-add" title="New page">+</button>
-        <div class="menu-wrap">
-          <button class="icon-square" id="pg-menu" title="Page options">⋯</button>
-          <div class="menu" id="pg-menu-list" hidden>
-            <button id="pg-rename">Rename page</button>
-            <button id="pg-home">Make home page</button>
-            <button id="pg-delete" class="danger">Delete page</button>
-          </div>
-        </div>
-        <span class="vsep"></span>
-        <label class="switch-row">Follow active app <input type="checkbox" id="follow" class="switch"></label>
-        <span class="app-chip" id="app-chip" hidden><span class="badge" id="app-badge"></span><span id="app-name"></span></span>
-      </div>
-
-      <section class="view" data-pane="editor">
-        <div class="canvas-head">
-          <span class="label">Device canvas</span>
-          <select id="zoom" class="small-select"><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option></select>
-          <span></span>
-        </div>
-        <p class="caption" id="caption">Live preview</p>
-        <div class="device-wrap" id="device-wrap">
-          <div class="device"><div class="grid" id="grid"></div></div>
-        </div>
-        <div class="bright-row">
-          <img src="icons/night-signal/svg/weather-sun.svg" alt="">
-          <input type="range" id="brightness" min="5" max="255" step="5">
-          <span id="brightness-val" class="mono-num"></span>
-          <span class="saved-chip" id="saved"><span class="tick">✓</span> Changes saved</span>
-        </div>
-      </section>
-
-      <section class="view" data-pane="profiles" hidden>
-        <div class="view-head"><h2>Profiles</h2><button class="btn" id="pf-add">+ New profile</button></div>
-        <p class="sub">A profile is a set of pages. Bind it to apps and, with <b>Follow active app</b> on, the deck switches to it when one of them comes to the front. The first profile is the default.</p>
-        <div class="cards" id="profile-cards"></div>
-      </section>
-
-      <section class="view" data-pane="apps" hidden>
-        <div class="view-head"><h2>Apps</h2><span class="sub" id="apps-target"></span></div>
-        <p class="sub">Built-in key apps. Pick a key in the editor, then use an app here to put it on that key.</p>
-        <div class="cards apps" id="app-cards"></div>
-      </section>
-
-      <section class="view" data-pane="assets" hidden>
-        <div class="view-head"><h2>Icon library</h2><span class="sub" id="assets-target"></span></div>
-        <p class="sub">Night Signal · 215 icons for dark keys. Click one to use it on the selected key. You can also drop an image file on a key.</p>
-        <div id="assets-lib"></div>
-      </section>
-
-      <footer class="bottom card">
-        <button class="btn" id="btn-library"><img src="icons/night-signal/svg/grid.svg" alt=""> Open icon library</button>
-        <span class="vsep"></span>
-        <span class="sub" id="hint">Select a key to edit · Drag artwork onto a key</span>
-      </footer>
-    </main>
-
-    <aside class="inspector">
-      <div class="card insp">
-        <div class="insp-head">
-          <div class="insp-thumb" id="insp-thumb"></div>
-          <div>
-            <div class="eyebrow" id="ed-eyebrow">Editing key</div>
-            <h2 id="ed-title">Key</h2>
-          </div>
-        </div>
-        <nav class="tabs" id="insp-tabs">
-          <button data-tab="design" class="on">Design</button>
-          <button data-tab="actions">Actions</button>
-          <button data-tab="states">States</button>
-        </nav>
-        <div id="ed"></div>
-      </div>
-      <div class="card automation" id="automation"></div>
-    </aside>
-  </div>
-
-  <!-- settings -->
-  <dialog id="dlg-settings" class="dark">
-    <form method="dialog" class="dlg wide">
-      <div class="dlg-head">
-        <h3>Settings</h3>
-        <nav class="seg" id="set-tabs">
-          <button type="button" data-tab="general" class="on">General</button>
-          <button type="button" data-tab="weather">Weather</button>
-          <button type="button" data-tab="pomodoro">Pomodoro</button>
-          <button type="button" data-tab="ha">Home Assistant</button>
-          <button type="button" data-tab="teams">Teams</button>
-          <button type="button" data-tab="wide">Wide & idle</button>
-          <button type="button" data-tab="theme">Theme</button>
-        </nav>
-      </div>
-
-      <section data-pane="general">
-        <label class="field"><span class="label">Long press after (ms)</span><input type="number" id="s-long" min="150" max="5000" step="50"></label>
-        <label class="toggle"><input type="checkbox" id="s-follow"> Switch profiles with the active app</label>
-        <label class="toggle"><input type="checkbox" id="s-autostart"> Start D200 Deck at login (in the menu bar)</label>
-        <div class="field">
-          <span class="label">Status key (wide key, bottom right)</span>
-          <p class="sub">It shows the current profile and notifications. Click it in the grid to choose what pressing it does.</p>
-        </div>
-        <div class="field">
-          <span class="label">Files</span>
-          <p class="sub mono" id="s-path"></p>
-          <div><button class="btn small" type="button" id="s-folder">Open config folder</button></div>
-        </div>
-      </section>
-
-      <section data-pane="weather" hidden>
-        <label class="field"><span class="label">Location</span>
-          <span class="pathbox"><input id="w-query" placeholder="Search a city"><button class="btn small" type="button" id="w-search">Search</button></span>
+        <button class="btn" id="pf-add">+ Profile</button>
+        <button class="btn" id="pf-edit">Edit profile</button>
+        <label class="switch-row" title="Switch to the profile bound to the program in front">
+          <input type="checkbox" id="follow" class="switch"> Follow program
         </label>
-        <ul class="results" id="w-results"></ul>
-        <p class="sub">Current: <b id="w-current">not set</b></p>
-        <label class="toggle"><input type="checkbox" id="w-f"> Fahrenheit</label>
-        <p class="sub">Weather comes from Open-Meteo (no account needed). Only the coordinates of the place you pick are sent.</p>
-      </section>
-
-      <section data-pane="pomodoro" hidden>
-        <div class="row">
-          <label class="field"><span class="label">Focus (min)</span><input type="number" id="p-work" min="1" max="180"></label>
-          <label class="field"><span class="label">Short break</span><input type="number" id="p-short" min="1" max="60"></label>
-          <label class="field"><span class="label">Long break</span><input type="number" id="p-long" min="1" max="120"></label>
-          <label class="field"><span class="label">Rounds</span><input type="number" id="p-rounds" min="1" max="12"></label>
-        </div>
-        <label class="toggle"><input type="checkbox" id="p-sound"> Play a sound when a phase ends</label>
-        <p class="sub">On the key: press starts, pauses and resumes; a long press resets.</p>
-      </section>
-
-      <section data-pane="ha" hidden>
-        <label class="toggle"><input type="checkbox" id="m-on"> Connect to an MQTT broker</label>
-        <div class="row">
-          <label class="field grow"><span class="label">Broker</span><input id="m-host" placeholder="homeassistant.local"></label>
-          <label class="field" style="width:90px"><span class="label">Port</span><input type="number" id="m-port"></label>
-        </div>
-        <div class="row">
-          <label class="field"><span class="label">Username</span><input id="m-user" autocomplete="off"></label>
-          <label class="field"><span class="label">Password</span><input id="m-pass" type="password" autocomplete="off"></label>
-        </div>
-        <div class="row">
-          <label class="field"><span class="label">Base topic</span><input id="m-base" placeholder="d200"></label>
-          <label class="toggle grow"><input type="checkbox" id="m-tls"> TLS</label>
-        </div>
-        <label class="toggle"><input type="checkbox" id="m-disc"> Home Assistant discovery (adds a "Ulanzi D200" device)</label>
-        <p class="sub" id="m-status"></p>
-        <details>
-          <summary>How Home Assistant uses it</summary>
-          <div class="help" id="m-help"></div>
-        </details>
-        <p class="sub">The password is stored in deck.json, readable only by your user.</p>
-      </section>
-
-      <section data-pane="teams" hidden>
-        <span class="label">Meeting controls (mute, camera, hand, leave)</span>
-        <p class="sub">In Teams: Settings → Privacy → <b>Manage API</b> → enable the third-party app API. The first time you press a Teams key during a meeting, Teams asks to allow "D200 Deck".</p>
-        <p class="note" id="t-api"></p>
-        <label class="field" style="width:120px"><span class="label">API port</span><input type="number" id="t-port"></label>
-
-        <span class="label">Presence (available ↔ unavailable)</span>
-        <p class="sub">Presence goes through Microsoft Graph and needs a sign-in. Register an app in Microsoft Entra: <i>App registrations → New</i>, single tenant, then under <i>Authentication</i> enable <b>Allow public client flows</b>, and under <i>API permissions</i> add Microsoft Graph delegated <b>Presence.ReadWrite</b>. Your organisation may have to approve it. Set <b>Tenant</b> to your company domain or tenant ID (needed for single-tenant apps).</p>
-        <div class="row">
-          <label class="field grow"><span class="label">Application (client) ID</span><input id="t-client" class="mono" placeholder="00000000-0000-0000-0000-000000000000"></label>
-          <label class="field"><span class="label">Tenant</span><input id="t-tenant" placeholder="yourcompany.com"></label>
-        </div>
-        <label class="field"><span class="label">"Unavailable" means</span>
-          <select id="t-away"><option value="DoNotDisturb">Do not disturb</option><option value="Busy">Busy</option><option value="Away">Away</option><option value="BeRightBack">Be right back</option><option value="Offline">Appear offline</option></select></label>
-        <p class="note" id="t-account"></p>
-        <div class="row wrap"><button class="btn small" type="button" id="t-signin">Sign in</button><button class="btn small" type="button" id="t-signout">Sign out</button></div>
-        <p class="sub" id="t-code" hidden></p>
-        <p class="sub">Save the client ID before signing in. Tokens are kept in teams-auth.json, readable only by you.</p>
-      </section>
-
-      <section data-pane="wide" hidden>
-        <span class="label">Cards on the wide key</span>
-        <p class="sub">The wide key shows one thing at a time: its default content (set by clicking it in the grid), or a card. Priority: critical › meeting › printer › push › email. Ordinary cards stay 8 s; critical ones until you press the key.</p>
-        <div class="checks">
-          <label class="toggle"><input type="checkbox" id="c-email"> New mail</label>
-          <label class="toggle"><input type="checkbox" id="c-meet"> Meeting reminders</label>
-          <label class="toggle"><input type="checkbox" id="c-steam"> Steam games</label>
-          <label class="toggle"><input type="checkbox" id="c-print"> Printer done / error</label>
-        </div>
-        <label class="toggle"><input type="checkbox" id="c-hide"> Hide content (show "New email" instead of sender and subject)</label>
-        <p class="sub">Mail and meetings come from Microsoft 365 (the Teams sign-in). The printer reads JSON from <code>d200/printer</code>, e.g. from a Home Assistant automation: <code>{"state":"printing","percent":62,"remaining_min":18,"name":"Bambu X1C","job":"bracket"}</code>.</p>
-
-        <span class="label">Screensaver</span>
-        <label class="toggle"><input type="checkbox" id="ss-on"> Fade into a seasonal scene when the deck is idle</label>
-        <div class="row">
-          <label class="field"><span class="label">After (minutes)</span><input type="number" id="ss-idle" min="1" max="120"></label>
-          <label class="field grow"><span class="label">Scene</span>
-            <select id="ss-scene"><option value="auto">Seasonal · automatic</option><option value="snow">Winter · snow</option><option value="pink">Spring · pink petals</option><option value="beach">Summer · beach</option><option value="leaves">Autumn · leaves</option><option value="rain">Rainy day</option></select></label>
-          <label class="field" style="width:90px"><span class="label">FPS</span><input type="number" id="ss-fps" min="1" max="20"></label>
-        </div>
-        <div class="checks">
-          <label class="toggle"><input type="checkbox" id="ss-motion"> Motion (off = a still scene)</label>
-          <label class="toggle"><input type="checkbox" id="ss-south"> Southern hemisphere</label>
-        </div>
-        <p class="sub">A key press wakes the deck without running that key's action. Critical alerts wake it; other cards wait behind a small dot. Each frame is sent over USB, so keep FPS modest.</p>
-        <div><button class="btn small" type="button" id="ss-preview">Preview on the device</button></div>
-      </section>
-
-      <section data-pane="theme" hidden>
-        <span class="label">Palette</span>
-        <p class="sub">Semantic colours for widgets and cards (active, info, attention, error) and the widget surface. Per-widget values below win over these.</p>
-        <div class="row wrap" id="th-palette"></div>
-        <div class="row">
-          <label class="field grow"><span class="label">Widget</span><select id="th-widget"></select></label>
-          <button class="btn small" type="button" id="th-reset">Reset this widget</button>
-        </div>
-        <div class="box" id="th-fields"></div>
-        <p class="sub">Unset values follow the palette. Error states keep their warning colour.</p>
-      </section>
-
-      <p class="error" id="s-error"></p>
-      <div class="actions">
-        <button class="btn" value="cancel">Cancel</button>
-        <button class="btn primary" id="s-save" type="button">Save</button>
       </div>
-    </form>
-  </dialog>
+      <div class="profile-editor panel" id="pf-editor" hidden></div>
+      <div class="device"><div class="grid" id="grid"></div></div>
+      <div class="pages">
+        <div class="tabs pages-tabs" id="page-tabs"></div>
+        <button class="btn" id="pg-add">+ Page</button>
+      </div>
+      <p class="hint" id="hint">Pick a key, then an app on the left. Icons shows what fits it.</p>
+      <div class="bright-row">
+        <span class="label">Brightness</span>
+        <input type="range" id="brightness" min="5" max="255" step="5">
+        <span id="brightness-val" class="mono-num"></span>
+      </div>
+      <div class="theme panel" id="theme"></div>
+    </section>
+
+    <aside class="insp panel" data-pane="deck" aria-label="Inspector" id="insp"></aside>
+
+    <!-- Packages -->
+    <section class="wide-pane" data-pane="packages" hidden>
+      <h2>Packages</h2>
+      <p class="sub">Everything the deck is made of. A plugin brings apps, actions and signals; its settings live here.</p>
+      <div class="pkg-list" id="pkg-list"></div>
+      <div class="panel appcard" id="app-card"></div>
+    </section>
+
+    <!-- Signals -->
+    <section class="wide-pane" data-pane="signals" hidden>
+      <h2>Signals</h2>
+      <p class="sub">What the plugins report right now. Icons and themes read these through their bindings.</p>
+      <input id="sig-filter" class="sig-filter" placeholder="Filter, e.g. teams or system.cpu">
+      <div class="sig-list" id="sig-list"></div>
+    </section>
+  </div>
 
   <!-- notification test -->
   <dialog id="dlg-notify">
     <form method="dialog" class="dlg">
       <h3>Test notification</h3>
       <div class="row">
-        <label class="field" style="width:80px"><span class="label">Icon</span><input id="n-icon" value="notification"></label>
+        <label class="field" style="width:90px"><span class="label">Icon</span><input id="n-icon" value="notification"></label>
         <label class="field grow"><span class="label">Title</span><input id="n-title" value="Doorbell"></label>
       </div>
       <label class="field"><span class="label">Text</span><input id="n-text" value="Someone is at the front door"></label>
       <div class="row">
-        <label class="field"><span class="label">Colour</span><input type="color" id="n-color" value="#f59e0b"></label>
+        <label class="field"><span class="label">Colour</span><input type="color" id="n-color" value="#ffbf69"></label>
         <label class="field"><span class="label">Animation</span>
           <select id="n-style"><option>slide</option><option>flash</option><option>pulse</option><option>scroll</option></select></label>
         <label class="field"><span class="label">Seconds</span><input type="number" id="n-dur" value="8" min="1" max="60"></label>
-        <label class="field"><span class="label">Priority</span><select id="n-prio"><option value="normal">Normal</option><option value="critical">Critical (until dismissed)</option></select></label>
+        <label class="field"><span class="label">Priority</span><select id="n-prio"><option value="normal">Normal</option><option value="critical">Critical</option></select></label>
       </div>
-      <p class="sub">From Home Assistant: <code>notify.send_message</code> on the D200 notify entity, or publish JSON like this to <code id="n-topic">d200/notify</code>.</p>
-      <pre class="mono code" id="n-json"></pre>
+      <p class="sub">From Home Assistant: the D200 notify entity, or this JSON on <code id="n-topic">d200/notify</code>.</p>
+      <pre class="code" id="n-json"></pre>
       <div class="actions">
         <button class="btn" value="cancel">Close</button>
         <button class="btn primary" id="n-send" type="button">Show on device</button>
@@ -284,23 +106,12 @@
     </form>
   </dialog>
 
-  <!-- app picker -->
-  <dialog id="dlg-apps">
-    <form method="dialog" class="dlg">
-      <h3>Use this profile for…</h3>
-      <p class="sub">Running apps. Or type a bundle id / app name below.</p>
-      <ul class="results tall" id="apps-list"></ul>
-      <span class="pathbox"><input id="apps-manual" placeholder="com.example.App or App name"><button class="btn small" type="button" id="apps-add">Add</button></span>
-      <div class="actions"><button class="btn" value="cancel">Done</button></div>
-    </form>
-  </dialog>
-
   <!-- import/export -->
   <dialog id="dlg-json">
     <form method="dialog" class="dlg wide">
-      <h3>Import / export config</h3>
-      <p class="sub">The whole deck as JSON. Edit it here, or paste one and press Import.</p>
-      <textarea id="json-text" class="mono" rows="20" spellcheck="false"></textarea>
+      <h3>Export and import</h3>
+      <p class="sub">The whole deck.json. Copy it, or paste one and import it. Import can be undone.</p>
+      <textarea id="json-text" class="mono" rows="18" spellcheck="false"></textarea>
       <p class="error" id="json-error"></p>
       <div class="actions">
         <button class="btn" value="cancel">Close</button>
@@ -323,6 +134,6 @@
   </dialog>
 
   <div class="toast" id="toast" hidden></div>
-  <script src="main.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

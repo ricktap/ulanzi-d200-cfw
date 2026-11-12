@@ -1,0 +1,19 @@
+{
+  "id": "com.deckling.teams:camera",
+  "name": "Teams camera",
+  "description": "Live camera state in Teams meetings. Press turns it on or off.",
+  "icon": "com.deckling.core:camera-on",
+  "face": "teams_camera",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.teams:video",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

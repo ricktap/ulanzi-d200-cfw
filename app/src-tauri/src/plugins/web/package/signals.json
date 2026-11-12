@@ -1,0 +1,46 @@
+[
+  {
+    "name": "com.deckling.web:{id}.present",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.web:{id}.label",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.web:{id}.value",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.web:{id}.on",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.web:{id}.color",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.web:{id}.background",
+    "type": "color"
+  },
+  {
+    "name": "com.deckling.web:{id}.progress",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.web:{id}.kind",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.web:{id}.icon",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.web:{id}.pressed",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.web:{name}",
+    "type": "text"
+  }
+]

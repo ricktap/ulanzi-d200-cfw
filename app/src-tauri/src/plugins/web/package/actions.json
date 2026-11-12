@@ -1,0 +1,32 @@
+[
+  {
+    "id": "com.deckling.web:press",
+    "name": "Send to the webhook",
+    "params": [
+      {
+        "key": "id",
+        "label": "Key",
+        "type": "select",
+        "values": {
+          "source": "com.deckling.web:ids"
+        }
+      },
+      {
+        "key": "event",
+        "label": "Event",
+        "type": "select",
+        "default": "press",
+        "values": [
+          {
+            "label": "Press",
+            "value": "press"
+          },
+          {
+            "label": "Long press",
+            "value": "long_press"
+          }
+        ]
+      }
+    ]
+  }
+]

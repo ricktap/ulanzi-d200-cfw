@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Musik" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <circle data-part="track" cx="50" cy="42" r="28" stroke-width="6"/>
+  <circle data-part="ring" cx="50" cy="42" r="28" stroke-width="6" stroke-linecap="butt" pathLength="100" transform="rotate(-90 50 42)"/>
+  <path data-part="glyph play" d="M44 31l18 11-18 11z" stroke="none"/>
+  <path data-part="glyph pause" d="M41 31h6v22h-6zM53 31h6v22h-6z" stroke="none"/>
+  <text data-part="title" x="50" y="90" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" stroke="none"></text>
+</svg>

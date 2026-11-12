@@ -1,0 +1,39 @@
+{
+  "id": "com.deckling.jetbrains:debugger",
+  "name": "Debugger",
+  "description": "Lights up while a JetBrains IDE debugs. Press: debug or resume. Long press while debugging: stop.",
+  "icon": "com.deckling.core:debug-active",
+  "face": "debugger",
+  "config": [
+    {
+      "key": "idle_keys",
+      "label": "Press while idle",
+      "type": "text",
+      "default": "ctrl+d"
+    },
+    {
+      "key": "active_keys",
+      "label": "Press while debugging",
+      "type": "text",
+      "default": "cmd+alt+r"
+    },
+    {
+      "key": "stop_keys",
+      "label": "Long press while debugging",
+      "type": "text",
+      "default": "cmd+f2"
+    }
+  ],
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.jetbrains:debugger.active",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

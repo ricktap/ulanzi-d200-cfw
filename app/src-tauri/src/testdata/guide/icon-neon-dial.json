@@ -1,0 +1,12 @@
+{
+  "id": "com.jemand.neon:dial",
+  "roles": ["progress", "button"],
+  "file": "dial.svg",
+  "parts": {
+    "track": { "stroke": { "tone": "muted" } },
+    "level": {
+      "stroke": { "tone": "accent" },
+      "progress": { "prop": "progress.value", "fallback": 0 }
+    }
+  }
+}

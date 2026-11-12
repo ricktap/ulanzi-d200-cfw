@@ -1,0 +1,19 @@
+{
+  "id": "com.jemand.bernstein",
+  "type": "theme",
+  "name": "Bernstein",
+  "theme": {
+    "type": "full",
+    "variables": {
+      "background": "#211A14",
+      "base": "#FFE6C2",
+      "muted": "#5A4A3A",
+      "accent": "#FF9F43",
+      "com.ricktap.bambu:ams.led": {
+        "bind": "time.second",
+        "steps": ["#FF4D4D", "#3DDC84"],
+        "fallback": "#FF4D4D"
+      }
+    }
+  }
+}

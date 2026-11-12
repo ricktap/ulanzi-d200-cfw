@@ -1,0 +1,52 @@
+{
+  "id": "com.deckling.core:sysmon",
+  "name": "System monitor",
+  "description": "CPU, memory, disk or network with a live graph. Press switches between the chosen views.",
+  "icon": "com.deckling.core:system-monitor",
+  "face": "sysmon",
+  "config": [
+    {
+      "key": "modes",
+      "label": "Views",
+      "type": "select",
+      "multiple": true,
+      "values": [
+        {
+          "label": "CPU",
+          "value": "cpu"
+        },
+        {
+          "label": "Memory",
+          "value": "ram"
+        },
+        {
+          "label": "Disk",
+          "value": "disk"
+        },
+        {
+          "label": "Network",
+          "value": "net"
+        }
+      ]
+    }
+  ],
+  "implements": {
+    "progress": {
+      "value": {
+        "bind": "com.deckling.core:system.cpu",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "com.deckling.core:system.cpu",
+        "fallback": "",
+        "suffix": "%"
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

@@ -27,15 +27,15 @@ lib = sim + "/Steam/steamapps"; os.makedirs(lib + "/common/No Man's Sky/Binaries
 open(lib + "/appmanifest_275850.acf", "w").write('"AppState"\n{\n\t"appid"\t\t"275850"\n\t"name"\t\t"No Man\'s Sky"\n\t"installdir"\t\t"No Man\'s Sky"\n}\n')
 shutil.copy(S + "/fakeide/webstorm", lib + "/common/No Man's Sky/Binaries/NMS")
 cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-cfg["settings"]["follow_active_app"] = False
-cfg["settings"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18831)
-cfg["settings"]["screensaver"]["enabled"] = False
+cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+cfg["plugins"]["core"]["config"]["mqtt"].update(enabled=True, host="127.0.0.1", port=18831)
+cfg["plugins"]["core"]["config"]["screensaver"]["enabled"] = False
 cfg["status_key"]["app"] = "media"
 cfg["profiles"][0]["name"] = "Work"
 pg = cfg["profiles"][0]["pages"]["main"]
-pg["0"] = {"app": {"type": "sysmon", "modes": ["cpu"]}}; pg["1"] = {"app": {"type": "sysmon", "modes": ["ram"]}}
-pg["2"] = {"app": {"type": "sysmon", "modes": ["disk"]}}; pg["3"] = {"app": {"type": "sysmon", "modes": ["net"]}}
-pg["4"] = {"app": {"type": "clock"}}
+pg["0"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["cpu"]}}; pg["1"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["ram"]}}
+pg["2"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["disk"]}}; pg["3"] = {"app": "com.deckling.core:sysmon", "config": {"modes": ["net"]}}
+pg["4"] = {"app": "com.deckling.core:clock"}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 open(sim + "/player.txt", "w").write("Spotify\tplaying\tMidnight City\tM83\tHurry Up, We're Dreaming\t84\t243\thttp://127.0.0.1:18992/art.png\n")
 dev = subprocess.Popen([os.environ["D200FW_HOST_BIN"], "--no-kill", "--port", "7396", "--fb", sim + "/fb", "--input", sim + "/kbd"], stderr=subprocess.DEVNULL)

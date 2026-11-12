@@ -1,0 +1,19 @@
+{
+  "id": "com.deckling.teams:mute",
+  "name": "Teams mic",
+  "description": "Live mic state in Teams meetings. Press mutes or unmutes. Needs Teams, Settings, Privacy, Manage API.",
+  "icon": "com.deckling.core:microphone-on",
+  "face": "teams_mute",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.teams:mic_on",
+        "fallback": false
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

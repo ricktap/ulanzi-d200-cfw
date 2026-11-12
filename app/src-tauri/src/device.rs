@@ -67,6 +67,39 @@ pub fn adb(adb: &Path, args: &[&str]) -> Result<String, String> {
 }
 
 /// True when a device is attached and authorised.
+/// Run `adb track-devices` and call `changed` whenever the device list changes (also
+/// once at start). Restarts it if adb goes away. Runs until `changed` returns false.
+pub fn track_devices(adb_bin: PathBuf, changed: impl Fn() -> bool + Send + 'static) {
+    use std::io::Read;
+    std::thread::spawn(move || loop {
+        let child = Command::new(&adb_bin)
+            .arg("track-devices")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+        if let Ok(mut child) = child {
+            if let Some(mut out) = child.stdout.take() {
+                // messages: 4 hex digits of length, then that many bytes of "serial\tstate\n" lines
+                let mut len = [0u8; 4];
+                while out.read_exact(&mut len).is_ok() {
+                    let n = std::str::from_utf8(&len).ok().and_then(|h| usize::from_str_radix(h, 16).ok()).unwrap_or(0);
+                    let mut body = vec![0u8; n];
+                    if out.read_exact(&mut body).is_err() || !changed() {
+                        let _ = child.kill();
+                        return;
+                    }
+                }
+            }
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        if !changed() {
+            return;
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    });
+}
+
 pub fn adb_device_present(adb_bin: &Path) -> bool {
     adb(adb_bin, &["get-state"]).map(|s| s.trim() == "device").unwrap_or(false)
 }
@@ -87,6 +120,40 @@ pub fn start_firmware(adb_bin: &Path, firmware: &[u8]) -> Result<String, String>
     } else {
         let log = adb(adb_bin, &["shell", "cat /tmp/d200fw.log"]).unwrap_or_default();
         Err(format!("d200fw did not start. Device log:\n{log}"))
+    }
+}
+
+/// Replace an older d200fw on the device with `firmware` and restart it. A boot install
+/// (/userdata/d200fw, see docs/firmware.md) is updated in place and its wrapper restarts
+/// it; otherwise the copy in /tmp is replaced and started. The files are swapped with a
+/// rename, which is safe while the old binary runs.
+pub fn upgrade_firmware(adb_bin: &Path, firmware: &[u8]) -> Result<String, String> {
+    let boot = adb(adb_bin, &["shell", "[ -x /userdata/d200fw/d200fw ] && [ ! -e /userdata/d200fw/disable ] && echo BOOT"])?.contains("BOOT");
+    let dir = if boot { "/userdata/d200fw" } else { "/tmp" };
+    let tmp = std::env::temp_dir().join("d200fw-upgrade");
+    std::fs::write(&tmp, firmware).map_err(|e| e.to_string())?;
+    let push = adb(adb_bin, &["push", &tmp.to_string_lossy(), &format!("{dir}/d200fw.new")]);
+    let _ = std::fs::remove_file(&tmp);
+    push?;
+    // adb shell gives no exit codes: check the marker.
+    let swap = adb(
+        adb_bin,
+        &["shell", &format!("chmod 755 {dir}/d200fw.new && mv -f {dir}/d200fw.new {dir}/d200fw && echo SWAPPED; kill $(pidof d200fw) 2>/dev/null; sleep 1")],
+    )?;
+    if !swap.contains("SWAPPED") {
+        return Err(format!("could not replace {dir}/d200fw: {swap}"));
+    }
+    if boot {
+        // the wrapper starts the new binary (after its short boot prompt)
+        std::thread::sleep(Duration::from_secs(5));
+        return Ok("d200fw updated (boot install).".into());
+    }
+    adb(adb_bin, &["shell", "setsid /tmp/d200fw </dev/null >/tmp/d200fw.log 2>&1 & sleep 2"])?;
+    let net = adb(adb_bin, &["shell", "netstat -tln"])?;
+    if net.contains(&format!(":{} ", port())) {
+        Ok("d200fw updated; it runs until the device reboots.".into())
+    } else {
+        Err("the new d200fw did not start".into())
     }
 }
 
@@ -185,8 +252,42 @@ impl Device {
         Ok(rects)
     }
 
+    /// d200fw 0.3+ takes run-length coded images (`IMGR`, `BLITR`).
+    pub fn rle(&self) -> bool {
+        !crate::updater::newer("0.3.0", &self.version)
+    }
+
+    /// Run-length coded RGB888 for key `key` (d200fw 0.3+).
+    pub fn image_rle(&self, key: usize, data: &[u8]) -> Result<(), String> {
+        self.cmd(&format!("IMGR {key} {}", data.len()), data).map(|_| ())
+    }
+
+    /// Run-length coded RGB888 for a rectangle (d200fw 0.3+).
+    pub fn blit_rle(&self, x: usize, y: usize, w: usize, h: usize, data: &[u8]) -> Result<(), String> {
+        self.cmd(&format!("BLITR {x} {y} {w} {h} {}", data.len()), data).map(|_| ())
+    }
+
+    /// RGB888 for a rectangle anywhere on the 1280x720 screen (landscape coordinates).
+    pub fn blit(&self, x: usize, y: usize, w: usize, h: usize, rgb: &[u8]) -> Result<(), String> {
+        self.cmd(&format!("BLIT {x} {y} {w} {h}"), rgb).map(|_| ())
+    }
+
     pub fn image(&self, key: usize, rgb: &[u8]) -> Result<(), String> {
         self.cmd(&format!("IMG {key} {}", rgb.len()), rgb).map(|_| ())
+    }
+
+    /// Let the device draw the screensaver itself (d200fw 0.2+). Err on older firmware.
+    pub fn saver(&self, scene: &str, fps: u32, motion: bool) -> Result<(), String> {
+        self.cmd(&format!("SAVER {scene} {fps} {}", motion as u8), &[]).map(|_| ())
+    }
+
+    /// Show or hide the "notification waiting" dot of the device's screensaver.
+    pub fn saver_dot(&self, on: bool) -> Result<(), String> {
+        self.cmd(&format!("SAVER DOT {}", on as u8), &[]).map(|_| ())
+    }
+
+    pub fn saver_off(&self) -> Result<(), String> {
+        self.cmd("SAVER OFF", &[]).map(|_| ())
     }
 
     pub fn clear(&self) -> Result<(), String> {
@@ -202,6 +303,83 @@ impl Drop for Device {
     fn drop(&mut self) {
         if let Ok(g) = self.inner.lock() {
             let _ = g.w.shutdown(Shutdown::Both);
+        }
+    }
+}
+
+/// Run-length code RGB888 for `IMGR`/`BLITR` (decoder: device/src/rle.rs). A control byte
+/// `c`: `0..=127` copies the next `c + 1` pixels; `128..=255` repeats the next pixel
+/// `c - 126` times.
+pub fn rle_encode(rgb: &[u8]) -> Vec<u8> {
+    let px: Vec<&[u8]> = rgb.chunks_exact(3).collect();
+    let n = px.len();
+    let mut out = Vec::with_capacity(rgb.len() / 8);
+    let mut i = 0;
+    while i < n {
+        let mut run = 1;
+        while i + run < n && run < 129 && px[i + run] == px[i] {
+            run += 1;
+        }
+        if run >= 2 {
+            out.push((run + 126) as u8);
+            out.extend_from_slice(px[i]);
+            i += run;
+            continue;
+        }
+        // literals until the next run of two (or 128 pixels)
+        let start = i;
+        while i < n && i - start < 128 && !(i + 1 < n && px[i + 1] == px[i]) {
+            i += 1;
+        }
+        if i == start {
+            i += 1; // single pixel before a run boundary at the end
+        }
+        out.push((i - start - 1) as u8);
+        for p in &px[start..i] {
+            out.extend_from_slice(p);
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod rle_tests {
+    use super::rle_encode;
+
+    /// The device's decoder, as in device/src/rle.rs.
+    fn decode(src: &[u8]) -> Vec<u8> {
+        let (mut out, mut i) = (vec![], 0);
+        while i < src.len() {
+            let c = src[i] as usize;
+            i += 1;
+            if c < 128 {
+                out.extend_from_slice(&src[i..i + (c + 1) * 3]);
+                i += (c + 1) * 3;
+            } else {
+                for _ in 0..c - 126 {
+                    out.extend_from_slice(&src[i..i + 3]);
+                }
+                i += 3;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn round_trip() {
+        let mut img = vec![];
+        for i in 0..5000u32 {
+            let v = if i % 300 < 200 { [11, 12, 13] } else { [(i % 251) as u8, (i % 7) as u8, 1] };
+            img.extend_from_slice(&v);
+        }
+        let enc = rle_encode(&img);
+        assert_eq!(decode(&enc), img);
+        assert!(enc.len() * 3 < img.len(), "{} vs {}", enc.len(), img.len());
+        for len in [0usize, 1, 2, 3, 129, 130, 257] {
+            let flat = vec![5u8; len * 3];
+            assert_eq!(decode(&rle_encode(&flat)), flat, "flat {len}");
+            let noise: Vec<u8> = (0..len * 3).map(|i| (i * 37 % 256) as u8).collect();
+            assert_eq!(decode(&rle_encode(&noise)), noise, "noise {len}");
         }
     }
 }

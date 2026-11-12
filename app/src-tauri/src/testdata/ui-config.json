@@ -1,171 +1,223 @@
 {
- "settings": {
-  "brightness": 180,
-  "long_press_ms": 500,
-  "follow_active_app": true,
-  "weather": {
-   "location": {
-    "name": "Berlin",
-    "lat": 52.5,
-    "lon": 13.4
-   },
-   "fahrenheit": false
-  },
-  "pomodoro": {
-   "work": 25,
-   "short_break": 5,
-   "long_break": 15,
-   "rounds": 4,
-   "sound": true
-  },
-  "mqtt": {
-   "enabled": true,
-   "host": "192.168.1.5",
-   "port": 1883,
-   "username": "deck",
-   "password": "",
-   "tls": false,
-   "base_topic": "d200",
-   "discovery": true
-  }
- },
- "status_key": {
-  "actions": {
-   "press": [
-    {
-     "type": "home"
-    }
-   ],
-   "long": [
-    {
-     "type": "remote"
-    }
-   ]
-  }
- },
- "profiles": [
-  {
-   "name": "Default",
-   "apps": [],
-   "pages": {
-    "main": {
-     "0": {
-      "app": {
-       "type": "sysmon"
-      },
-      "states": [
-       {
-        "bg": "#0f172a",
-        "actions": {
-         "press": [],
-         "long": [],
-         "down": [],
-         "up": []
+  "version": 6,
+  "plugins": {
+    "core": {
+      "config": {
+        "brightness": 180,
+        "long_press_ms": 500,
+        "follow_active_app": true,
+        "theme": {
+          "palette": {
+            "active": "#69E0C1",
+            "info": "#B79AF7",
+            "attention": "#FFBF69",
+            "error": "#FF8278",
+            "background": "#11171D"
+          },
+          "widgets": {}
+        },
+        "cards": {
+          "email": true,
+          "meetings": true,
+          "steam": true,
+          "printer": true,
+          "hide_content": false
+        },
+        "mqtt": {
+          "enabled": true,
+          "host": "192.168.1.5",
+          "port": 1883,
+          "username": "deck",
+          "password": "",
+          "tls": false,
+          "base_topic": "d200",
+          "discovery": true
+        },
+        "screensaver": {
+          "enabled": true,
+          "idle_minutes": 3,
+          "scene": "auto",
+          "southern": false,
+          "motion": true,
+          "fps": 8
         }
-       }
-      ]
-     },
-     "1": {
-      "app": {
-       "type": "mute"
       }
-     },
-     "5": {
-      "states": [
-       {
-        "label": "Terminal",
-        "icon": "💻",
-        "bg": "#1e3a8a",
-        "actions": {
-         "press": [
-          {
-           "type": "open",
-           "target": "Terminal"
-          }
-         ],
-         "long": [
-          {
-           "type": "keys",
-           "combo": "cmd+n"
-          }
-         ],
-         "down": [
-          {
-           "type": "mqtt",
-           "topic": "home/x",
-           "payload": "ON",
-           "retain": true
-          }
-         ],
-         "up": [
-          {
-           "type": "notify",
-           "text": "Hello",
-           "icon": "🔔"
-          }
-         ]
+    },
+    "com.deckling.core": {
+      "config": {
+        "weather": {
+          "location": {
+            "name": "Berlin",
+            "lat": 52.5,
+            "lon": 13.4
+          },
+          "fahrenheit": false
+        },
+        "pomodoro": {
+          "work": 25,
+          "short_break": 5,
+          "long_break": 15,
+          "rounds": 4,
+          "sound": true
         }
-       }
-      ]
-     },
-     "8": {
-      "states": [
-       {
-        "label": "Dark",
-        "icon": "🌙",
-        "bg": "#1f2937",
-        "actions": {
-         "press": [
-          {
-           "type": "state",
-           "to": "next"
-          }
-         ]
-        }
-       },
-       {
-        "label": "",
-        "bg": "#ca8a04",
-        "actions": {
-         "press": [
-          {
-           "type": "state",
-           "to": "1"
-          },
-          {
-           "type": "profile",
-           "profile": "auto"
-          },
-          {
-           "type": "brightness",
-           "value": "+25"
-          },
-          {
-           "type": "back"
-          },
-          {
-           "type": "remote"
-          },
-          {
-           "type": "page",
-           "page": "main"
-          }
-         ]
-        }
-       }
-      ]
-     }
+      }
+    },
+    "com.deckling.teams": {
+      "config": {
+        "port": 8124,
+        "client_id": "",
+        "tenant": "organizations",
+        "away": "DoNotDisturb"
+      }
     }
-   }
   },
-  {
-   "name": "Code",
-   "apps": [
-    "com.microsoft.VSCode"
-   ],
-   "pages": {
-    "main": {}
-   }
-  }
- ]
+  "status_key": {
+    "on": {
+      "press": [
+        {
+          "action": "core:home"
+        }
+      ],
+      "long": [
+        {
+          "action": "com.deckling.ha:remote"
+        }
+      ]
+    },
+    "app": "profile",
+    "show": "auto"
+  },
+  "profiles": [
+    {
+      "name": "Default",
+      "apps": [],
+      "pages": {
+        "main": {
+          "0": {
+            "app": "com.deckling.core:sysmon",
+            "states": [
+              {
+                "bg": "#0f172a"
+              }
+            ]
+          },
+          "1": {
+            "app": "com.deckling.core:mute"
+          },
+          "5": {
+            "states": [
+              {
+                "label": "Terminal",
+                "icon": "💻",
+                "bg": "#1e3a8a",
+                "on": {
+                  "press": [
+                    {
+                      "action": "com.deckling.core:open",
+                      "params": {
+                        "target": "Terminal"
+                      }
+                    }
+                  ],
+                  "long": [
+                    {
+                      "action": "com.deckling.core:keys",
+                      "params": {
+                        "combo": "cmd+n"
+                      }
+                    }
+                  ],
+                  "down": [
+                    {
+                      "action": "com.deckling.ha:mqtt",
+                      "params": {
+                        "topic": "home/x",
+                        "payload": "ON",
+                        "retain": true
+                      }
+                    }
+                  ],
+                  "up": [
+                    {
+                      "action": "core:notify",
+                      "params": {
+                        "text": "Hello",
+                        "icon": "🔔"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "8": {
+            "states": [
+              {
+                "label": "Dark",
+                "icon": "🌙",
+                "bg": "#1f2937",
+                "on": {
+                  "press": [
+                    {
+                      "action": "core:state",
+                      "params": {
+                        "to": "next"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "label": "",
+                "bg": "#ca8a04",
+                "on": {
+                  "press": [
+                    {
+                      "action": "core:state",
+                      "params": {
+                        "to": "1"
+                      }
+                    },
+                    {
+                      "action": "core:profile",
+                      "params": {
+                        "profile": "auto"
+                      }
+                    },
+                    {
+                      "action": "core:brightness",
+                      "params": {
+                        "value": "+25"
+                      }
+                    },
+                    {
+                      "action": "core:back"
+                    },
+                    {
+                      "action": "com.deckling.ha:remote"
+                    },
+                    {
+                      "action": "core:page",
+                      "params": {
+                        "page": "main"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "Code",
+      "apps": [
+        "com.microsoft.VSCode"
+      ],
+      "pages": {
+        "main": {}
+      }
+    }
+  ]
 }

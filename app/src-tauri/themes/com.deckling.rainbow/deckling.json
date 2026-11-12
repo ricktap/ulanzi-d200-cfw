@@ -1,0 +1,17 @@
+{
+  "id": "com.deckling.rainbow",
+  "type": "theme",
+  "name": "Rainbow",
+  "version": "1.0.0",
+  "description": "The accent changes colour every second.",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "accent": {
+        "bind": "time.tick",
+        "steps": ["#FF5C7A", "#FF9F43", "#FFD84D", "#69E0C1", "#5B8DEF", "#B79AF7"],
+        "fallback": "#69E0C1"
+      }
+    }
+  }
+}

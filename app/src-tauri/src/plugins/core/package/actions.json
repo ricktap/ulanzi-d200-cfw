@@ -1,0 +1,113 @@
+[
+  {
+    "id": "com.deckling.core:command",
+    "name": "Run command",
+    "params": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.core:open",
+    "name": "Open",
+    "params": [
+      {
+        "key": "target",
+        "label": "App, file or URL",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.core:keys",
+    "name": "Shortcut",
+    "params": [
+      {
+        "key": "combo",
+        "label": "Keys",
+        "type": "text",
+        "placeholder": "cmd+shift+4"
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.core:media",
+    "name": "Media",
+    "params": [
+      {
+        "key": "command",
+        "label": "Command",
+        "type": "select",
+        "values": [
+          {
+            "label": "Play/pause",
+            "value": "playpause"
+          },
+          {
+            "label": "Next",
+            "value": "next"
+          },
+          {
+            "label": "Previous",
+            "value": "previous"
+          },
+          {
+            "label": "Play",
+            "value": "play"
+          },
+          {
+            "label": "Pause",
+            "value": "pause"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.core:volume",
+    "name": "Volume",
+    "params": [
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "text",
+        "placeholder": "+5, -5, 40, mute, toggle-mute"
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.core:mute",
+    "name": "Mute or unmute",
+    "params": []
+  },
+  {
+    "id": "com.deckling.core:weather_refresh",
+    "name": "Refresh weather",
+    "params": []
+  },
+  {
+    "id": "com.deckling.core:pomodoro",
+    "name": "Pomodoro",
+    "params": [
+      {
+        "key": "do",
+        "label": "Do",
+        "type": "select",
+        "default": "press",
+        "values": [
+          {
+            "label": "Start, pause or resume",
+            "value": "press"
+          },
+          {
+            "label": "Reset",
+            "value": "reset"
+          }
+        ]
+      }
+    ]
+  }
+]

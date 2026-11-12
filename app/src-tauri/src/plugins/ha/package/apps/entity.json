@@ -1,0 +1,80 @@
+{
+  "id": "com.deckling.ha:entity",
+  "name": "Home Assistant",
+  "description": "Shows an entity that Home Assistant describes on <base>/ha/<id>/set. Home Assistant picks the icon, text, state and colour. Press and long press go back as <base>/ha/<id>/action.",
+  "icon": {
+    "bind": "com.deckling.ha:{id}.icon",
+    "fallback": "com.deckling.ha:entity"
+  },
+  "label": {
+    "bind": "com.deckling.ha:{id}.label",
+    "fallback": ""
+  },
+  "value": {
+    "bind": "com.deckling.ha:{id}.value",
+    "fallback": ""
+  },
+  "background": {
+    "bind": "com.deckling.ha:{id}.background",
+    "fallback": {
+      "tone": "background"
+    }
+  },
+  "config": [
+    {
+      "key": "id",
+      "label": "Entity",
+      "type": "select",
+      "values": {
+        "source": "com.deckling.ha:ids"
+      }
+    }
+  ],
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.ha:{id}.on",
+        "fallback": false
+      }
+    },
+    "rgb": {
+      "color": {
+        "bind": "com.deckling.ha:{id}.color",
+        "fallback": {
+          "tone": "accent"
+        }
+      }
+    },
+    "progress": {
+      "value": {
+        "bind": "com.deckling.ha:{id}.progress",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "com.deckling.ha:{id}.value",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [
+      {
+        "action": "com.deckling.ha:press",
+        "params": {
+          "id": "{id}"
+        }
+      }
+    ],
+    "long": [
+      {
+        "action": "com.deckling.ha:press",
+        "params": {
+          "id": "{id}",
+          "event": "long_press"
+        }
+      }
+    ]
+  }
+}

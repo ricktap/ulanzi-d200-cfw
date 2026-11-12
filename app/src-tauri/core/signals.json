@@ -1,0 +1,30 @@
+[
+  {
+    "name": "time.clock",
+    "type": "text"
+  },
+  {
+    "name": "time.second",
+    "type": "number"
+  },
+  {
+    "name": "time.tick",
+    "type": "number"
+  },
+  {
+    "name": "time.hour_angle",
+    "type": "number"
+  },
+  {
+    "name": "time.minute_angle",
+    "type": "number"
+  },
+  {
+    "name": "time.second_angle",
+    "type": "number"
+  },
+  {
+    "name": "time.second_progress",
+    "type": "percent"
+  }
+]

@@ -1,14 +1,18 @@
 pub mod apps;
+pub mod bind;
+#[cfg(test)]
+mod guide_tests;
 pub mod cards;
 pub mod config;
 pub mod device;
 pub mod engine;
 pub mod icons;
-pub mod ide;
-pub mod media;
-pub mod teams;
+pub mod migrate;
+pub mod updater;
 pub mod mqtt;
 pub mod platform;
+pub mod plugins;
+pub mod registry;
 pub mod render;
 pub mod screensaver;
 
@@ -38,7 +42,8 @@ async fn get_state(h: H<'_>) -> Result<Value, String> {
 }
 
 #[tauri::command]
-async fn save_config(h: H<'_>, config: Config) -> Result<Value, String> {
+async fn save_config(h: H<'_>, config: Value) -> Result<Value, String> {
+    let (config, _) = Config::from_value(config)?;
     let h = h.inner().clone();
     blocking(move || h.ask(|r| Ui::Save(Box::new(config), r))?).await
 }
@@ -93,11 +98,11 @@ async fn geocode(query: String) -> Result<Vec<Value>, String> {
 async fn teams_sign_in(app: AppHandle, h: H<'_>, client_id: String, tenant: String) -> Result<Value, String> {
     let h = h.inner().clone();
     blocking(move || {
-        let dc = teams::start_device_code(&client_id, &tenant)?;
+        let dc = plugins::teams::api::start_device_code(&client_id, &tenant)?;
         let out = serde_json::json!({ "user_code": dc.user_code, "verification_uri": dc.verification_uri });
         let _ = platform::open(&dc.verification_uri, std::path::Path::new("/"));
         std::thread::spawn(move || {
-            let r = teams::wait_device_code(&client_id, &tenant, &dc);
+            let r = plugins::teams::api::wait_device_code(&client_id, &tenant, &dc);
             match r {
                 Ok(t) => {
                     let account = t.account.clone();
@@ -112,6 +117,33 @@ async fn teams_sign_in(app: AppHandle, h: H<'_>, client_id: String, tenant: Stri
         Ok(out)
     })
     .await
+}
+
+/// Everything packages contribute: plugins, interfaces, signals, actions, apps, icons.
+#[tauri::command]
+fn catalog() -> Value {
+    registry::current().catalog()
+}
+
+/// Values for a `select` field with `{"source": ...}`.
+#[tauri::command]
+async fn options(h: H<'_>, source: String, profile: usize) -> Result<Vec<Value>, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(|reply| Ui::Options { source, profile, reply })).await
+}
+
+/// Current value of every signal.
+#[tauri::command]
+async fn signals(h: H<'_>) -> Result<Value, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(Ui::Signals)).await
+}
+
+/// `icon` drawn with the live values of the app on a key (for the icon picker).
+#[tauri::command]
+async fn preview_icon(h: H<'_>, icon: String, profile: usize, page: String, key: usize) -> Result<String, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(|reply| Ui::PreviewIcon { icon, profile, page, key, reply })?).await
 }
 
 /// Icon names and groups for the icon picker.
@@ -133,6 +165,44 @@ fn teams_sign_out(h: H<'_>) {
 #[tauri::command]
 fn open_config_dir(h: H<'_>) -> Result<(), String> {
     platform::open(&h.config_dir().display().to_string(), &h.config_dir()).map_err(|e| e.to_string())
+}
+
+/// Read the packages folder again (after adding or removing a package by hand).
+#[tauri::command]
+async fn reload_packages(h: H<'_>) -> Result<Vec<String>, String> {
+    let h = h.inner().clone();
+    blocking(move || h.ask(Ui::ReloadPackages)).await
+}
+
+/// Add an icon set or theme from a folder (dropped on the Packages view).
+#[tauri::command]
+async fn install_package(h: H<'_>, path: String) -> Result<String, String> {
+    let h = h.inner().clone();
+    blocking(move || {
+        let dir = h.config_dir().join("packages");
+        let id = registry::install_package(std::path::Path::new(&path), &dir)?;
+        h.ask(Ui::ReloadPackages)?;
+        Ok(id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn remove_package(h: H<'_>, id: String) -> Result<(), String> {
+    let h = h.inner().clone();
+    blocking(move || {
+        registry::remove_package(&id, &h.config_dir().join("packages"))?;
+        h.ask(Ui::ReloadPackages)?;
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+fn open_packages_dir(h: H<'_>) -> Result<(), String> {
+    let dir = h.config_dir().join("packages");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    platform::open(&dir.display().to_string(), &dir).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -158,7 +228,9 @@ fn show_main(app: &AppHandle) {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            updater::watch(app.handle().clone());
             let path = app.path().app_config_dir()?.join("deck.json");
             let handle = app.handle().clone();
             let emit: engine::Emit = Box::new(move |name, payload| {
@@ -202,6 +274,17 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
+            updater::check_update,
+            updater::install_update,
+            updater::app_version,
+            catalog,
+            reload_packages,
+            install_package,
+            remove_package,
+            open_packages_dir,
+            options,
+            signals,
+            preview_icon,
             save_config,
             import_config,
             set_view,

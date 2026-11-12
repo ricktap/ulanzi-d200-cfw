@@ -7,6 +7,8 @@
 
 mod font;
 mod hw;
+mod rle;
+mod saver;
 
 use hw::{Framebuffer, KeyEvent, Keypad, KEY_SIZE, NUM_KEYS, SCREEN_H, SCREEN_W};
 use std::io::{self, BufRead, BufReader, Read, Write};
@@ -192,7 +194,7 @@ fn send(client: &Client, gen: u64, line: &str) {
     }
 }
 
-fn handle(stream: TcpStream, gen: u64, fb: &Framebuffer, client: &Client) -> io::Result<()> {
+fn handle(stream: TcpStream, gen: u64, fb: &Arc<Framebuffer>, client: &Client) -> io::Result<()> {
     let mut rd = BufReader::with_capacity(64 * 1024, stream);
     let mut line = String::new();
     loop {
@@ -203,7 +205,12 @@ fn handle(stream: TcpStream, gen: u64, fb: &Framebuffer, client: &Client) -> io:
         let parts: Vec<&str> = line.split_whitespace().collect();
         let Some(&cmd) = parts.first() else { continue };
         let num = |i: usize| -> Option<usize> { parts.get(i)?.parse().ok() };
-        let reply: String = match cmd.to_ascii_uppercase().as_str() {
+        let cmd_uc = cmd.to_ascii_uppercase();
+        // Anything that draws ends the screensaver first.
+        if matches!(cmd_uc.as_str(), "IMG" | "IMGR" | "BLIT" | "BLITR" | "FILL" | "CLEAR") {
+            saver::stop();
+        }
+        let reply: String = match cmd_uc.as_str() {
             "PING" => format!("PONG d200fw {VERSION}"),
             "INFO" => format!(
                 "INFO version={VERSION} keys={NUM_KEYS} screen={SCREEN_W}x{SCREEN_H} key={KEY_SIZE}x{KEY_SIZE} brightness={}",
@@ -242,6 +249,32 @@ fn handle(stream: TcpStream, gen: u64, fb: &Framebuffer, client: &Client) -> io:
                     return Ok(());
                 }
             },
+            // IMGR <key> <len> / BLITR <x> <y> <w> <h> <len>: run-length coded RGB888 (rle.rs).
+            // The payload length is given, so a bad image does not desync the stream.
+            "IMGR" | "BLITR" => {
+                let rect = if cmd_uc == "IMGR" {
+                    num(1).and_then(hw::key_rect).map(|r| (r, num(2)))
+                } else {
+                    match (num(1), num(2), num(3), num(4)) {
+                        (Some(x), Some(y), Some(w), Some(h)) if w > 0 && h > 0 && w <= SCREEN_W && h <= SCREEN_H => Some(((x, y, w, h), num(5))),
+                        _ => None,
+                    }
+                };
+                match rect {
+                    Some(((x, y, w, h), Some(len))) if len <= w * h * 4 + 16 => {
+                        let mut buf = vec![0u8; len];
+                        rd.read_exact(&mut buf)?;
+                        match rle::decode(&buf, w * h) {
+                            Ok(rgb) => fb.blit(x, y, w, h, &rgb).map(|_| "OK".into()).unwrap_or_else(|e| format!("ERR {e}")),
+                            Err(e) => format!("ERR {e}"),
+                        }
+                    }
+                    _ => {
+                        send(client, gen, "ERR usage: IMGR <key> <len> | BLITR <x> <y> <w> <h> <len>");
+                        return Ok(());
+                    }
+                }
+            }
             "FILL" => match (num(1).and_then(hw::key_rect), parts.get(2).and_then(|s| parse_rgb(s))) {
                 (Some((x, y, w, h)), Some(rgb)) => {
                     fb.fill(x, y, w, h, rgb).map(|_| "OK".into()).unwrap_or_else(|e| format!("ERR {e}"))
@@ -257,6 +290,25 @@ fn handle(stream: TcpStream, gen: u64, fb: &Framebuffer, client: &Client) -> io:
                     .map(|_| "OK".into())
                     .unwrap_or_else(|e| format!("ERR {e}")),
                 _ => "ERR usage: BRIGHT <0-255>".into(),
+            },
+            // SAVER <scene> <fps> <motion 0/1> | SAVER DOT <0/1> | SAVER OFF
+            "SAVER" => match parts.get(1).map(|s| s.to_ascii_lowercase()).as_deref() {
+                Some("off") => {
+                    saver::stop();
+                    "OK".into()
+                }
+                Some("dot") => {
+                    saver::set_dot(parts.get(2) == Some(&"1"));
+                    "OK".into()
+                }
+                Some(name) => match (scene::Season::from_name(name), num(2)) {
+                    (Some(season), Some(fps)) => {
+                        saver::start(fb.clone(), season, fps as u32, parts.get(3) != Some(&"0"));
+                        "OK".into()
+                    }
+                    _ => "ERR usage: SAVER <snow|pink|beach|leaves|rain> <fps> <motion 0/1> | SAVER DOT <0/1> | SAVER OFF".into(),
+                },
+                None => "ERR usage: SAVER <scene> <fps> <motion> | SAVER DOT <0/1> | SAVER OFF".into(),
             },
             "BYE" => {
                 send(client, gen, "OK");
@@ -278,6 +330,9 @@ fn serve(listener: TcpListener, fb: Arc<Framebuffer>, keys: Receiver<KeyEvent>) 
         let fb = fb.clone();
         std::thread::spawn(move || {
             for ev in keys {
+                if ev.pressed && saver::running() {
+                    saver::stop(); // the host redraws the keys
+                }
                 let mut g = client.lock().unwrap();
                 match g.as_mut() {
                     Some((_, s)) => {
@@ -319,6 +374,7 @@ fn serve(listener: TcpListener, fb: Arc<Framebuffer>, keys: Receiver<KeyEvent>) 
             if matches!(g.as_ref(), Some((cg, _)) if *cg == gen) {
                 *g = None;
                 drop(g);
+                saver::stop();
                 eprintln!("d200fw: host disconnected (#{gen})");
                 draw_layout(&fb, "D200FW", "WAITING FOR HOST");
             }

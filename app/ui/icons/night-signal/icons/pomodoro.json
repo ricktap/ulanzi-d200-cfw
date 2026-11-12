@@ -1,0 +1,26 @@
+{
+  "id": "com.deckling.core:pomodoro",
+  "roles": [
+    "progress",
+    "button"
+  ],
+  "file": "pomodoro.svg",
+  "parts": {
+    "pomodoro-ring": {
+      "stroke": {
+        "tone": "warning",
+        "fallback": "#FFBF69"
+      },
+      "progress": {
+        "prop": "progress.value",
+        "fallback": 75
+      }
+    },
+    "pomodoro-hands": {
+      "stroke": {
+        "tone": "warning",
+        "fallback": "#FFBF69"
+      }
+    }
+  }
+}

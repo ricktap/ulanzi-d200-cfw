@@ -1,0 +1,16 @@
+{
+  "id": "com.deckling.ha",
+  "type": "plugin",
+  "name": "Home Assistant",
+  "version": "1.0.0",
+  "description": "MQTT to Home Assistant: publish, the remote page, notifications and discovery.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/",
+    "iconset": "iconset/"
+  }
+}

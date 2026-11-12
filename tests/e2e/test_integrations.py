@@ -20,8 +20,8 @@ threading.Thread(target=http.server.ThreadingHTTPServer(("127.0.0.1", 18990), Q)
 teams = FakeTeams(18124)
 
 cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-cfg["settings"]["follow_active_app"] = False
-cfg["settings"]["teams"]["port"] = 18124
+cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+cfg["plugins"]["com.deckling.teams"]["config"]["port"] = 18124
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 names = [p["name"] for p in cfg["profiles"]]
 MEDIA = sim + "/player.txt"

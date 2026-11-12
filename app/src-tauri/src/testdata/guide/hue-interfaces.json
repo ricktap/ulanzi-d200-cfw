@@ -1,0 +1,7 @@
+{
+  "com.ricktap.hue:rgb_light": {
+    "on": "flag",
+    "color": "color",
+    "brightness": "percent"
+  }
+}

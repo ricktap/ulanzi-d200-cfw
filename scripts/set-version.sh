@@ -1,5 +1,6 @@
 #!/bin/sh
-# Set the D200 Deck version in Cargo.toml, Cargo.lock, tauri.conf.json and package.json.
+# Set the D200 Deck version in Cargo.toml, Cargo.lock, tauri.conf.json, package.json and the
+# Home Assistant integration's manifest.json.
 # Usage: scripts/set-version.sh 1.2.3   (a leading "v" is stripped)
 set -e
 V=${1#v}
@@ -19,4 +20,6 @@ const fs = require("fs"), f = "package-lock.json", j = JSON.parse(fs.readFileSyn
 j.version = j.packages[""].version = process.argv[1];
 fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");' "$V"
 rm -f src-tauri/tauri.conf.json.bak package.json.bak
+sed -i.bak "s/^  \"version\": \".*\"/  \"version\": \"$V\"/" "$ROOT/custom_components/d200_deck/manifest.json"
+rm -f "$ROOT/custom_components/d200_deck/manifest.json.bak"
 echo "version set to $V"

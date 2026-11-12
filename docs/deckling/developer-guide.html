@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deckling für Entwickler</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --paper: #EEF1F4; --panel: #FFFFFF; --ink: #17202B; --quiet: #556170; --rule: #CCD4DD;
+  --accent: #2456D6; --accent-soft: #DCE6FB; --code-bg: #F6F8FA; --mark: #FFE7A8; --mark-ink: #4A3300;
+  --plugin: #7A3FD0; --core: #0B7A6B;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #141A22; --panel: #1C242E; --ink: #E6EBF2; --quiet: #9DA9B8; --rule: #33404F;
+    --accent: #8FB0FF; --accent-soft: #25314A; --code-bg: #10161D; --mark: #5A4310; --mark-ink: #FFE7A8;
+    --plugin: #C3A2FF; --core: #6FD8C6;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #141A22; --panel: #1C242E; --ink: #E6EBF2; --quiet: #9DA9B8; --rule: #33404F;
+  --accent: #8FB0FF; --accent-soft: #25314A; --code-bg: #10161D; --mark: #5A4310; --mark-ink: #FFE7A8;
+  --plugin: #C3A2FF; --core: #6FD8C6;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.55; -webkit-text-size-adjust: 100%;
+}
+.page { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; }
+h1 { font-size: 1.6rem; line-height: 1.2; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
+h2 { font-size: 1.15rem; line-height: 1.3; font-weight: 600; margin: 32px 0 8px; }
+p { margin: 0 0 12px; }
+.lead { color: var(--quiet); }
+code, pre, .mono { font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace; }
+p code, li code { font-size: 0.86em; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+
+.stage { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 12px; margin-top: 16px; }
+.tile { border-radius: 10px; padding: 10px; transition: background-color 0.3s; }
+.tile svg { display: block; width: 100%; height: auto; }
+.controls { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.seg { display: flex; flex: 1 1 200px; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; }
+button {
+  font: inherit; color: var(--ink); background: transparent; border: 0; min-height: 44px; padding: 0 14px; cursor: pointer;
+}
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.plain { border: 1px solid var(--rule); border-radius: 10px; }
+
+.signals { list-style: none; margin: 12px 0 0; padding: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+.signals li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 12px; border-top: 1px solid var(--rule); align-items: center; }
+.signals li:first-child { border-top: 0; }
+.signals .name { font-size: 0.8rem; overflow-wrap: anywhere; }
+.signals .val { font-size: 0.8rem; display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-variant-numeric: tabular-nums; }
+.signals .src { grid-column: 1 / -1; font-size: 0.75rem; }
+.src.plugin { color: var(--plugin); } .src.core { color: var(--core); }
+.swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--rule); flex: none; }
+
+.flow { margin: 0; padding-left: 22px; }
+.flow li { margin-bottom: 8px; }
+
+.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--rule); margin-top: 12px; }
+.tabs button { flex: none; border-bottom: 3px solid transparent; color: var(--quiet); padding: 0 12px; }
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.panel { padding-top: 14px; }
+.panel[hidden] { display: none; }
+.file { font-size: 0.8rem; color: var(--quiet); margin: 14px 0 4px; }
+pre {
+  margin: 0 0 12px; padding: 12px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px;
+  font-size: 0.75rem; line-height: 1.6; overflow-x: auto; white-space: pre; tab-size: 2;
+}
+mark.sig { background: var(--mark); color: var(--mark-ink); border-radius: 3px; padding: 0 2px; }
+.note { font-size: 0.875rem; color: var(--quiet); }
+
+.keys { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 10px; align-items: stretch; }
+.tilebtn { display: block; width: 100%; padding: 0; border-radius: 10px; min-height: 0; overflow: hidden; transition: background-color 0.3s; }
+.tilebtn svg { display: block; width: 100%; height: auto; }
+.tilebtn:active { opacity: 0.8; }
+.side { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.side button { text-align: left; line-height: 1.3; padding: 8px 12px; }
+.side small { display: block; color: var(--quiet); font-size: 0.75rem; }
+.wide { margin-top: 10px; }
+.event { margin: 10px 0 0; font-size: 0.8rem; color: var(--quiet); min-height: 1.4em; }
+
+.info { display: flex; flex-direction: column; justify-content: center; gap: 6px; font-size: 0.875rem; }
+.info .k { color: var(--quiet); font-size: 0.75rem; }
+.info .v { overflow-wrap: anywhere; font-size: 0.8rem; }
+.picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.picker button { padding: 0 0 6px; border: 2px solid var(--rule); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.picker button[aria-pressed="true"] { border-color: var(--accent); }
+.picker .mini { display: block; }
+.picker .mini svg { display: block; width: 100%; height: auto; }
+.picker .cap { font-size: 0.7rem; line-height: 1.2; color: var(--quiet); padding: 0 4px; overflow-wrap: anywhere; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.trio figure { margin: 0; }
+.trio figcaption { font-size: 0.75rem; line-height: 1.3; margin-top: 6px; }
+.trio figcaption span { display: block; color: var(--quiet); }
+
+h3 { font-size: 1rem; line-height: 1.3; font-weight: 600; margin: 20px 0 6px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 0.875rem; background: var(--panel); }
+.toc a:focus-visible { outline: 2px solid var(--accent); }
+.scroll { overflow-x: auto; margin: 0 0 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 440px; font-size: 0.85rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+th { font-weight: 600; color: var(--quiet); }
+.figure { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 8px; margin: 12px 0; overflow-x: auto; }
+.figure svg { display: block; width: 100%; min-width: 560px; height: auto; font-family: inherit; }
+.tile1 { max-width: 170px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 0.875rem; }
+.field select { font: inherit; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
+.checks { display: flex; flex-direction: column; margin-top: 8px; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 0.875rem; }
+.checks input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.checks small, .field small { display: block; color: var(--quiet); font-size: 0.75rem; overflow-wrap: anywhere; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.btnrow button { flex: 1 1 120px; }
+ul.plain { margin: 0 0 12px; padding-left: 20px; } ul.plain li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Deckling für Entwickler</h1>
+  <p class="lead">Wie Plugins, Icons und Themes zusammenspielen, erklärt an vier laufenden Beispielen. Jede Vorschau auf dieser Seite wird aus genau den Dateien erzeugt, die darunter stehen.</p>
+  <ul class="toc" aria-label="Inhalt">
+    <li><a href="#modell">Modell</a></li>
+    <li><a href="#rechte">Namensräume</a></li>
+    <li><a href="#bindungen">Bindungen</a></li>
+    <li><a href="#hue">Beispiel Hue</a></li>
+    <li><a href="#uhr">Beispiel Uhr</a></li>
+    <li><a href="#ams">Beispiel AMS</a></li>
+    <li><a href="#musik">Beispiel Musik</a></li>
+    <li><a href="#signale">Signale live</a></li>
+    <li><a href="#versionen">Interfaces ändern</a></li>
+    <li><a href="#referenz">Referenz</a></li>
+    <li><a href="#checkliste">Checklisten</a></li>
+  </ul>
+
+  <h2 id="modell">Das Modell</h2>
+  <p>Nur Plugins enthalten Code. Sie veröffentlichen Werte und bieten Aktionen an. Icon Sets und Themes sind reine Daten, die der Kern beim Zeichnen liest.</p>
+  <div class="figure"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 544" role="img" aria-label="Plugins erzeugen Werte, Icons und Themes verbrauchen sie"><defs><marker id="dg-plugins-" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--quiet)"/></marker></defs><text x="24" y="34" font-size="15" fill="var(--ink)" font-weight="600">Plugins erzeugen Werte, Icons und Themes verbrauchen sie</text><g><rect x="24" y="56" width="300" height="120" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="38" y="80" font-size="13" fill="var(--ink)" font-weight="600">Plugin (mit Code)</text><text x="38" y="98" font-size="11.5" fill="var(--quiet)">Signale: Werte über die Zeit</text><text x="38" y="114" font-size="11.5" fill="var(--quiet)">Aktionen: was es tun kann</text><text x="38" y="130" font-size="11.5" fill="var(--quiet)">Interfaces und Apps</text><text x="38" y="146" font-size="11.5" fill="var(--quiet)">eingebettetes Icon Set</text></g><g><rect x="340" y="56" width="196" height="120" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="354" y="80" font-size="13" fill="var(--ink)" font-weight="600">Icon Set (nur Daten)</text><text x="354" y="98" font-size="11.5" fill="var(--quiet)">SVG plus Bindungen</text><text x="354" y="114" font-size="11.5" fill="var(--quiet)">nennt seine Rollen</text></g><g><rect x="552" y="56" width="184" height="120" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="566" y="80" font-size="13" fill="var(--ink)" font-weight="600">Theme (nur Daten)</text><text x="566" y="98" font-size="11.5" fill="var(--quiet)">Variablen, fest oder</text><text x="566" y="114" font-size="11.5" fill="var(--quiet)">an Signale gebunden</text><text x="566" y="130" font-size="11.5" fill="var(--quiet)">voll oder partial</text></g><g><rect x="24" y="216" width="712" height="200" rx="8" fill="var(--code-bg)" stroke="var(--quiet)" stroke-width="1"/><text x="38" y="240" font-size="13" fill="var(--ink)" font-weight="600">Kern</text></g><g><rect x="40" y="250" width="200" height="116" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="54" y="274" font-size="13" fill="var(--ink)" font-weight="600">Signalbus</text><text x="54" y="292" font-size="11.5" fill="var(--quiet)">sammelt alle Werte</text></g><g><rect x="256" y="250" width="200" height="116" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="270" y="274" font-size="13" fill="var(--ink)" font-weight="600">Engine</text><text x="270" y="292" font-size="11.5" fill="var(--quiet)">Taste gedrückt:</text><text x="270" y="308" font-size="11.5" fill="var(--quiet)">sucht Aktionen der Taste</text></g><g><rect x="472" y="250" width="248" height="116" rx="8" fill="var(--accent)" fill-opacity="0.12" stroke="var(--accent)" stroke-width="2"/><text x="486" y="274" font-size="13" fill="var(--ink)" font-weight="600">Renderer</text><text x="486" y="292" font-size="11.5" fill="var(--ink)">löst prop, bind und tone auf</text><text x="486" y="308" font-size="11.5" fill="var(--ink)">zeichnet jede Taste</text></g><path d="M100 178V248" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)"/><text x="108" y="204" font-size="11.5" fill="var(--quiet)">veröffentlicht Signale</text><path d="M300 248V178" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)"/><text x="308" y="204" font-size="11.5" fill="var(--quiet)">ruft Aktionen</text><path d="M500 178V248" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)"/><text x="508" y="204" font-size="11.5" fill="var(--quiet)">Icons</text><path d="M680 178V248" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)"/><text x="672" y="204" font-size="11.5" fill="var(--quiet)" text-anchor="end">Variablen</text><path d="M140 368V392H596V368" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)"/><text x="368" y="386" font-size="11.5" fill="var(--quiet)" text-anchor="middle">aktuelle Werte</text><g><rect x="24" y="456" width="340" height="64" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="38" y="480" font-size="13" fill="var(--ink)" font-weight="600">Konfigurator</text><text x="38" y="498" font-size="11.5" fill="var(--quiet)">wählt App, Icon und Theme, schreibt deck.json</text></g><g><rect x="472" y="456" width="264" height="64" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="486" y="480" font-size="13" fill="var(--ink)" font-weight="600">Ulanzi D200</text><text x="486" y="498" font-size="11.5" fill="var(--quiet)">zeigt Bilder, meldet Tasten</text></g><path d="M194 454V418" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)" marker-start="url(#dg-plugins-)"/><text x="202" y="440" font-size="11.5" fill="var(--quiet)">Katalog, Vorschau</text><path d="M604 418V454" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-plugins-)" marker-start="url(#dg-plugins-)"/><text x="612" y="440" font-size="11.5" fill="var(--quiet)">USB</text></svg></div>
+  <div class="scroll"><table>
+    <tr><th>Begriff</th><th>Bedeutung</th><th>Gehört zu</th></tr>
+    <tr><td>Signal</td><td>Ein benannter Wert über die Zeit, zum Beispiel <code>com.ricktap.hue:lamp.color</code></td><td>Plugin oder Kern</td></tr>
+    <tr><td>Aktion</td><td>Etwas, das ein Plugin tun kann, zum Beispiel <code>com.ricktap.hue:lamp.toggle</code></td><td>Plugin oder Kern</td></tr>
+    <tr><td>Interface (Rolle)</td><td>Eine Liste benannter Eigenschaften mit Typ, ohne Daten</td><td>Kern oder Plugin</td></tr>
+    <tr><td>App</td><td>Erfüllt Interfaces, indem sie Signale und Einstellungen auf deren Eigenschaften abbildet</td><td>Plugin</td></tr>
+    <tr><td>Icon</td><td>SVG mit benannten Teilen plus Bindungsdatei. Nennt seine Rollen</td><td>Icon Set</td></tr>
+    <tr><td>Theme Variable</td><td>Ein benannter Wert für das Aussehen, fest oder an ein Signal gebunden</td><td>Theme</td></tr>
+    <tr><td>Einstellung</td><td>Parameter einer App je Taste</td><td>App, gespeichert an der Taste</td></tr>
+  </table></div>
+
+  <h2 id="rechte">Namensräume und Rechte</h2>
+  <p>Die Paket ID in umgekehrter Domain Schreibweise ist der Namensraum: <code>com.ricktap.bambu:ams.casing</code>. Namen ohne Präfix gehören dem Kern, etwa <code>accent</code>, <code>time.second</code> oder <code>toggle</code>.</p>
+  <div class="scroll"><table>
+    <tr><th>Paket</th><th>Darf definieren</th><th>Darf lesen</th></tr>
+    <tr><td>Plugin</td><td>Signale, Aktionen, Interfaces, Apps und Icons, nur im eigenen Namensraum</td><td>eigene Einstellungen</td></tr>
+    <tr><td>Icon Set</td><td>Icons im eigenen Namensraum</td><td>Interfaces, Signale und Theme Variablen aus allen Namensräumen</td></tr>
+    <tr><td>Theme</td><td>Variablen in allen Namensräumen</td><td>Signale aus allen Namensräumen</td></tr>
+  </table></div>
+  <p>Zwei Folgen sind wichtig. Plugins setzen keine Farben, auch nicht zur Laufzeit. Und ein Plugin hört nie selbst auf Tasten: Den Tastendruck erkennt der Kern und ruft die Aktionen, die an der Taste eingetragen sind.</p>
+
+  <h2 id="bindungen">Die Bindungssprache</h2>
+  <p>Ein Wert kommt immer aus einer von wenigen Quellen. Die Sprache ist absichtlich klein und gilt gleich in Apps, Icons und Themes.</p>
+  <div class="figure"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 312" role="img" aria-label="Die App übersetzt, das Icon liest nur das Interface"><defs><marker id="dg-die-app-" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--quiet)"/></marker></defs><text x="24" y="34" font-size="15" fill="var(--ink)" font-weight="600">Die App übersetzt, das Icon liest nur das Interface</text><g><rect x="24" y="64" width="160" height="84" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="38" y="88" font-size="13" fill="var(--ink)" font-weight="600">Signal</text><text x="38" y="106" font-size="11.5" fill="var(--quiet)">com.ricktap.hue:</text><text x="38" y="122" font-size="11.5" fill="var(--quiet)">lamp.color</text></g><g><rect x="208" y="64" width="160" height="84" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="222" y="88" font-size="13" fill="var(--ink)" font-weight="600">App</text><text x="222" y="106" font-size="11.5" fill="var(--quiet)">implements rgb:</text><text x="222" y="122" font-size="11.5" fill="var(--quiet)">color aus bind</text></g><g><rect x="392" y="64" width="160" height="84" rx="8" fill="var(--accent)" fill-opacity="0.12" stroke="var(--accent)" stroke-width="2"/><text x="406" y="88" font-size="13" fill="var(--ink)" font-weight="600">Interface</text><text x="406" y="106" font-size="11.5" fill="var(--ink)">rgb { color }</text><text x="406" y="122" font-size="11.5" fill="var(--ink)">nur Namen und Typen</text></g><g><rect x="576" y="64" width="160" height="84" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="590" y="88" font-size="13" fill="var(--ink)" font-weight="600">Icon</text><text x="590" y="106" font-size="11.5" fill="var(--quiet)">fill aus prop</text><text x="590" y="122" font-size="11.5" fill="var(--quiet)">rgb.color</text></g><path d="M186 106H206" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-die-app-)"/><path d="M370 106H390" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-die-app-)"/><path d="M554 106H574" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-die-app-)"/><g><rect x="208" y="204" width="160" height="60" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="222" y="228" font-size="13" fill="var(--ink)" font-weight="600">Einstellung der Taste</text><text x="222" y="246" font-size="11.5" fill="var(--quiet)">config: welche Lampe</text></g><g><rect x="392" y="204" width="160" height="60" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="406" y="228" font-size="13" fill="var(--ink)" font-weight="600">Signal direkt</text><text x="406" y="246" font-size="11.5" fill="var(--quiet)">bind: time.second</text></g><g><rect x="576" y="204" width="160" height="60" rx="8" fill="none" stroke="var(--quiet)" stroke-width="1.25"/><text x="590" y="228" font-size="13" fill="var(--ink)" font-weight="600">Theme</text><text x="590" y="246" font-size="11.5" fill="var(--quiet)">tone: base, accent</text></g><path d="M288 202V150" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-die-app-)"/><path d="M472 202V176H620V150" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-die-app-)"/><path d="M690 202V150" fill="none" stroke="var(--quiet)" stroke-width="1.25" marker-end="url(#dg-die-app-)"/><text x="24" y="296" font-size="11.5" fill="var(--quiet)">Fehlt ein Wert, greift der fallback der Bindung. Das Icon nennt nie ein Signal der App.</text></svg></div>
+  <div class="scroll"><table>
+    <tr><th>Schlüssel</th><th>Wirkung</th><th>Erlaubt in</th></tr>
+    <tr><td><code>bind</code></td><td>liest ein Signal. Platzhalter wie <code>{unit}</code> werden aus den Einstellungen der Taste gefüllt</td><td>App, Icon, Theme</td></tr>
+    <tr><td><code>config</code></td><td>liest eine Einstellung der Taste</td><td>App</td></tr>
+    <tr><td><code>prop</code></td><td>liest eine Eigenschaft eines Interfaces, zum Beispiel <code>toggle.on</code></td><td>Icon</td></tr>
+    <tr><td><code>tone</code></td><td>liest eine Theme Variable, zum Beispiel <code>accent</code></td><td>Icon</td></tr>
+    <tr><td><code>steps</code></td><td>wählt nach einer Zahl aus einer Liste, reihum</td><td>überall</td></tr>
+    <tr><td><code>map</code></td><td>wählt nach einem benannten Wert aus einer Tabelle</td><td>überall</td></tr>
+    <tr><td><code>prefix</code>, <code>suffix</code></td><td>setzt Text vor und hinter den Wert</td><td>überall</td></tr>
+    <tr><td><code>fallback</code></td><td>Ersatz, wenn der Wert fehlt. Pflicht bei <code>prop</code>, <code>bind</code> und bei Variablen außerhalb der Kernvariablen</td><td>überall</td></tr>
+  </table></div>
+  <p>Mehr soll die Sprache nicht können. Wer Bedingungen oder Formeln braucht, rechnet im Plugin und veröffentlicht das Ergebnis als Signal.</p>
+
+  <h2 id="hue">Beispiel 1: Hue Lampe</h2>
+  <p>Zeigt den Kern des Modells. Eine App erfüllt mehrere Interfaces, und der Nutzer wählt ein Icon, das mindestens eines davon versteht. Tippe auf die Taste, um die Lampe zu schalten, und wechsle darunter das Icon.</p>
+  <div class="example" id="ex-hue"></div>
+  <h3>Was du mitnimmst</h3>
+  <ul class="plain">
+    <li>Kein Icon nennt ein Signal der App. Die gelbe Markierung kommt nur im Plugin und in der App vor.</li>
+    <li>Die Glühbirne aus dem fremden Set funktioniert mit jeder App, die <code>toggle</code> oder <code>rgb</code> erfüllt.</li>
+    <li><code>button</code> erfüllt jede App von selbst. Deshalb passt die Tischlampe als reines Symbol überall.</li>
+  </ul>
+
+  <h2 id="uhr">Beispiel 2: Uhr mit Einstellung</h2>
+  <p>Zeigt Einstellungen einer App. Das Feld <code>display</code> ist vom Typ <code>select</code> mit festen Werten. Die App reicht es als Eigenschaft <code>clock.style</code> an das Icon weiter, genau wie ein Signal.</p>
+  <div class="example" id="ex-clock"></div>
+  <h3>Was du mitnimmst</h3>
+  <ul class="plain">
+    <li>Der Konfigurator baut das Auswahlfeld aus dem Schema in <code>config</code>.</li>
+    <li>Die Einstellung gehört zur Taste. Zwei Uhren können verschieden eingestellt sein.</li>
+    <li>Das Icon entscheidet mit <code>map</code>, welche Teile sichtbar sind. Die Zeiger dreht es mit <code>prefix</code> und <code>suffix</code> um einen Winkel, den der Kern als Signal liefert.</li>
+  </ul>
+
+  <h2 id="ams">Beispiel 3: Bambu Lab AMS</h2>
+  <p>Zeigt ein eigenes Interface, eine Einstellung mit Werten vom Plugin und Theme Variablen im Namensraum des Plugins. Wähle das Gerät, wechsle das Theme und schalte Auflagen dazu.</p>
+  <div class="example" id="ex-ams"></div>
+  <h3>Was du mitnimmst</h3>
+  <ul class="plain">
+    <li>Zwei Geräte sind dieselbe App mit anderer Einstellung. Der Platzhalter <code>{unit}</code> in <code>bind</code> wählt die Signale.</li>
+    <li>Die LED fragt nach <code>com.ricktap.bambu:ams.led</code>. Night Signal setzt sie fest auf Blau, Bernstein bindet sie an <code>time.second</code> und lässt sie zwischen Rot und Grün wechseln.</li>
+    <li>Das Gehäuse fragt nach <code>com.ricktap.bambu:ams.casing</code>. Kein volles Theme setzt sie, also greift der <code>fallback</code>. Die Auflage setzt sie.</li>
+    <li>Regenbogen und Hue Sync sind keine Sonderfunktion. Es sind Themes vom Typ <code>partial</code>, die <code>accent</code> an ein Signal binden. Die Auflagen gelten für alle Tasten auf dieser Seite.</li>
+  </ul>
+
+  <h2 id="musik">Beispiel 4: Musik</h2>
+  <p>Zeigt Aktionen. Die App belegt Drücken und Lang drücken vor. Der Kern erkennt den Tastendruck, schlägt in der Belegung nach und ruft die Aktion im Plugin.</p>
+  <div class="example" id="ex-media"></div>
+  <h3>Was du mitnimmst</h3>
+  <ul class="plain">
+    <li><code>on</code> in der App ist nur eine Vorbelegung. Auf der Taste lassen sich die Aktionen danach frei ändern.</li>
+    <li>Das Plugin ändert seinen Zustand und veröffentlicht neu. Das Icon folgt von selbst, weil es gebunden ist.</li>
+    <li>Der Ring trägt die Farbe des Covers. Mit der Auflage Regenbogen aus Beispiel 3 ändert sich nur der <code>fallback</code>, weil das Icon hier bewusst die Farbe der App vorzieht.</li>
+  </ul>
+
+  <h2 id="signale">Signale live</h2>
+  <p class="note">Alles, was Kern und Plugins auf dieser Seite gerade veröffentlichen. Im Konfigurator gibt es dieselbe Ansicht.</p>
+  <ul class="signals" id="signals"></ul>
+
+  <h2 id="versionen">Interfaces ändern</h2>
+  <p>Fremde Icons zeichnen gegen dein Interface. Benennst du eine Eigenschaft um, lesen sie ins Leere. Drei Regeln verhindern das.</p>
+  <ul class="plain">
+    <li>Ein veröffentlichtes Interface ändert sich nicht mehr. Eigenschaften hinzufügen ist erlaubt, weil jedes Icon mit fehlenden Werten umgehen muss.</li>
+    <li>Umbenennen, Entfernen oder ein anderer Typ ist ein neues Interface mit Version im Namen, zum Beispiel <code>com.ricktap.hue:rgb_light@2</code>. Ohne Zusatz ist Version 1 gemeint.</li>
+    <li>Deine App darf alte und neue Version zugleich erfüllen. Das ist nur ein weiterer Block in <code>implements</code>. Alte Icons laufen weiter, solange du die alte Version mitführst.</li>
+  </ul>
+  <p>Ein Icon Set legt eine Kopie jedes fremden Interfaces bei, gegen das es gezeichnet wurde, im Ordner <code>interfaces/</code>. Der Kern vergleicht beim Laden und meldet, wenn ein Icon für eine andere Version gebaut wurde. Liest ein Icon eine Eigenschaft, die es nicht mehr gibt, greift der <code>fallback</code>. Das Icon ist dann ärmer, aber nicht kaputt.</p>
+  <p>Zum Prüfen gibt es die <a href="https://claude.ai/artifact/Thg1ugvESrFZro74Athxyh">Icon Werkbank</a>. Sie lädt Bindungsdatei, SVG und Interface, baut Regler aus den Typen und meldet jede gelesene Eigenschaft, die das Interface nicht kennt.</p>
+
+  <h2 id="referenz">Referenz</h2>
+  <h3>Typen</h3>
+  <p>Signale und Eigenschaften von Interfaces sind typisiert. Werkzeuge und Konfigurator wissen damit, wie ein Wert darzustellen ist.</p>
+  <div class="scroll"><table>
+    <tr><th>Typ</th><th>Wert</th><th>Regler in der Werkbank</th></tr>
+    <tr><td><code>flag</code></td><td>an oder aus</td><td>Schalter</td></tr>
+    <tr><td><code>percent</code></td><td>0 bis 100</td><td>Schieber</td></tr>
+    <tr><td><code>number</code></td><td>Zahl</td><td>Schieber</td></tr>
+    <tr><td><code>color</code></td><td>Farbe</td><td>Farbwähler</td></tr>
+    <tr><td><code>text</code></td><td>Text</td><td>Textfeld</td></tr>
+  </table></div>
+  <h3>Einstellungen eines Plugins</h3>
+  <p>Ein Plugin beschreibt seine Einstellungen als <code>config</code> im Manifest, mit demselben Schema wie die Einstellungen einer App. Der Konfigurator zeigt die Felder in der Ansicht Pakete direkt am Plugin. Typen sind <code>text</code>, <code>toggle</code>, <code>select</code> und <code>number</code>. Die Einstellungen des Plugins <code>core</code> sind die globalen Einstellungen des Decks. Ein eigenes Optionsmenü gibt es nicht.</p>
+  <h3>Manifest eines Plugins</h3>
+  <p>Jedes Paket hat eine <code>deckling.json</code>. Der Typ ist <code>plugin</code>, <code>iconset</code> oder <code>theme</code>. Ein Plugin darf ein Icon Set einbetten. Es hat dasselbe Format wie ein eigenständiges Set.</p>
+  <pre data-src="src-manifest-plugin"></pre>
+  <h3>Was der Code eines Plugins darf</h3>
+  <div class="scroll"><table>
+    <tr><th>Aufruf</th><th>Zweck</th></tr>
+    <tr><td><code>core.publish(name, wert)</code></td><td>veröffentlicht ein Signal im eigenen Namensraum</td></tr>
+    <tr><td><code>core.onAction(name, fn)</code></td><td>nimmt eine Aktion entgegen</td></tr>
+    <tr><td><code>core.provideOptions(name, fn)</code></td><td>liefert Werte für ein Auswahlfeld zur Laufzeit</td></tr>
+    <tr><td><code>core.every(ms, fn)</code></td><td>Zeitgeber in dieser Demo</td></tr>
+  </table></div>
+  <h3>Signale des Kerns</h3>
+  <p><code>time.clock</code>, <code>time.second</code>, <code>time.tick</code>, <code>time.hour_angle</code>, <code>time.minute_angle</code>. Geplant sind <code>key.index</code>, <code>key.column</code> und <code>key.row</code>, die je Taste verschieden sind. Damit lässt sich eine Welle über das Deck beschreiben.</p>
+  <h3>Primitive Interfaces</h3>
+  <pre data-src="src-core-interfaces"></pre>
+  <h3>Vertrag für das SVG eines Icons</h3>
+  <ul class="plain">
+    <li>Teile heißen über <code>data-part</code>. Ein Element darf mehrere Namen tragen, durch Leerzeichen getrennt.</li>
+    <li>Keine festen Farben. Farben kommen aus <code>tone</code>, <code>prop</code> oder <code>bind</code>.</li>
+    <li><code>progress</code> füllt eine Linie anteilig von 0 bis 100. Das Element braucht <code>pathLength="100"</code>.</li>
+    <li><code>visible</code> blendet ein Teil ein oder aus. <code>text</code> setzt den Inhalt eines Textelements.</li>
+    <li>Jeder andere Schlüssel wird als SVG Attribut gesetzt, zum Beispiel <code>fill</code>, <code>stroke</code>, <code>cx</code> oder <code>transform</code>.</li>
+  </ul>
+  <h3>Theme</h3>
+  <p>Ein Theme vom Typ <code>full</code> setzt alle Kernvariablen: <code>background</code>, <code>base</code>, <code>muted</code>, <code>accent</code>. Genau eines ist aktiv. Themes vom Typ <code>partial</code> setzen einzelne Variablen und liegen als Auflagen darüber. Setzen zwei dieselbe Variable, gewinnt die untere in der Liste.</p>
+  <h3>Belegung einer Taste in deck.json</h3>
+  <pre data-src="src-deck-key"></pre>
+  <p>Oben in der Datei stehen das volle Theme und die geordnete Liste der Auflagen.</p>
+  <pre data-src="src-deck-top"></pre>
+
+  <h2 id="checkliste">Checklisten</h2>
+  <h3>Ich baue ein Plugin</h3>
+  <ul class="plain">
+    <li>Signale nach dem benennen, was sie sind, nicht nach dem, was ein Icon gern hätte.</li>
+    <li>Jede App erfüllt neben ihrem eigenen Interface so viele Primitive wie sinnvoll. Dann passen fremde Icons sofort.</li>
+    <li>Gibt es mehrere Geräte, bekommt die App eine Einstellung und bindet über einen Platzhalter.</li>
+    <li>Ein eingebettetes Icon je App mitliefern. Es ist der Standard, bis der Nutzer ein anderes wählt.</li>
+    <li>Keine Farben setzen und nicht auf Tasten hören.</li>
+    <li>Signale mit Typ anmelden. Ein veröffentlichtes Interface nicht mehr ändern, sondern eine neue Version anlegen.</li>
+  </ul>
+  <h3>Ich baue ein Icon Set</h3>
+  <ul class="plain">
+    <li>Gegen Interfaces zeichnen, nie gegen Signale einer bestimmten App.</li>
+    <li>Jede Bindung mit <code>fallback</code> versehen. Für jede genannte Rolle prüfen, ob das Icon nur mit deren Eigenschaften ordentlich aussieht.</li>
+    <li>Farben über <code>tone</code> holen, damit das Icon jedem Theme folgt.</li>
+    <li>Das Icon in der Werkbank gegen jede genannte Rolle prüfen und eine Kopie fremder Interfaces beilegen.</li>
+  </ul>
+  <h3>Ich baue ein Theme</h3>
+  <ul class="plain">
+    <li>Für ein volles Theme alle vier Kernvariablen setzen.</li>
+    <li>Für einen Effekt ein Theme vom Typ <code>partial</code> bauen, das nur die betroffenen Variablen setzt.</li>
+    <li>Bei jeder Bindung an ein Signal eines Plugins einen <code>fallback</code> nennen, falls das Plugin fehlt.</li>
+  </ul>
+</div>
+<script type="application/json" id="src-core-interfaces">{
+  "button": {},
+  "toggle": { "on": "flag" },
+  "progress": { "value": "percent" },
+  "rgb": { "color": "color" },
+  "clock": {
+    "time": "text",
+    "hour_angle": "number",
+    "minute_angle": "number",
+    "style": "text"
+  }
+}</script>
+<script type="application/json" id="src-hue-interfaces">{
+  "com.ricktap.hue:rgb_light": {
+    "on": "flag",
+    "color": "color",
+    "brightness": "percent"
+  }
+}</script>
+<script type="application/json" id="src-app-hue">{
+  "id": "com.ricktap.hue:light",
+  "name": "Hue Lampe",
+  "icon": "com.ricktap.hue:bulb",
+  "implements": {
+    "com.ricktap.hue:rgb_light": {
+      "on": { "bind": "com.ricktap.hue:lamp.power", "fallback": false },
+      "color": { "bind": "com.ricktap.hue:lamp.color", "fallback": "#87909E" },
+      "brightness": { "bind": "com.ricktap.hue:lamp.brightness", "fallback": 0 }
+    },
+    "rgb": {
+      "color": { "bind": "com.ricktap.hue:lamp.color", "fallback": "#87909E" }
+    },
+    "toggle": {
+      "on": { "bind": "com.ricktap.hue:lamp.power", "fallback": false }
+    }
+  },
+  "on": {
+    "press": [{ "action": "com.ricktap.hue:lamp.toggle" }]
+  }
+}</script>
+<script type="application/json" id="src-app-clock">{
+  "id": "core:clock",
+  "name": "Uhr",
+  "icon": "core:clock",
+  "config": [
+    {
+      "key": "display",
+      "label": "Anzeige",
+      "type": "select",
+      "default": "analog",
+      "values": [
+        { "label": "Analog", "value": "analog" },
+        { "label": "Digital", "value": "digital" }
+      ]
+    }
+  ],
+  "implements": {
+    "clock": {
+      "time": { "bind": "time.clock", "fallback": "" },
+      "hour_angle": { "bind": "time.hour_angle", "fallback": 0 },
+      "minute_angle": { "bind": "time.minute_angle", "fallback": 0 },
+      "style": { "config": "display" }
+    }
+  }
+}</script>
+<script type="application/json" id="src-bambu-interfaces">{
+  "com.ricktap.bambu:ams": {
+    "slot1_remaining": "percent", "slot1_color": "color",
+    "slot2_remaining": "percent", "slot2_color": "color",
+    "slot3_remaining": "percent", "slot3_color": "color",
+    "slot4_remaining": "percent", "slot4_color": "color"
+  }
+}</script>
+<script type="application/json" id="src-app-ams">{
+  "id": "com.ricktap.bambu:ams",
+  "name": "AMS",
+  "icon": "com.ricktap.bambu:rings",
+  "config": [
+    {
+      "key": "unit",
+      "label": "Gerät",
+      "type": "select",
+      "default": "ams1",
+      "values": { "source": "com.ricktap.bambu:units" }
+    }
+  ],
+  "implements": {
+    "com.ricktap.bambu:ams": {
+      "slot1_remaining": { "bind": "com.ricktap.bambu:{unit}.slot1.remaining", "fallback": 0 },
+      "slot1_color": { "bind": "com.ricktap.bambu:{unit}.slot1.color", "fallback": "#87909E" },
+      "slot2_remaining": { "bind": "com.ricktap.bambu:{unit}.slot2.remaining", "fallback": 0 },
+      "slot2_color": { "bind": "com.ricktap.bambu:{unit}.slot2.color", "fallback": "#87909E" },
+      "slot3_remaining": { "bind": "com.ricktap.bambu:{unit}.slot3.remaining", "fallback": 0 },
+      "slot3_color": { "bind": "com.ricktap.bambu:{unit}.slot3.color", "fallback": "#87909E" },
+      "slot4_remaining": { "bind": "com.ricktap.bambu:{unit}.slot4.remaining", "fallback": 0 },
+      "slot4_color": { "bind": "com.ricktap.bambu:{unit}.slot4.color", "fallback": "#87909E" }
+    }
+  }
+}</script>
+<script type="application/json" id="src-media-interfaces">{
+  "com.ricktap.media:player": {
+    "playing": "flag",
+    "progress": "percent",
+    "title": "text",
+    "color": "color"
+  }
+}</script>
+<script type="application/json" id="src-app-media">{
+  "id": "com.ricktap.media:player",
+  "name": "Musik",
+  "icon": "com.ricktap.media:disc",
+  "implements": {
+    "com.ricktap.media:player": {
+      "playing": { "bind": "com.ricktap.media:playing", "fallback": false },
+      "progress": { "bind": "com.ricktap.media:progress", "fallback": 0 },
+      "title": { "bind": "com.ricktap.media:title", "fallback": "" },
+      "color": { "bind": "com.ricktap.media:color", "fallback": "#87909E" }
+    },
+    "progress": {
+      "value": { "bind": "com.ricktap.media:progress", "fallback": 0 }
+    },
+    "toggle": {
+      "on": { "bind": "com.ricktap.media:playing", "fallback": false }
+    }
+  },
+  "on": {
+    "press": [{ "action": "com.ricktap.media:toggle" }],
+    "long": [{ "action": "com.ricktap.media:next" }]
+  }
+}</script>
+<script type="application/json" id="src-icon-hue-bulb">{
+  "id": "com.ricktap.hue:bulb",
+  "roles": ["com.ricktap.hue:rgb_light"],
+  "file": "bulb.svg",
+  "parts": {
+    "outline": { "stroke": { "tone": "base" } },
+    "glass": {
+      "visible": { "prop": "com.ricktap.hue:rgb_light.on", "fallback": false },
+      "fill": { "prop": "com.ricktap.hue:rgb_light.color", "fallback": "#FFD84D" }
+    },
+    "track": { "stroke": { "tone": "muted" } },
+    "level": {
+      "stroke": { "prop": "com.ricktap.hue:rgb_light.color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.hue:rgb_light.brightness", "fallback": 0 }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-neon-bulb">{
+  "id": "com.jemand.neon:bulb",
+  "roles": ["rgb", "toggle", "button"],
+  "file": "bulb.svg",
+  "parts": {
+    "outline": { "stroke": { "tone": "base" } },
+    "glass": {
+      "visible": { "prop": "toggle.on", "fallback": false },
+      "fill": { "prop": "rgb.color", "fallback": "#FFD84D" }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-neon-switch">{
+  "id": "com.jemand.neon:switch",
+  "roles": ["toggle", "button"],
+  "file": "switch.svg",
+  "parts": {
+    "pill": {
+      "fill": {
+        "prop": "toggle.on",
+        "steps": [{ "tone": "muted" }, { "tone": "accent" }],
+        "fallback": { "tone": "muted" }
+      }
+    },
+    "knob": {
+      "fill": { "tone": "base" },
+      "cx": { "prop": "toggle.on", "steps": [34, 66], "fallback": 34 }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-neon-lamp">{
+  "id": "com.jemand.neon:lamp",
+  "roles": ["button"],
+  "file": "lamp.svg",
+  "parts": {
+    "outline": { "stroke": { "tone": "base" } }
+  }
+}</script>
+<script type="application/json" id="src-icon-neon-dial">{
+  "id": "com.jemand.neon:dial",
+  "roles": ["progress", "button"],
+  "file": "dial.svg",
+  "parts": {
+    "track": { "stroke": { "tone": "muted" } },
+    "level": {
+      "stroke": { "tone": "accent" },
+      "progress": { "prop": "progress.value", "fallback": 0 }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-neon-spools">{
+  "id": "com.jemand.neon:spools",
+  "roles": ["com.ricktap.bambu:ams"],
+  "file": "spools.svg",
+  "parts": {
+    "housing": {
+      "stroke": { "tone": "com.ricktap.bambu:ams.casing", "fallback": { "tone": "base" } }
+    },
+    "spool-1": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot1_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot1_remaining", "fallback": 0 }
+    },
+    "spool-2": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot2_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot2_remaining", "fallback": 0 }
+    },
+    "spool-3": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot3_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot3_remaining", "fallback": 0 }
+    },
+    "spool-4": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot4_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot4_remaining", "fallback": 0 }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-bambu-rings">{
+  "id": "com.ricktap.bambu:rings",
+  "roles": ["com.ricktap.bambu:ams"],
+  "file": "rings.svg",
+  "parts": {
+    "housing": {
+      "stroke": { "tone": "com.ricktap.bambu:ams.casing", "fallback": { "tone": "base" } }
+    },
+    "track": { "stroke": { "tone": "muted" } },
+    "led": {
+      "fill": { "tone": "com.ricktap.bambu:ams.led", "fallback": { "tone": "accent" } }
+    },
+    "spool-1": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot1_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot1_remaining", "fallback": 0 }
+    },
+    "spool-2": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot2_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot2_remaining", "fallback": 0 }
+    },
+    "spool-3": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot3_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot3_remaining", "fallback": 0 }
+    },
+    "spool-4": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot4_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot4_remaining", "fallback": 0 }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-core-clock">{
+  "id": "core:clock",
+  "roles": ["clock", "button"],
+  "file": "clock.svg",
+  "parts": {
+    "analog": {
+      "visible": {
+        "prop": "clock.style",
+        "map": { "analog": true, "digital": false },
+        "fallback": true
+      }
+    },
+    "ring": { "stroke": { "tone": "base" } },
+    "hour": {
+      "stroke": { "tone": "base" },
+      "transform": {
+        "prop": "clock.hour_angle",
+        "prefix": "rotate(", "suffix": " 50 50)",
+        "fallback": "rotate(300 50 50)"
+      }
+    },
+    "minute": {
+      "stroke": { "tone": "accent" },
+      "transform": {
+        "prop": "clock.minute_angle",
+        "prefix": "rotate(", "suffix": " 50 50)",
+        "fallback": "rotate(60 50 50)"
+      }
+    },
+    "digital": {
+      "fill": { "tone": "base" },
+      "visible": {
+        "prop": "clock.style",
+        "map": { "analog": false, "digital": true },
+        "fallback": false
+      },
+      "text": { "prop": "clock.time", "fallback": "" }
+    }
+  }
+}</script>
+<script type="application/json" id="src-icon-media-disc">{
+  "id": "com.ricktap.media:disc",
+  "roles": ["com.ricktap.media:player"],
+  "file": "disc.svg",
+  "parts": {
+    "track": { "stroke": { "tone": "muted" } },
+    "ring": {
+      "stroke": { "prop": "com.ricktap.media:player.color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.media:player.progress", "fallback": 0 }
+    },
+    "glyph": { "fill": { "tone": "base" } },
+    "play": {
+      "visible": { "prop": "com.ricktap.media:player.playing", "steps": [true, false], "fallback": true }
+    },
+    "pause": {
+      "visible": { "prop": "com.ricktap.media:player.playing", "steps": [false, true], "fallback": false }
+    },
+    "title": {
+      "fill": { "tone": "base" },
+      "text": { "prop": "com.ricktap.media:player.title", "fallback": "" }
+    }
+  }
+}</script>
+<script type="application/json" id="src-theme-a">{
+  "id": "com.ricktap.nightsignal",
+  "type": "theme",
+  "name": "Night Signal",
+  "theme": {
+    "type": "full",
+    "variables": {
+      "background": "#0F1216",
+      "base": "#F4F1E8",
+      "muted": "#3A4350",
+      "accent": "#69E0C1",
+      "com.ricktap.bambu:ams.led": "#3B82F6"
+    }
+  }
+}</script>
+<script type="application/json" id="src-theme-b">{
+  "id": "com.jemand.bernstein",
+  "type": "theme",
+  "name": "Bernstein",
+  "theme": {
+    "type": "full",
+    "variables": {
+      "background": "#211A14",
+      "base": "#FFE6C2",
+      "muted": "#5A4A3A",
+      "accent": "#FF9F43",
+      "com.ricktap.bambu:ams.led": {
+        "bind": "time.second",
+        "steps": ["#FF4D4D", "#3DDC84"],
+        "fallback": "#FF4D4D"
+      }
+    }
+  }
+}</script>
+<script type="application/json" id="src-theme-casing">{
+  "id": "com.jemand.ams-blau",
+  "type": "theme",
+  "name": "AMS Gehäuse blau",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "com.ricktap.bambu:ams.casing": "#6F8FD9"
+    }
+  }
+}</script>
+<script type="application/json" id="src-theme-rainbow">{
+  "id": "com.jemand.regenbogen",
+  "type": "theme",
+  "name": "Regenbogen",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "accent": {
+        "bind": "time.tick",
+        "steps": ["#FF5C7A", "#FF9F43", "#FFD84D", "#69E0C1", "#5B8DEF", "#B79AF7"],
+        "fallback": "#FF9F43"
+      }
+    }
+  }
+}</script>
+<script type="application/json" id="src-theme-huesync">{
+  "id": "com.ricktap.hue-sync",
+  "type": "theme",
+  "name": "Hue Sync",
+  "theme": {
+    "type": "partial",
+    "variables": {
+      "accent": {
+        "bind": "com.ricktap.hue:lamp.color",
+        "fallback": "#FF9F43"
+      }
+    }
+  }
+}</script>
+<script type="application/json" id="src-deck-key">{
+  "app": "com.ricktap.bambu:ams",
+  "icon": "com.jemand.neon:spools",
+  "label": "AMS 2",
+  "config": { "unit": "ams2" },
+  "on": {
+    "press": [],
+    "long": [{ "action": "core:page", "params": { "page": "Druck" } }]
+  }
+}</script>
+<script type="application/json" id="src-deck-top">{
+  "version": 2,
+  "theme": "com.jemand.bernstein",
+  "overlays": ["com.jemand.ams-blau", "com.ricktap.hue-sync"],
+  "profiles": []
+}</script>
+<script type="application/json" id="src-manifest-plugin">{
+  "id": "com.ricktap.hue",
+  "type": "plugin",
+  "name": "Philips Hue",
+  "version": "1.0.0",
+  "runtime": { "kind": "process", "main": "plugin.js" },
+  "config": [
+    {
+      "key": "bridge",
+      "label": "Bridge",
+      "type": "select",
+      "values": { "source": "com.ricktap.hue:bridges" }
+    }
+  ],
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "interfaces": "interfaces.json",
+    "apps": "apps/",
+    "iconset": "iconset/"
+  }
+}</script>
+<script type="text/plain" id="svg-hue-bulb"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Hue Lampe" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <path data-part="glass" d="M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z" stroke="none"/>
+  <path data-part="outline" d="M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z"/>
+  <path data-part="outline" d="M41 72h18M44 79h12"/>
+  <path data-part="track" d="M22 92H78" stroke-linecap="butt"/>
+  <path data-part="level" d="M22 92H78" stroke-linecap="butt" pathLength="100"/>
+</svg></script>
+<script type="text/plain" id="svg-neon-bulb"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Glühbirne" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(0 8)">
+    <path data-part="glass" d="M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z" stroke="none"/>
+    <path data-part="outline" d="M50 10a25 25 0 0 0-15 45c3 3 4 6 4 10h22c0-4 1-7 4-10a25 25 0 0 0-15-45z"/>
+    <path data-part="outline" d="M41 72h18M44 79h12"/>
+  </g>
+</svg></script>
+<script type="text/plain" id="svg-neon-switch"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Schalter" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <rect data-part="pill" x="18" y="34" width="64" height="32" rx="16" stroke="none"/>
+  <circle data-part="knob" cy="50" r="11" stroke="none"/>
+</svg></script>
+<script type="text/plain" id="svg-neon-lamp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Tischlampe" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <path data-part="outline" d="M28 86h44M50 86V50M30 50l10-28h20l10 28z"/>
+</svg></script>
+<script type="text/plain" id="svg-neon-dial"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Skala" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <path data-part="track" d="M20 64a30 30 0 0 1 60 0" stroke-width="9" stroke-linecap="butt"/>
+  <path data-part="level" d="M20 64a30 30 0 0 1 60 0" stroke-width="9" stroke-linecap="butt" pathLength="100"/>
+</svg></script>
+<script type="text/plain" id="svg-neon-spools"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="AMS als Säulen" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <rect data-part="housing" x="12" y="14" width="76" height="72" rx="8"/>
+  <path data-part="spool-1" d="M29 76V26" stroke-width="8" stroke-linecap="butt" pathLength="100"/>
+  <path data-part="spool-2" d="M43 76V26" stroke-width="8" stroke-linecap="butt" pathLength="100"/>
+  <path data-part="spool-3" d="M57 76V26" stroke-width="8" stroke-linecap="butt" pathLength="100"/>
+  <path data-part="spool-4" d="M71 76V26" stroke-width="8" stroke-linecap="butt" pathLength="100"/>
+</svg></script>
+<script type="text/plain" id="svg-bambu-rings"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="AMS mit Status LED" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <rect data-part="housing" x="6" y="12" width="68" height="76" rx="8"/>
+  <circle data-part="track" cx="24" cy="33" r="10" stroke-width="5"/>
+  <circle data-part="track" cx="56" cy="33" r="10" stroke-width="5"/>
+  <circle data-part="track" cx="24" cy="67" r="10" stroke-width="5"/>
+  <circle data-part="track" cx="56" cy="67" r="10" stroke-width="5"/>
+  <circle data-part="spool-1" cx="24" cy="33" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 24 33)"/>
+  <circle data-part="spool-2" cx="56" cy="33" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 56 33)"/>
+  <circle data-part="spool-3" cx="24" cy="67" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 24 67)"/>
+  <circle data-part="spool-4" cx="56" cy="67" r="10" stroke-width="5" stroke-linecap="butt" pathLength="100" transform="rotate(-90 56 67)"/>
+  <circle data-part="led" cx="88" cy="20" r="7" stroke="none"/>
+</svg></script>
+<script type="text/plain" id="svg-core-clock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Uhr" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <circle data-part="analog ring" cx="50" cy="50" r="36"/>
+  <path data-part="analog hour" d="M50 50V30"/>
+  <path data-part="analog minute" d="M50 50V20"/>
+  <text data-part="digital" x="50" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="27" font-weight="500" stroke="none"></text>
+</svg></script>
+<script type="text/plain" id="svg-media-disc"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Musik" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <circle data-part="track" cx="50" cy="42" r="28" stroke-width="6"/>
+  <circle data-part="ring" cx="50" cy="42" r="28" stroke-width="6" stroke-linecap="butt" pathLength="100" transform="rotate(-90 50 42)"/>
+  <path data-part="glyph play" d="M44 31l18 11-18 11z" stroke="none"/>
+  <path data-part="glyph pause" d="M41 31h6v22h-6zM53 31h6v22h-6z" stroke="none"/>
+  <text data-part="title" x="50" y="90" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" stroke="none"></text>
+</svg></script>
+
+<script>
+// Der Kern veröffentlicht selbst Signale, ohne Namensraum
+function corePlugin(core) {
+  let tick = 0;
+  core.every(500, () => {
+    const now = new Date();
+    const h = now.getHours(), m = now.getMinutes();
+    tick += 1;
+    core.publish("time.clock", String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"));
+    core.publish("time.second", now.getSeconds());
+    core.publish("time.tick", tick);
+    core.publish("time.hour_angle", Math.round(((h % 12) + m / 60) * 30));
+    core.publish("time.minute_angle", m * 6);
+  });
+}
+
+// Läuft im Plugin. Kennt weder Interfaces noch Apps noch Icons.
+function huePlugin(core) {
+  let power = 1, hue = 20, brightness = 80, step = -2;
+
+  function publish() {
+    core.publish("com.ricktap.hue:lamp.power", power);
+    core.publish("com.ricktap.hue:lamp.color", `hsl(${hue}, 85%, 60%)`);
+    core.publish("com.ricktap.hue:lamp.brightness", brightness);
+  }
+
+  core.onAction("com.ricktap.hue:lamp.toggle", () => {
+    power = power ? 0 : 1;
+    publish();
+  });
+
+  // Demo: Farbe und Helligkeit wandern von selbst
+  core.every(250, () => {
+    hue = (hue + 5) % 360;
+    brightness += step;
+    if (brightness <= 30 || brightness >= 100) step = -step;
+    publish();
+  });
+}
+
+// Zwei Geräte, dieselben Signale unter verschiedenem Namen
+function bambuPlugin(core) {
+  const units = {
+    ams1: [{ color: "#69E0C1", left: 100, use: 0.9 }, { color: "#FFBF69", left: 72, use: 0.5 },
+           { color: "#FF8278", left: 45, use: 0.3 }, { color: "#B79AF7", left: 80, use: 0 }],
+    ams2: [{ color: "#5B8DEF", left: 30, use: 0.2 }, { color: "#F4F1E8", left: 95, use: 0.7 },
+           { color: "#3DDC84", left: 60, use: 0.4 }, { color: "#E86A92", left: 12, use: 0.1 }]
+  };
+  let hue = 0;
+
+  // Werte für das Auswahlfeld der App, zur Laufzeit
+  core.provideOptions("com.ricktap.bambu:units", () => [
+    { label: "AMS 1", value: "ams1" },
+    { label: "AMS 2", value: "ams2" }
+  ]);
+
+  core.every(250, () => {
+    hue = (hue + 8) % 360;
+    Object.keys(units).forEach((unit) => {
+      units[unit].forEach((slot, i) => {
+        const n = i + 1;
+        slot.left -= slot.use;
+        if (slot.left < 0) slot.left = 100;
+        core.publish(`com.ricktap.bambu:${unit}.slot${n}.remaining`, Math.round(slot.left));
+        core.publish(`com.ricktap.bambu:${unit}.slot${n}.color`, slot.color);
+      });
+    });
+    // Rolle 4 im ersten Gerät wechselt die Farbe
+    core.publish("com.ricktap.bambu:ams1.slot4.color", `hsl(${hue}, 80%, 62%)`);
+  });
+}
+
+function mediaPlugin(core) {
+  const tracks = [
+    { title: "Kielwasser", color: "#5B8DEF", seconds: 184 },
+    { title: "Nachtfahrt", color: "#E86A92", seconds: 212 },
+    { title: "Leeseite", color: "#F2B441", seconds: 156 }
+  ];
+  let index = 0, position = 0, playing = 1;
+
+  function publish() {
+    const track = tracks[index];
+    core.publish("com.ricktap.media:playing", playing);
+    core.publish("com.ricktap.media:title", track.title);
+    core.publish("com.ricktap.media:color", track.color);
+    core.publish("com.ricktap.media:progress", Math.round(position / track.seconds * 100));
+  }
+  function next() { index = (index + 1) % tracks.length; position = 0; publish(); }
+
+  core.onAction("com.ricktap.media:toggle", () => { playing = playing ? 0 : 1; publish(); });
+  core.onAction("com.ricktap.media:next", next);
+
+  core.every(250, () => {
+    if (playing) position += 2; // Demo: achtfache Geschwindigkeit
+    if (position >= tracks[index].seconds) next(); else publish();
+  });
+}
+
+(function () {
+  const text = (id) => document.getElementById(id).textContent;
+  const json = (id) => JSON.parse(text("src-" + id));
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; };
+
+  // ---- Registry: alles, was die Pakete beisteuern
+  const apps = {}; ["app-hue", "app-clock", "app-ams", "app-media"].forEach((k) => { const a = json(k); apps[a.id] = a; });
+  const icons = {};
+  [["icon-hue-bulb", "hue-bulb"], ["icon-neon-bulb", "neon-bulb"], ["icon-neon-switch", "neon-switch"], ["icon-neon-dial", "neon-dial"],
+   ["icon-neon-spools", "neon-spools"], ["icon-bambu-rings", "bambu-rings"], ["icon-core-clock", "core-clock"], ["icon-media-disc", "media-disc"],
+   ["icon-neon-lamp", "neon-lamp"]].forEach((p) => { const d = json(p[0]); icons[d.id] = { def: d, svg: text("svg-" + p[1]) }; });
+  const fullThemes = [json("theme-a"), json("theme-b")];
+  const partials = [json("theme-casing"), json("theme-rainbow"), json("theme-huesync")];
+  let activeFull = fullThemes[0];
+  const activePartials = new Set();
+
+  // ---- Der kleine Kern dieser Seite
+  const signals = new Map(), owner = new Map(), actions = new Map(), providers = new Map(), timers = [];
+  const coreFor = (plugin) => ({
+    publish(name, value) { signals.set(name, value); owner.set(name, plugin); },
+    onAction(name, fn) { actions.set(name, fn); },
+    provideOptions(name, fn) { providers.set(name, fn); },
+    every(ms, fn) { timers.push({ ms, fn, last: 0 }); fn(); }
+  });
+
+  function themeVar(name) {
+    let value = activeFull.theme.variables[name];
+    partials.forEach((p) => { if (activePartials.has(p.id) && name in p.theme.variables) value = p.theme.variables[name]; });
+    return value;
+  }
+
+  // Vier Quellen: prop, bind, tone, config. Dazu steps, map, prefix, suffix, fallback.
+  function resolve(spec, ctx) {
+    if (spec === null || typeof spec !== "object") return spec;
+    let value;
+    if (spec.tone) {
+      const found = themeVar(spec.tone);
+      value = found === undefined ? undefined : resolve(found, ctx);
+    } else if (spec.prop) {
+      const cut = spec.prop.lastIndexOf(".");
+      const role = spec.prop.slice(0, cut), key = spec.prop.slice(cut + 1);
+      const impl = ctx.app.implements[role] && ctx.app.implements[role][key];
+      value = impl === undefined ? undefined : resolve(impl, ctx);
+    } else if (spec.config) {
+      value = ctx.config[spec.config];
+    } else if (spec.bind) {
+      value = signals.get(spec.bind.replace(/\{(\w+)\}/g, (all, key) => ctx.config[key]));
+    } else {
+      return undefined;
+    }
+    if (value === undefined) return resolve(spec.fallback, ctx);
+    if (spec.steps) value = resolve(spec.steps[Math.floor(Number(value)) % spec.steps.length], ctx);
+    if (spec.map) value = spec.map[value];
+    if (spec.prefix !== undefined || spec.suffix !== undefined) value = (spec.prefix || "") + value + (spec.suffix || "");
+    return value;
+  }
+
+  const mounted = [];
+  function mount(host, iconId, ctx) {
+    host.innerHTML = icons[iconId].svg;
+    const entry = { host, svg: host.querySelector("svg"), parts: icons[iconId].def.parts, ctx };
+    const at = mounted.findIndex((m) => m.host === host);
+    if (at >= 0) mounted[at] = entry; else mounted.push(entry);
+  }
+  function draw() {
+    const bg = resolve({ tone: "background" }, null);
+    mounted.forEach((m) => {
+      m.host.style.backgroundColor = bg;
+      Object.keys(m.parts).forEach((part) => {
+        const props = m.parts[part];
+        m.svg.querySelectorAll('[data-part~="' + part + '"]').forEach((node) => {
+          Object.keys(props).forEach((prop) => {
+            const value = resolve(props[prop], m.ctx);
+            if (value === undefined) return;
+            if (prop === "progress") node.setAttribute("stroke-dasharray", Math.max(0, Math.min(100, value)) + " 100");
+            else if (prop === "visible") node.setAttribute("visibility", value ? "visible" : "hidden");
+            else if (prop === "text") node.textContent = value;
+            else node.setAttribute(prop, value);
+          });
+        });
+      });
+    });
+  }
+
+  function share(iconId, app) {
+    return Object.keys(app.implements).concat(["button"]).filter((role) => icons[iconId].def.roles.includes(role));
+  }
+  const short = (role) => (role.indexOf(":") >= 0 ? role.split(":")[1] : role);
+
+  // ---- Code anzeigen, Signalnamen markieren
+  const SIG = /(com\.ricktap\.hue:lamp\.(?:power|color|brightness)|com\.ricktap\.bambu:(?:\{unit\}|\$\{unit\}|ams[12])\.slot[\w${}]*\.(?:remaining|color)|com\.ricktap\.media:(?:playing|title|color|progress)(?![\w.])|time\.(?:clock|second|tick|hour_angle|minute_angle))/g;
+  function show(pre, source) {
+    const esc = source.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    pre.innerHTML = esc.replace(SIG, '<mark class="sig">$1</mark>');
+  }
+  const FNS = { corePlugin, huePlugin, bambuPlugin, mediaPlugin };
+  const sourceOf = (ref) => (ref.indexOf("fn:") === 0 ? FNS[ref.slice(3)].toString() : text(ref));
+  document.querySelectorAll("pre[data-src]").forEach((pre) => show(pre, text(pre.dataset.src)));
+
+  // ---- Ein Beispiel aufbauen
+  let tabCount = 0;
+  function buildExample(def) {
+    const root = document.getElementById(def.root);
+    const app = apps[def.app];
+    const config = {};
+    (app.config || []).forEach((f) => { config[f.key] = f.default; });
+    const ctx = { app, config };
+    let iconId = app.icon;
+
+    const stage = el("div", "stage");
+    const keys = el("div", "keys");
+    const tile = el("button", "tilebtn tile1"); tile.type = "button";
+    tile.setAttribute("aria-label", app.name + ": Taste drücken");
+    const info = el("div", "info");
+    const line = (k) => { const w = el("div"); w.append(el("div", "k", k)); const v = el("div", "v mono"); w.append(v); info.append(w); return v; };
+    line("App").textContent = app.id;
+    const vIcon = line("Icon"), vRoles = line("Gemeinsame Rollen");
+    keys.append(tile, info); stage.append(keys);
+    const eventLine = el("p", "event mono", "Bereit."); eventLine.setAttribute("aria-live", "polite");
+
+    const pickButtons = [];
+    function choose(id) {
+      iconId = id;
+      mount(tile, id, ctx);
+      vIcon.textContent = id;
+      vRoles.textContent = share(id, app).map(short).join(", ");
+      pickButtons.forEach((b) => b.node.setAttribute("aria-pressed", String(b.id === id)));
+      draw();
+    }
+
+    (app.config || []).forEach((f) => {
+      const field = el("label", "field");
+      field.append(el("span", "", f.label));
+      const select = el("select");
+      const values = Array.isArray(f.values) ? f.values : providers.get(f.values.source)();
+      values.forEach((v) => { const o = el("option", "", v.label); o.value = v.value; select.append(o); });
+      select.value = config[f.key];
+      select.addEventListener("change", () => { config[f.key] = select.value; eventLine.textContent = "Einstellung " + f.key + " ist jetzt " + select.value; draw(); });
+      field.append(select);
+      field.append(el("small", "", Array.isArray(f.values) ? "Typ select, Werte stehen im Manifest der App" : "Typ select, Werte liefert das Plugin über " + f.values.source));
+      stage.append(field);
+    });
+
+    if (def.picker) {
+      const offered = Object.keys(app.implements).concat(["button"]);
+      const picker = el("div", "picker"); picker.setAttribute("role", "group"); picker.setAttribute("aria-label", "Icon wählen");
+      Object.keys(icons).filter((id) => share(id, app).length > 0)
+        .sort((a, b) => offered.indexOf(share(a, app)[0]) - offered.indexOf(share(b, app)[0]))
+        .forEach((id) => {
+          const node = el("button"); node.type = "button";
+          const mini = el("span", "mini"), cap = el("span", "cap mono", short(share(id, app)[0]));
+          node.setAttribute("aria-label", "Icon " + id + ", Rolle " + short(share(id, app)[0]));
+          node.append(mini, cap); picker.append(node);
+          mount(mini, id, ctx);
+          pickButtons.push({ node, id });
+          node.addEventListener("click", () => choose(id));
+        });
+      stage.append(picker);
+    }
+
+    function fire(event) {
+      const list = (app.on && app.on[event]) || [];
+      if (!list.length) { eventLine.textContent = "Für " + event + " ist keine Aktion vorbelegt."; return; }
+      list.forEach((entry) => { const fn = actions.get(entry.action); if (fn) fn(entry.params || {}); });
+      eventLine.textContent = "Kern erkennt " + event + ", ruft " + list.map((e) => e.action).join(", ");
+      frame();
+    }
+    tile.addEventListener("click", () => fire("press"));
+    if (app.on) {
+      const row = el("div", "btnrow");
+      [["press", "Drücken"], ["long", "Lang drücken"]].forEach((p) => {
+        if (!app.on[p[0]]) return;
+        const b = el("button", "plain", p[1]); b.type = "button";
+        b.addEventListener("click", () => fire(p[0])); row.append(b);
+      });
+      stage.append(row);
+    }
+
+    if (def.themes) {
+      const field = el("label", "field");
+      field.append(el("span", "", "Theme (Typ full, genau eines)"));
+      const select = el("select");
+      fullThemes.forEach((t) => { const o = el("option", "", t.name); o.value = t.id; select.append(o); });
+      select.addEventListener("change", () => { activeFull = fullThemes.find((t) => t.id === select.value); draw(); });
+      field.append(select); stage.append(field);
+      const checks = el("div", "checks");
+      partials.forEach((p) => {
+        const label = el("label");
+        const box = el("input"); box.type = "checkbox";
+        box.addEventListener("change", () => { if (box.checked) activePartials.add(p.id); else activePartials.delete(p.id); draw(); });
+        const words = el("span"); words.append(document.createTextNode(p.name));
+        words.append(el("small", "", "Typ partial, setzt " + Object.keys(p.theme.variables).join(", ")));
+        label.append(box, words); checks.append(label);
+      });
+      stage.append(checks);
+    }
+    stage.append(eventLine);
+    root.append(stage);
+
+    // Dateien in Reitern
+    const tablist = el("div", "tabs"); tablist.setAttribute("role", "tablist"); tablist.setAttribute("aria-label", "Dateien");
+    root.append(tablist);
+    const tabs = [];
+    def.files.forEach((group, gi) => {
+      tabCount += 1;
+      const tab = el("button", "", group[0]); tab.type = "button"; tab.setAttribute("role", "tab");
+      tab.id = "tab-" + tabCount; tab.setAttribute("aria-controls", "panel-" + tabCount);
+      const panel = el("div", "panel"); panel.setAttribute("role", "tabpanel"); panel.id = "panel-" + tabCount; panel.setAttribute("aria-labelledby", tab.id);
+      group[1].forEach((file) => {
+        if (file[2]) panel.append(el("p", "note", file[2]));
+        panel.append(el("div", "file mono", file[0]));
+        const pre = el("pre"); show(pre, sourceOf(file[1])); panel.append(pre);
+      });
+      tablist.append(tab); root.append(panel);
+      tabs.push({ tab, panel });
+    });
+    function select(i) {
+      tabs.forEach((t, k) => { t.tab.setAttribute("aria-selected", String(k === i)); t.tab.tabIndex = k === i ? 0 : -1; t.panel.hidden = k !== i; });
+    }
+    tabs.forEach((t, i) => {
+      t.tab.addEventListener("click", () => select(i));
+      t.tab.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const n = (i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length;
+        select(n); tabs[n].tab.focus();
+      });
+    });
+    select(0);
+    choose(iconId);
+  }
+
+  // ---- Signalliste
+  const list = document.getElementById("signals");
+  const rows = new Map();
+  function drawSignals() {
+    signals.forEach((value, name) => {
+      let row = rows.get(name);
+      if (!row) {
+        const li = el("li");
+        const v = el("span", "val mono");
+        const who = owner.get(name);
+        li.append(el("span", "name mono", name), v, el("span", "src " + (who === "Kern" ? "core" : "plugin"), who === "Kern" ? "veröffentlicht vom Kern" : "veröffentlicht vom Plugin " + who));
+        list.append(li);
+        row = { v, shown: null }; rows.set(name, row);
+      }
+      const shown = String(value);
+      if (row.shown === shown) return;
+      row.shown = shown;
+      row.v.textContent = "";
+      if (/^(#|hsl)/.test(shown)) { const sw = el("span", "swatch"); sw.style.backgroundColor = shown; row.v.append(sw); }
+      row.v.append(document.createTextNode(shown));
+    });
+  }
+
+  function frame() {
+    const now = Date.now();
+    timers.forEach((t) => { if (now - t.last >= t.ms) { t.last = now; t.fn(); } });
+    draw();
+    drawSignals();
+  }
+
+  corePlugin(coreFor("Kern"));
+  huePlugin(coreFor("com.ricktap.hue"));
+  bambuPlugin(coreFor("com.ricktap.bambu"));
+  mediaPlugin(coreFor("com.ricktap.media"));
+
+  buildExample({ root: "ex-hue", app: "com.ricktap.hue:light", picker: true, files: [
+    ["Plugin", [["com.ricktap.hue/plugin.js", "fn:huePlugin", "Drei Signale und eine Aktion. Von Interfaces, Apps und Icons steht hier nichts."]]],
+    ["Interfaces", [["core/interfaces.json", "src-core-interfaces", "Die Primitive des Kerns. Ein Interface ist nur eine Liste von Eigenschaften mit Typ."],
+                    ["com.ricktap.hue/interfaces.json", "src-hue-interfaces", "Das eigene Interface des Plugins, im eigenen Namensraum."]]],
+    ["App", [["com.ricktap.hue/apps/light.json", "src-app-hue", "Hier passiert die Übersetzung. Die App erfüllt drei Interfaces und sagt je Eigenschaft, welches Signal sie füllt."]]],
+    ["Icons", [["com.jemand.neon/bulb.json", "src-icon-neon-bulb", "Die Glühbirne aus einem fremden Set. Ohne toggle.on bleibt das Glas unsichtbar, ohne rgb.color ist es gelb."],
+               ["com.jemand.neon/bulb.svg", "svg-neon-bulb"],
+               ["com.ricktap.hue/iconset/bulb.json", "src-icon-hue-bulb", "Das eingebettete Icon des Plugins nutzt das reiche Interface samt Helligkeit."],
+               ["com.ricktap.hue/iconset/bulb.svg", "svg-hue-bulb"],
+               ["com.jemand.neon/switch.json", "src-icon-neon-switch", "Der Schalter kennt nur toggle und verschiebt den Knopf über steps."],
+               ["com.jemand.neon/switch.svg", "svg-neon-switch"],
+               ["com.jemand.neon/lamp.json", "src-icon-neon-lamp", "Ein reines Symbol für die Rolle button."],
+               ["com.jemand.neon/lamp.svg", "svg-neon-lamp"]]]
+  ] });
+
+  buildExample({ root: "ex-clock", app: "core:clock", files: [
+    ["App", [["core/apps/clock.json", "src-app-clock", "config beschreibt das Feld. In implements reicht die App die Einstellung als clock.style weiter."]]],
+    ["Icon", [["core/iconset/clock.json", "src-icon-core-clock", "map schaltet zwischen Zeigern und Ziffern. prefix und suffix bauen aus dem Winkel eine Drehung."],
+              ["core/iconset/clock.svg", "svg-core-clock"]]],
+    ["Kern", [["Signale des Kerns", "fn:corePlugin", "Der Kern veröffentlicht die Uhrzeit und die Winkel der Zeiger. Gerechnet wird hier, nicht im Icon."]]]
+  ] });
+
+  buildExample({ root: "ex-ams", app: "com.ricktap.bambu:ams", picker: true, themes: true, files: [
+    ["Plugin", [["com.ricktap.bambu/plugin.js", "fn:bambuPlugin", "Zwei Geräte veröffentlichen dieselben Signale unter verschiedenem Namen. provideOptions liefert die Werte für das Auswahlfeld."],
+                ["com.ricktap.bambu/interfaces.json", "src-bambu-interfaces"]]],
+    ["App", [["com.ricktap.bambu/apps/ams.json", "src-app-ams", "Die Einstellung unit füllt den Platzhalter in bind. So wählt die Taste ihr Gerät."]]],
+    ["Icons", [["com.ricktap.bambu/iconset/rings.json", "src-icon-bambu-rings", "Gehäuse und LED fragen nach Theme Variablen im Namensraum des Plugins, jeweils mit fallback."],
+               ["com.ricktap.bambu/iconset/rings.svg", "svg-bambu-rings"],
+               ["com.jemand.neon/spools.json", "src-icon-neon-spools", "Ein fremdes Icon für dasselbe Interface. Es zeigt Säulen statt Ringe."],
+               ["com.jemand.neon/spools.svg", "svg-neon-spools"]]],
+    ["Themes", [["com.ricktap.nightsignal/deckling.json", "src-theme-a", "Volles Theme. Setzt die LED fest auf Blau."],
+                ["com.jemand.bernstein/deckling.json", "src-theme-b", "Volles Theme. Bindet die LED an time.second und wechselt zwischen zwei Schritten."]]],
+    ["Auflagen", [["com.jemand.ams-blau/deckling.json", "src-theme-casing", "Setzt nur die Gehäusefarbe."],
+                  ["com.jemand.regenbogen/deckling.json", "src-theme-rainbow", "Bindet accent an time.tick. Im AMS siehst du es an der LED, sobald das Theme sie nicht selbst setzt, und an jedem Icon, das accent nutzt."],
+                  ["com.ricktap.hue-sync/deckling.json", "src-theme-huesync", "Bindet accent an die Farbe der Hue Lampe. Fehlt das Plugin, greift der fallback."]]]
+  ] });
+
+  buildExample({ root: "ex-media", app: "com.ricktap.media:player", picker: true, files: [
+    ["Plugin", [["com.ricktap.media/plugin.js", "fn:mediaPlugin", "onAction nimmt die beiden Aktionen entgegen. Was eine Taste ist, weiß das Plugin nicht."],
+                ["com.ricktap.media/interfaces.json", "src-media-interfaces"]]],
+    ["App", [["com.ricktap.media/apps/player.json", "src-app-media", "on belegt Drücken und Lang drücken vor. Die App erfüllt zusätzlich progress und toggle, damit fremde Icons passen."]]],
+    ["Icons", [["com.ricktap.media/iconset/disc.json", "src-icon-media-disc", "steps blendet je nach playing das Symbol für Start oder Pause ein. text setzt den Titel."],
+               ["com.ricktap.media/iconset/disc.svg", "svg-media-disc"],
+               ["com.jemand.neon/dial.json", "src-icon-neon-dial", "Ein fremdes Icon, das nur progress kennt."],
+               ["com.jemand.neon/dial.svg", "svg-neon-dial"]]]
+  ] });
+
+  setInterval(frame, 125);
+  frame();
+})();
+
+</script>
+</body>
+</html>

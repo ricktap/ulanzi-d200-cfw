@@ -1,0 +1,15 @@
+{
+  "id": "com.deckling.core:volume-muted",
+  "roles": [
+    "button"
+  ],
+  "file": "volume-muted.svg",
+  "parts": {
+    "mute-mark": {
+      "stroke": {
+        "tone": "danger",
+        "fallback": "#FF8278"
+      }
+    }
+  }
+}

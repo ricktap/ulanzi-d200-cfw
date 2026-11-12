@@ -12,13 +12,38 @@ Keys follow the Night Signal style:
 - palette accents: a lavender graph, an amber pomodoro ring
 
 The status key shows the profile (AUTO plus the app in front), whether Home Assistant is
-connected, and the song or the clock. The app's editor uses the same palette, with an icon rail
-(Editor, Profiles, Apps, Assets, Remote, Settings) and a Design / Actions / States inspector.
+connected, and the song or the clock.
+
+## Configurator
+
+The app's window follows `docs/deckling/briefing.md`, section 6. A sidebar switches between
+three views.
+
+- **Deck**: the library on the left (Apps, Actions, Icons), the device in the middle and the
+  inspector on the right.
+  - Tap an app to put it on the selected key, or drag it onto a key. Drag a key onto another to
+    swap them. Drop an image file on a key to make it a button with that image.
+  - Actions from the library go to the section marked as target in the inspector: On press,
+    Long press, or Extended (key down, key up).
+  - Icons shows only icons that share a role with the key's app, drawn with the app's live
+    values. "Apply set" and "Restore default icons" work on the whole page.
+  - Above the device: the profile, "+ Profile" and "Edit profile". The editor sets the name,
+    the programs that switch to the profile, and the pages.
+  - Below it: the pages, a line that says what just happened, brightness and the Theme block
+    (palette colours and theme variables, also bound to a signal).
+  - A button can have several states, each with its own icon, label, colours and actions; the
+    action Change state switches between them. Emoji work as icons.
+- **Packages**: every plugin with its switch, its state and its settings (from the plugin's
+  `config` schema). `core` holds the deck's global settings, including MQTT. Teams has a guided
+  setup. The Application card has autostart, export and import, and updates.
+- **Signals**: every signal and its current value, updated once a second.
+
+Every change is saved at once; Undo (or Cmd/Ctrl+Z) takes it back.
 
 ## Stateful icons
 
-Eight icons take a state, set per key in the editor (Design → Icon state), from Home Assistant
-(`icon_state` on a remote key) or by the apps themselves:
+Eight icons take a state, from Home Assistant (`icon_state` on a remote key, translated to
+props) or from the apps themselves (binding files, see [packages.md](packages.md)):
 - `light` (on, color)
 - `thermostat` (temperature, level, color)
 - `pomodoro` (ring %, color)
@@ -32,7 +57,10 @@ The state object matches `setIconState` from the icon package, e.g.
 
 ## Theme
 
-Settings → Theme follows the widget package's THEMING.md:
+The Theme block under the device sets the palette colours (accent, info, warning, danger,
+background). The per-widget overrides below are still read from deck.json
+(`plugins.core.config.theme.widgets`), but the configurator no longer edits them: in the
+target model they become theme variables. The widget package's THEMING.md:
 - a semantic **palette** (active, info, attention, error, surface)
 - per-widget overrides for `cpu`, `ram`, `disk`, `network`, `clock`, `mail`, `music`,
   `printer`, `meeting`, `game` and `push`:
@@ -65,7 +93,7 @@ the grid. Otherwise it shows a **card** that takes over:
 - **Duration:** ordinary cards stay 8 s; critical cards stay until you press the key.
 - **Grouping:** cards of the same group replace each other, e.g. emails, or one print job.
 - **Presses** act on the card that was visible when the press started.
-- **Privacy:** Settings → Wide & idle can hide mail content.
+- **Privacy:** Packages → Deck → Cards on the wide key can hide mail content.
 
 Mail and calendar need the Teams sign-in to include `Mail.ReadBasic` and `Calendars.Read`. Sign
 in again after updating.
@@ -174,7 +202,7 @@ allow D200 Deck. The pairing token is saved in `teams.json`. State is only repor
 meeting.
 
 **Teams presence.** This isn't in the local API. It uses Microsoft Graph
-(`/me/presence`, `setUserPreferredPresence`) with a device-code sign-in under Settings → Teams.
+(`/me/presence`, `setUserPreferredPresence`) with a device-code sign-in under Packages → Microsoft Teams.
 It needs an Entra app registration:
 1. Create it: App registrations → New, single tenant.
 2. Under Authentication, turn on *Allow public client flows*.

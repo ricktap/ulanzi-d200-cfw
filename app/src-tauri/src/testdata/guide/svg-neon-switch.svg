@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Schalter" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <rect data-part="pill" x="18" y="34" width="64" height="32" rx="16" stroke="none"/>
+  <circle data-part="knob" cy="50" r="11" stroke="none"/>
+</svg>

@@ -1,0 +1,19 @@
+{
+  "id": "com.deckling.teams:presence",
+  "name": "Teams presence",
+  "description": "Your live Teams status. Press toggles available and unavailable, long press goes back to automatic. Needs a sign-in (Settings, Teams).",
+  "icon": "com.deckling.core:presence-available",
+  "face": "teams_presence",
+  "implements": {
+    "label": {
+      "text": {
+        "bind": "com.deckling.teams:presence",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

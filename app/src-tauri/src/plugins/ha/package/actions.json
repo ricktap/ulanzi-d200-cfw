@@ -1,0 +1,58 @@
+[
+  {
+    "id": "com.deckling.ha:press",
+    "name": "Send to Home Assistant",
+    "params": [
+      {
+        "key": "id",
+        "label": "Entity",
+        "type": "select",
+        "values": {
+          "source": "com.deckling.ha:ids"
+        }
+      },
+      {
+        "key": "event",
+        "label": "Event",
+        "type": "select",
+        "default": "press",
+        "values": [
+          {
+            "label": "Press",
+            "value": "press"
+          },
+          {
+            "label": "Long press",
+            "value": "long_press"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.ha:mqtt",
+    "name": "MQTT publish",
+    "params": [
+      {
+        "key": "topic",
+        "label": "Topic",
+        "type": "text"
+      },
+      {
+        "key": "payload",
+        "label": "Payload",
+        "type": "text"
+      },
+      {
+        "key": "retain",
+        "label": "Retain",
+        "type": "toggle"
+      }
+    ]
+  },
+  {
+    "id": "com.deckling.ha:remote",
+    "name": "Remote page",
+    "params": []
+  }
+]

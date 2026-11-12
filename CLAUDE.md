@@ -6,12 +6,19 @@ Guide for working on this repository with Claude Code (or any agent).
 
 Custom software for the Ulanzi D200 stream controller:
 
-- `device/`: `d200fw`, a Rust replacement for the stock app on the device (ARMv7 Linux, no
-  dependencies).
+- `device/`: `d200fw`, a Rust replacement for the stock app on the device (ARMv7 Linux). Its
+  only dependency is `scene/`, the screensaver scenes (tiny-skia), shared with the app.
+- `custom_components/d200_deck/`: the Home Assistant integration (HACS), the deck's counterpart
+  over MQTT. `payload.py` is plain Python; tests in `tests/ha/` (`tests/ha/run.sh`).
 - `app/`: D200 Deck, a Tauri v2 desktop app. The Rust engine is in `app/src-tauri/src/`, the
   plain HTML/JS UI in `app/ui/`. It draws all keys and runs the actions.
+  The built-in plugins are in `app/src-tauri/src/plugins/<name>/` (code, `package/` data,
+  README each; see its README).
 
 Read `docs/architecture.md` first, then `docs/config.md` and `docs/protocol.md`.
+
+The target model (Deckling: plugins, icon sets, themes, signals, bindings) is in
+`docs/deckling/architecture.md` and is normative. The work plan is `docs/deckling/briefing.md`.
 
 ## Commands
 
@@ -29,23 +36,32 @@ cd app/src-tauri && cargo test --lib
 # end-to-end (simulated device, fake broker/Teams/IDE; no hardware)
 tests/e2e/run.sh
 
-# release: CI builds and publishes on semver tags, version taken from the tag
+# the configurator in Chromium against the real engine (needs Node and Playwright)
+tests/ui/run.sh
+cd app/src-tauri && cargo run --example uibridge -- /tmp/deck.json 8790   # UI in a browser
+
+# release: Actions → CI → Run workflow with release=1.2.3 (or push tag v1.2.3);
+# the version comes from the tag. Every release is tagged and lists its changes.
 scripts/set-version.sh 1.2.3     # sets Cargo.toml/lock, tauri.conf.json, package(-lock).json
-git tag v1.2.3 && git push origin v1.2.3
 ```
 
 ## Conventions
 
-- **The config format is free during the draft phase.** Change `deck.json` types as needed. No
-  migrations or compatibility layers. Update `default-config.json`, `testdata/ui-config.json`
-  and `docs/config.md` with them.
+- **`deck.json` has a version.** A change to its shape bumps `config::VERSION` and adds a step
+  in `migrate.rs` with a test. Unknown fields must survive load and save (`extra` maps). Update
+  `default-config.json`, `testdata/ui-config.json` and `docs/config.md` with it.
 - **The engine is one thread.** All state lives in `engine.rs`, and everything else sends `Msg`s
   to it. Don't add shared mutable state.
 - **Colours come from the theme.** Use `Th::resolve(theme, widget, tone)`. Never hard-code hex
   values in widgets or cards. Follow the Night Signal tokens in `docs/design/README.md`.
-- **Keep the UI build-free.** Plain JS, `withGlobalTauri`, no bundler and no frameworks.
+- **Keep the UI build-free.** Plain JS ES modules in `app/ui/js/`, `withGlobalTauri`, no bundler
+  and no frameworks. Every config edit goes through `store.edit()` (undo and saving).
 - **Icons:** the SVGs in `app/ui/icons/night-signal/svg/` are compiled in by `build.rs`. To add
   an icon, add the SVG and add it to `manifest.json`. `icons.rs` tests that every icon renders.
+  An icon with changing parts gets a binding file in `icons/` (see `docs/packages.md`);
+  `registry.rs` tests that the built-in packages load without warnings.
+- **Plugins never set colours or listen to keys.** Values go out as signals; icons and themes
+  read them through bindings. Don't add per-icon state code to `icons.rs`.
 - The UI text is in English and short. Docs are in English.
 
 ## Gotchas
@@ -54,11 +70,11 @@ git tag v1.2.3 && git push origin v1.2.3
   gets the icon list from the Rust command `icon_set`. Add Rust commands for data; don't loosen
   the CSP.
 - **`replaceChildren(x)` with `null`** inserts the text "null". Use the `put()` helper in
-  `main.js`.
+  `js/dom.js`.
 - **Upper-case local names** in Rust `let` patterns are read as constants. Keep locals lower
   case.
-- **resvg ignores CSS `calc()`/`var()`.** Stateful icons are changed as strings in `icons.rs`
-  (`strip_css`, `set_part_attr`). Edit the attributes, not the styles.
+- **resvg ignores CSS `calc()`/`var()` and `pathLength`.** Bound icons are changed as strings
+  in `icons.rs` (`strip_css`, `apply_parts`). Edit the attributes, not the styles.
 - **adb shell** gives no exit codes, and kills background jobs when it ends. Echo a marker and
   check it, and detach jobs with `setsid`. See `docs/hardware.md`.
 - `d200fw` writes `/tmp/app.pid` only when it stops the vendor app (on the device). Tests run it

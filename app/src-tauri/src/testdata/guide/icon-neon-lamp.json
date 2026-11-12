@@ -1,0 +1,8 @@
+{
+  "id": "com.jemand.neon:lamp",
+  "roles": ["button"],
+  "file": "lamp.svg",
+  "parts": {
+    "outline": { "stroke": { "tone": "base" } }
+  }
+}

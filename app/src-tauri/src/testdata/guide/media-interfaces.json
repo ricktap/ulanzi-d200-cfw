@@ -1,0 +1,8 @@
+{
+  "com.ricktap.media:player": {
+    "playing": "flag",
+    "progress": "percent",
+    "title": "text",
+    "color": "color"
+  }
+}

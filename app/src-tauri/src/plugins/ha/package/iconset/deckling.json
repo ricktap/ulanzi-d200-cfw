@@ -1,0 +1,11 @@
+{
+  "id": "com.deckling.ha",
+  "type": "iconset",
+  "name": "Home Assistant",
+  "version": "1.0.0",
+  "description": "Icons the Home Assistant plugin picks per entity kind.",
+  "contributes": {
+    "icons": "icons/",
+    "svg": "svg/"
+  }
+}

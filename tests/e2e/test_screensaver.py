@@ -3,7 +3,7 @@
 Run through tests/e2e/run.sh (builds the host d200fw and the headless engine).
 Args: <repo root> <work dir>. Needs Python 3 with numpy and Pillow.
 """
-import json, os, shutil, struct, subprocess, sys, time
+import json, os, shutil, signal, struct, subprocess, sys, time
 import numpy as np
 from PIL import Image
 P, S = sys.argv[1], sys.argv[2]
@@ -19,10 +19,10 @@ for scene in ["snow", "pink", "beach", "leaves", "rain"]:
     sim = f"{S}/saver-{scene}"; shutil.rmtree(sim, ignore_errors=True); os.makedirs(sim + "/cfg")
     open(sim + "/fb", "wb").write(bytes(720 * 1280 * 4)); os.mkfifo(sim + "/kbd")
     cfg = json.load(open(P + "/app/src-tauri/src/default-config.json"))
-    cfg["settings"]["follow_active_app"] = False
-    cfg["settings"]["screensaver"] = {"enabled": True, "idle_minutes": 30, "scene": scene, "southern": False, "motion": True, "fps": 8}
+    cfg["plugins"]["core"]["config"]["follow_active_app"] = False
+    cfg["plugins"]["core"]["config"]["screensaver"] = {"enabled": True, "idle_minutes": 30, "scene": scene, "southern": False, "motion": True, "fps": 8}
     marker = sim + "/ran"
-    cfg["profiles"][0]["pages"]["main"]["5"]["states"][0]["actions"] = {"press": [{"type": "command", "command": f"touch {marker}"}]}
+    cfg["profiles"][0]["pages"]["main"]["5"]["states"][0]["on"] = {"press": [{"action": "com.deckling.core:command", "params": {"command": f"touch {marker}"}}]}
     json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
     dev = subprocess.Popen([os.environ["D200FW_HOST_BIN"], "--no-kill", "--port", "7397", "--fb", sim + "/fb", "--input", sim + "/kbd"], stderr=subprocess.DEVNULL)
     kbd = open(sim + "/kbd", "wb", buffering=0)
@@ -37,6 +37,9 @@ for scene in ["snow", "pink", "beach", "leaves", "rain"]:
     if scene == "leaves":
         check("fade: halfway frame differs from both ends", (mid != awake).any() and (mid != a).any())
         check("scene animates between frames", (a != b).mean() > 0.001, (a != b).mean())
+        # the device draws the scene itself: it moves on while the app is stopped
+        eng.send_signal(signal.SIGSTOP); s1 = snap(sim); time.sleep(0.8); s2 = snap(sim); eng.send_signal(signal.SIGCONT)
+        check("scene runs on the device (no frames from the app)", (s1 != s2).mean() > 0.001, (s1 != s2).mean())
         # gutters stay black, keys show the scene background
         check("gutters black", tuple(a[230, 230]) == (0, 0, 0), tuple(a[230, 230]))
         eng.stdin.write('notify Hello\n'); eng.stdin.flush(); time.sleep(0.8)

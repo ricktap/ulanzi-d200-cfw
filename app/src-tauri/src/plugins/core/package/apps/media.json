@@ -1,0 +1,31 @@
+{
+  "id": "com.deckling.core:media",
+  "name": "Media",
+  "description": "Spotify or Apple Music. Press plays or pauses, long press skips.",
+  "icon": "com.deckling.core:now-playing",
+  "face": "media",
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.core:media.playing",
+        "fallback": false
+      }
+    },
+    "progress": {
+      "value": {
+        "bind": "com.deckling.core:media.progress",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "com.deckling.core:media.title",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "id": "com.deckling.web:key",
+  "name": "Web key",
+  "description": "Shows a key that a script describes with PUT /api/keys/<id> (label, kind, icon, value, on, color, progress, background). Press and long press go to the webhook and to the signal <id>.pressed.",
+  "icon": {
+    "bind": "com.deckling.web:{id}.icon",
+    "fallback": "com.deckling.ha:entity"
+  },
+  "label": {
+    "bind": "com.deckling.web:{id}.label",
+    "fallback": ""
+  },
+  "value": {
+    "bind": "com.deckling.web:{id}.value",
+    "fallback": ""
+  },
+  "background": {
+    "bind": "com.deckling.web:{id}.background",
+    "fallback": {
+      "tone": "background"
+    }
+  },
+  "config": [
+    {
+      "key": "id",
+      "label": "Key",
+      "type": "select",
+      "values": {
+        "source": "com.deckling.web:ids"
+      }
+    }
+  ],
+  "implements": {
+    "toggle": {
+      "on": {
+        "bind": "com.deckling.web:{id}.on",
+        "fallback": false
+      }
+    },
+    "rgb": {
+      "color": {
+        "bind": "com.deckling.web:{id}.color",
+        "fallback": {
+          "tone": "accent"
+        }
+      }
+    },
+    "progress": {
+      "value": {
+        "bind": "com.deckling.web:{id}.progress",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "com.deckling.web:{id}.value",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [
+      {
+        "action": "com.deckling.web:press",
+        "params": {
+          "id": "{id}"
+        }
+      }
+    ],
+    "long": [
+      {
+        "action": "com.deckling.web:press",
+        "params": {
+          "id": "{id}",
+          "event": "long_press"
+        }
+      }
+    ]
+  }
+}

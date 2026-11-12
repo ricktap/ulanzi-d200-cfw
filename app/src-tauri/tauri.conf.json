@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "D200 Deck",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "identifier": "dev.d200fw.deck",
   "build": {
     "frontendDist": "../ui"
@@ -26,12 +26,25 @@
     "active": true,
     "targets": ["app", "dmg"],
     "category": "Utility",
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFEMEExN0YxM0UwRDMzOTcKUldTWE13MCs4UmNLclNzWFNGZXFZdDQyK25GelB5MDR3N0N4MCtJYUVsU0JZcFhtdW56eGNQTTYK",
+      "endpoints": [
+        "https://github.com/ricktap/ulanzi-d200-cfw/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

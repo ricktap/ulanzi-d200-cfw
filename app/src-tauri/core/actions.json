@@ -1,0 +1,85 @@
+[
+  {
+    "id": "core:page",
+    "name": "Go to page",
+    "params": [
+      {
+        "key": "page",
+        "label": "Page",
+        "type": "select",
+        "values": {
+          "source": "core:pages"
+        }
+      }
+    ]
+  },
+  {
+    "id": "core:back",
+    "name": "Back",
+    "params": []
+  },
+  {
+    "id": "core:home",
+    "name": "Home page",
+    "params": []
+  },
+  {
+    "id": "core:profile",
+    "name": "Switch profile",
+    "params": [
+      {
+        "key": "profile",
+        "label": "Profile",
+        "type": "select",
+        "values": {
+          "source": "core:profiles"
+        }
+      }
+    ]
+  },
+  {
+    "id": "core:state",
+    "name": "Change state",
+    "params": [
+      {
+        "key": "to",
+        "label": "State",
+        "type": "text",
+        "default": "next"
+      }
+    ]
+  },
+  {
+    "id": "core:brightness",
+    "name": "Brightness",
+    "params": [
+      {
+        "key": "value",
+        "label": "Value",
+        "type": "text",
+        "placeholder": "128, +25, -25"
+      }
+    ]
+  },
+  {
+    "id": "core:notify",
+    "name": "Notification",
+    "params": [
+      {
+        "key": "text",
+        "label": "Text",
+        "type": "text"
+      },
+      {
+        "key": "icon",
+        "label": "Icon",
+        "type": "text"
+      },
+      {
+        "key": "color",
+        "label": "Colour",
+        "type": "text"
+      }
+    ]
+  }
+]

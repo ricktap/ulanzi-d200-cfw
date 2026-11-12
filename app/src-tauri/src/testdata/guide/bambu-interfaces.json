@@ -1,0 +1,8 @@
+{
+  "com.ricktap.bambu:ams": {
+    "slot1_remaining": "percent", "slot1_color": "color",
+    "slot2_remaining": "percent", "slot2_color": "color",
+    "slot3_remaining": "percent", "slot3_color": "color",
+    "slot4_remaining": "percent", "slot4_color": "color"
+  }
+}

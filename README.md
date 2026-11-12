@@ -8,12 +8,39 @@ Custom software for the **Ulanzi D200 / D200H** stream controller, in two parts:
 - **D200 Deck** is a desktop app (Tauri: Rust plus plain HTML/JS). It draws every key, runs the
   actions and edits the config. Features:
   - profiles that follow the active app
-  - four key events (down, up, press, long press)
+  - five key events (down, up, press, long press, double press)
   - key states
   - built-in live widgets
   - notification cards on the wide key
   - a seasonal screensaver
-  - Home Assistant over MQTT
+  - Home Assistant over MQTT, with a Home Assistant integration (`custom_components/d200_deck`,
+    HACS) that puts entities on keys and runs their default action on a press
+  - an HTTP API with a token, for scripts and other tools on the network
+
+## Install (macOS)
+
+```sh
+curl -fsSL https://github.com/ricktap/ulanzi-d200-cfw/releases/latest/download/install.sh | sh
+```
+
+This installs the latest release to `/Applications` and starts it (Intel and Apple Silicon,
+macOS 11 or newer). From then on the app updates itself. You also need `adb` for the USB
+connection: `brew install android-platform-tools`. Details: [Install on macOS](#install-on-macos).
+
+## Install in Home Assistant
+
+The integration **D200 Deck** puts Home Assistant entities on the deck's keys, over MQTT or the
+Web API.
+
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ricktap&repository=ulanzi-d200-cfw&category=integration)
+
+1. Install it with the button above (HACS), then restart Home Assistant. Without HACS, copy
+   `custom_components/d200_deck` into your Home Assistant configuration folder.
+2. Add it:
+
+   [![Open your Home Assistant instance and start setting up D200 Deck.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=d200_deck)
+
+Details: [docs/home-assistant.md](docs/home-assistant.md).
 
 ![Main page on the device](docs/img/device-main.png)
 
@@ -30,7 +57,7 @@ Custom software for the **Ulanzi D200 / D200H** stream controller, in two parts:
 | `host/` | The first Python prototype (v1 config format). Kept for reference only |
 | `docs/` | Documentation, see below |
 
-## Quick start (macOS)
+## Quick start (development, macOS)
 
 ```sh
 brew install android-platform-tools                 # adb
@@ -41,6 +68,34 @@ cd app && npm install && npx tauri dev
 Plug the D200 in over USB. The app finds it over adb and pushes `d200fw` to `/tmp`, which
 lasts until the next reboot. It draws your deck. To have it start at boot, see
 [docs/firmware.md](docs/firmware.md).
+
+## Install on macOS
+
+```sh
+curl -fsSL https://github.com/ricktap/ulanzi-d200-cfw/releases/latest/download/install.sh | sh
+```
+
+`install.sh` downloads the latest release (or `sh install.sh v0.5.0` for a given one), puts
+D200 Deck in `/Applications` and starts it. The app is not notarised by Apple, but a download
+with `curl` carries no quarantine flag, so macOS opens it without asking. Runs on Intel and
+Apple Silicon, macOS 11 or newer.
+
+After that the app updates itself: it looks for a new release shortly after start and every
+six hours, and shows **Update to …** in the header (Packages → Application: version and "Check for
+updates"). It asks GitHub with the ETag of the last answer, so a check without news does not
+count against GitHub's rate limit; `latest.json` and the package are fetched only for a newer
+release.
+
+Each release also has a `.dmg` and a `.pkg`. Opened from a browser download, macOS asks once:
+System Settings → Privacy & Security → **Open Anyway**.
+
+## Releases
+
+Actions → CI → **Run workflow** with `release` = `0.6.0` builds that commit as version 0.6.0,
+creates tag `v0.6.0` and the GitHub release (changes since the previous release, DMG, PKG,
+`d200fw`, and the signed updater package with `latest.json`). Pushing a tag `v0.6.0` does the
+same. Updates are signed with the key in the repository secret `TAURI_SIGNING_PRIVATE_KEY`
+(public half in `tauri.conf.json`); without it the release has no updater package.
 
 ## Build and test
 
@@ -65,7 +120,9 @@ git tag v1.2.3 && git push origin v1.2.3            # v1.2.3-rc.1 makes a pre-re
 |---|---|
 | [docs/app.md](docs/app.md) | Using the app: design, keys, widgets, integrations, platform notes |
 | [docs/config.md](docs/config.md) | `deck.json` reference |
-| [docs/home-assistant.md](docs/home-assistant.md) | MQTT topics and Home Assistant examples |
+| [docs/plugins/](docs/plugins/README.md) | The built-in plugins: Core apps, Microsoft Teams, JetBrains, Home Assistant, Web API (HTTP API with OpenAPI) |
+| [app/src-tauri/src/plugins/](app/src-tauri/src/plugins/) | Their code, package data and a README each |
+| [docs/home-assistant.md](docs/home-assistant.md) | The Home Assistant integration, MQTT topics and examples |
 | [docs/firmware.md](docs/firmware.md) | Try, install and uninstall on the device, safety and recovery |
 | [docs/hardware.md](docs/hardware.md) | What is known about the D200 hardware |
 | [docs/protocol.md](docs/protocol.md) | The d200fw line protocol |

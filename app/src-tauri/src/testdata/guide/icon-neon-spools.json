@@ -1,0 +1,26 @@
+{
+  "id": "com.jemand.neon:spools",
+  "roles": ["com.ricktap.bambu:ams"],
+  "file": "spools.svg",
+  "parts": {
+    "housing": {
+      "stroke": { "tone": "com.ricktap.bambu:ams.casing", "fallback": { "tone": "base" } }
+    },
+    "spool-1": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot1_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot1_remaining", "fallback": 0 }
+    },
+    "spool-2": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot2_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot2_remaining", "fallback": 0 }
+    },
+    "spool-3": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot3_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot3_remaining", "fallback": 0 }
+    },
+    "spool-4": {
+      "stroke": { "prop": "com.ricktap.bambu:ams.slot4_color", "fallback": { "tone": "accent" } },
+      "progress": { "prop": "com.ricktap.bambu:ams.slot4_remaining", "fallback": 0 }
+    }
+  }
+}

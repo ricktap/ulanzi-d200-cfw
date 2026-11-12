@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:unlock",
+  "roles": [
+    "button"
+  ],
+  "file": "unlock.svg"
+}

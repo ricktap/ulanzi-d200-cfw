@@ -1,0 +1,36 @@
+{
+  "id": "com.deckling.ha:climate",
+  "roles": [
+    "progress",
+    "label",
+    "button"
+  ],
+  "file": "climate.svg",
+  "parts": {
+    "thermostat-ring": {
+      "stroke": {
+        "tone": "warning",
+        "fallback": "#FFBF69"
+      },
+      "progress": {
+        "prop": "progress.value",
+        "fallback": 62
+      }
+    },
+    "thermostat-core": {
+      "stroke": {
+        "tone": "warning",
+        "fallback": "#FFBF69"
+      }
+    },
+    "thermostat-temperature": {
+      "fill": {
+        "tone": "base"
+      },
+      "text": {
+        "prop": "label.text",
+        "fallback": "22"
+      }
+    }
+  }
+}

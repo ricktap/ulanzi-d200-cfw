@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:vacuum",
+  "roles": [
+    "button"
+  ],
+  "file": "vacuum.svg"
+}

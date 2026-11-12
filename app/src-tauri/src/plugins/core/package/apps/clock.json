@@ -1,0 +1,59 @@
+{
+  "id": "com.deckling.core:clock",
+  "name": "Clock",
+  "description": "Press switches between the time and the date.",
+  "icon": "com.deckling.core:analog-clock",
+  "face": "clock",
+  "config": [
+    {
+      "key": "h12",
+      "label": "12-hour",
+      "type": "toggle",
+      "default": false
+    }
+  ],
+  "implements": {
+    "clock": {
+      "time": {
+        "bind": "time.clock",
+        "fallback": ""
+      },
+      "hour_angle": {
+        "bind": "time.hour_angle",
+        "fallback": 0
+      },
+      "minute_angle": {
+        "bind": "time.minute_angle",
+        "fallback": 0
+      },
+      "second_angle": {
+        "bind": "time.second_angle",
+        "fallback": 0
+      },
+      "style": {
+        "config": "h12",
+        "map": {
+          "true": "12h",
+          "false": "24h"
+        },
+        "fallback": "24h"
+      }
+    },
+    "progress": {
+      "value": {
+        "bind": "time.second_progress",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "time.clock",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

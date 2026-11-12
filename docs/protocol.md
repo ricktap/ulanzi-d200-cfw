@@ -15,11 +15,25 @@ TCP on `127.0.0.1:7300` on the device. Reach it with `adb forward tcp:7300 tcp:7
 | `LAYOUT` | one `RECT <key> <x> <y> <w> <h>` per key, then `OK` |
 | `IMG <key> <len>` + bytes | image for one key. `len` must be `w*h*3` for that key |
 | `BLIT <x> <y> <w> <h>` + bytes | image anywhere on the 1280x720 screen |
+| `IMGR <key> <len>` + bytes | like `IMG`, run-length coded (see below). Since 0.3.0 |
+| `BLITR <x> <y> <w> <h> <len>` + bytes | like `BLIT`, run-length coded. Since 0.3.0 |
 | `FILL <key> <rrggbb>` | fills a key with one colour |
 | `CLEAR [rrggbb]` | fills the whole screen |
 | `BRIGHT <0-255>` | sets the backlight |
+| `SAVER <scene> <fps> <motion 0/1>` | the device draws the screensaver itself (`snow`, `pink`, `beach`, `leaves`, `rain`), fading in over what the keys show. Since 0.2.0 |
+| `SAVER DOT <0/1>` | shows or hides the mint "notification waiting" dot on the wide key |
+| `SAVER OFF` | stops the screensaver. So do any key press, `IMG`, `BLIT`, `FILL`, `CLEAR`, and the host disconnecting |
 | `BYE` | closes the connection |
 | *(device to host)* `KEY <key> <1/0>` | key press / release, sent at any time |
+
+**Run-length coding** (`IMGR`, `BLITR`): RGB888 pixels as runs. A control byte `c`: `0..=127`
+is followed by `c + 1` pixels that are copied; `128..=255` by one pixel that is repeated
+`c - 126` times (2..129). The runs add up to exactly `w * h` pixels. Lossless; Night Signal keys
+shrink to about 8 % (flat backgrounds, text, line icons). The app sends only the rectangle of a
+key that changed (`BLITR`), and the whole key (`IMGR`) when that is smaller or nothing is known.
+
+The screensaver scenes are the app's (`scene/`, shared code); the host sends only these
+commands, no frames. A host that gets `ERR` for `SAVER` (older d200fw) draws the frames itself.
 
 The device only reports raw down and up. Press, long press, states and pages all live in the
 host app.

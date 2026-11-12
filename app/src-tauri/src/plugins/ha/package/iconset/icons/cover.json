@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:cover",
+  "roles": [
+    "button"
+  ],
+  "file": "cover.svg"
+}

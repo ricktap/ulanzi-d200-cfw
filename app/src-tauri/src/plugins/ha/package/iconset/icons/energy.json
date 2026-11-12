@@ -1,0 +1,7 @@
+{
+  "id": "com.deckling.ha:energy",
+  "roles": [
+    "button"
+  ],
+  "file": "energy.svg"
+}

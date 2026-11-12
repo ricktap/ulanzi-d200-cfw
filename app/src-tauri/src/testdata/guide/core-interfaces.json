@@ -1,0 +1,12 @@
+{
+  "button": {},
+  "toggle": { "on": "flag" },
+  "progress": { "value": "percent" },
+  "rgb": { "color": "color" },
+  "clock": {
+    "time": "text",
+    "hour_angle": "number",
+    "minute_angle": "number",
+    "style": "text"
+  }
+}
