@@ -67,6 +67,7 @@ What it does:
 
 | Entity | Type | Does or shows |
 |---|---|---|
+| Key pressed | event | press, long press and double press on **any** key. Attributes: `key` (0–13), `profile`, `page`, `key_label`, `key_icon`, `app` (what the key showed when it was pressed) |
 | Key 0 … Key 12, Wide key | event (one per key) | press, long press and double press on that key, on any page; attributes `profile` and `page`. The numbers are the configurator's |
 | Profile, Page | select | what the D200 shows; pick one to switch (Page offers the pages of the current profile) |
 | Brightness | number | 0–255 |
@@ -111,8 +112,30 @@ automation:
         target: { entity_id: light.door }
 ```
 
-The key events show up in the logbook ("Key 4 detected an event: double_press") and history,
-and the automation editor offers them as a trigger. Key 4 pressed twice on the page Media:
+**Key pressed** handles every key in one automation: read the attributes of the new state.
+(The key's icon is `key_icon`, not `icon`: an `icon` attribute would replace the entity's own
+icon in Home Assistant.)
+
+```yaml
+automation:
+  - alias: "D200: any key"
+    triggers:
+      - trigger: state
+        entity_id: event.ulanzi_d200_key_pressed
+        not_to: unavailable
+    actions:
+      - variables:
+          key: "{{ trigger.to_state.attributes.key }}"
+          click: "{{ trigger.to_state.attributes.event_type }}"
+          page: "{{ trigger.to_state.attributes.page }}"
+      - action: logbook.log
+        data:
+          name: D200
+          message: "{{ click }} on key {{ key }} ({{ trigger.to_state.attributes.key_label }}) on {{ page }}"
+```
+
+The per-key entities show which key it was in the logbook ("Key 4 detected an event:
+double_press"), and suit an automation for one key. Key 4 pressed twice on the page Media:
 
 ```yaml
 automation:
@@ -222,7 +245,8 @@ other keys can read it.
 | `d200/remote/<0-12>/action` | from deck | `press`, `long_press`, `down`, `up` |
 | `d200/remote/show` | to deck | anything shows the Remote page, `off` leaves it |
 | `d200/key` | from deck | `{profile, page, key, event}` for every key on every page |
-| `d200/key/<0-13>` | from deck | `{event_type, profile, page}` for press, long press and double press (the key's event entity) |
+| `d200/key_event` | from deck | `{event_type, key, profile, page, key_label, key_icon, app}` for press, long press and double press (Key pressed) |
+| `d200/key/<0-13>` | from deck | the same, for that key's event entity |
 | `d200/profile`, `d200/profile/set` | from / to deck | profile name (`auto` = follow the active app again) |
 | `d200/brightness`, `d200/brightness/set` | from / to deck | 0–255 |
 | `d200/page` | from deck, retained | `{profile, page, remote}` |
