@@ -28,6 +28,37 @@
       "values": {
         "source": "com.deckling.ha:ids"
       }
+    },
+    {
+      "key": "as",
+      "label": "Show as",
+      "type": "select",
+      "values": [
+        {
+          "label": "Automatic",
+          "value": "auto"
+        },
+        {
+          "label": "Push button",
+          "value": "button"
+        },
+        {
+          "label": "On/off",
+          "value": "toggle"
+        },
+        {
+          "label": "Colour light",
+          "value": "rgb"
+        },
+        {
+          "label": "Progress",
+          "value": "progress"
+        },
+        {
+          "label": "Value",
+          "value": "value"
+        }
+      ]
     }
   ],
   "implements": {

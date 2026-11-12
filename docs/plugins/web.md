@@ -67,6 +67,8 @@ you switch on **Allow actions that start programs or type**.
    ```
 
 2. In the configurator, put the app **Web key** on a key and pick the id `build`.
+   **Show as** and **Text below** choose how it is drawn, as for Home Assistant keys (see
+   [Home Assistant](ha.md)).
 
 The key updates whenever the script sends a new description.
 

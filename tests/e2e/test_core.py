@@ -33,6 +33,8 @@ cfg["profiles"][0]["pages"]["main"]["8"] = {"states": [
 # a Home Assistant entity on a normal key: HA describes it, the plugin turns it into signals
 cfg["profiles"][0]["pages"]["main"]["12"] = {"app": "com.deckling.ha:entity", "config": {"id": "light.kitchen"},
     "states": [{"on": {"press": [{"action": "com.deckling.ha:press", "params": {"id": "{id}"}}]}}]}
+# the same entity "shown as" a push button (no colour, no value) on key 11
+cfg["profiles"][0]["pages"]["main"]["11"] = {"app": "com.deckling.ha:entity", "config": {"id": "light.kitchen", "as": "button", "pill": "state"}}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 
 broker = Broker(18830)
@@ -122,6 +124,10 @@ time.sleep(0.8); snap("v2_ha")
 x, y = RECT(12); blue = int((np.abs(snap()[y:y + 196, x:x + 196].astype(int) - [0, 0, 255]).sum(axis=2) < 60).sum())
 check("HA key: background from HA", px(12)[1] > 120 and px(12)[0] < 60, px(12))
 check("HA key: light icon in the entity colour", blue > 200, blue)
+x11, y11 = RECT(11); blue11 = int((np.abs(snap()[y11:y11 + 196, x11:x11 + 196].astype(int) - [0, 0, 255]).sum(axis=2) < 60).sum())
+check("HA key shown as a push button: no entity colour", blue11 == 0 and blue > 200, (blue11, blue))
+mint11 = int((np.abs(snap()[y11 + 120:y11 + 196, x11:x11 + 196].astype(int) - [0x69, 0xE0, 0xC1]).sum(axis=2) < 40).sum())
+check("... with the text below as On/Off: a mint ON pill", mint11 > 300, mint11)
 tap(12); time.sleep(0.6)
 check("HA key press goes back to HA", b"press" in broker.got("d200/ha/light.kitchen/action"), broker.got("d200/ha/light.kitchen/action"))
 
