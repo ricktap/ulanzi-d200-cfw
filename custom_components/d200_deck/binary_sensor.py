@@ -9,7 +9,9 @@ from .entity import DeckEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    async_add_entities([Connected(entry.runtime_data)])
+    # over MQTT the deck's own device has this already
+    if not entry.runtime_data.use_mqtt:
+        async_add_entities([Connected(entry.runtime_data)])
 
 
 class Connected(DeckEntity, BinarySensorEntity):

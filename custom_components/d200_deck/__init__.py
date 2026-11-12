@@ -319,11 +319,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("MQTT is not available; set up the MQTT integration first")
         return False
     entry.runtime_data = bridge
+    _tidy_registry(hass, bridge)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await bridge.start()
     entry.async_on_unload(entry.add_update_listener(_options_changed))
     _register_services(hass)
     return True
+
+
+def _tidy_registry(hass: HomeAssistant, bridge: Bridge) -> None:
+    """Drop entities and the device an earlier version (or another transport) left behind."""
+    from homeassistant.helpers import device_registry as dr, entity_registry as er
+
+    from .entity import device_identifiers
+
+    entry = bridge.entry
+    ents, devs = er.async_get(hass), dr.async_get(hass)
+    if bridge.use_mqtt:
+        for key, domain in (("connected", "binary_sensor"), ("computer", "sensor"), ("profile", "sensor")):
+            if eid := ents.async_get_entity_id(domain, DOMAIN, f"{entry.entry_id}_{key}"):
+                ents.async_remove(eid)
+    wanted = device_identifiers(bridge)
+    for dev in dr.async_entries_for_config_entry(devs, entry.entry_id):
+        if not dev.identifiers & wanted:
+            devs.async_update_device(dev.id, remove_config_entry_id=entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
