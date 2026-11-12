@@ -28,7 +28,7 @@ import voluptuous as vol
 from homeassistant.components import mqtt, webhook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, ServiceCall, callback
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -52,7 +52,10 @@ from .const import (
     SERVICE_CLEAR_KEY,
     SERVICE_NOTIFY,
     SERVICE_SET_KEY,
+    SERVICE_CONFIGURE_KEY,
+    SERVICE_GET_LAYOUT,
     SERVICE_PRESS_KEY,
+    SERVICE_REMOVE_KEY,
     SERVICE_RUN_ACTION,
     SERVICE_SHOW_REMOTE,
     TRANSPORT_BOTH,
@@ -116,6 +119,8 @@ class Bridge:
         # Web API only (over MQTT the deck's own device has all this): what the entities show
         self.connected: bool | None = None
         self.state: dict[str, Any] = {}
+        # every profile, page and key (MQTT `<base>/layout`, retained)
+        self.layout: dict[str, Any] | None = None
         self.signal = f"{DOMAIN}_{entry.entry_id}"
 
     @callback
@@ -142,6 +147,21 @@ class Bridge:
         elif self.api:
             await self._web(action, self.api.action(action, params))
             await self._ping()
+
+    async def set_layout(self, spec: dict[str, Any]) -> None:
+        """Put a key on a page, or take it off (`remove`)."""
+        if self.use_mqtt:
+            await mqtt.async_publish(self.hass, self.topic("layout/set"), json.dumps(spec, ensure_ascii=False))
+        elif self.api:
+            await self._web("layout", self.api.set_layout(spec))
+
+    async def get_layout(self) -> dict[str, Any]:
+        if self.use_mqtt:
+            return self.layout or {"profiles": []}
+        try:
+            return await self.api.layout()
+        except WebError as err:
+            raise HomeAssistantError(f"D200 Deck: {err}") from err
 
     async def press_key(self, key: int, event: str) -> None:
         if self.use_mqtt:
@@ -228,7 +248,16 @@ class Bridge:
                 # a computer took the D200: make sure it has every key (retained anyway, cheap)
                 self.hass.async_create_task(self.publish_all())
 
-        for t, fn in (("availability", availability),):
+        @callback
+        def layout(msg: mqtt.ReceiveMessage) -> None:
+            try:
+                data = json.loads(text(msg))
+            except ValueError:
+                return
+            if isinstance(data, dict):
+                self.layout = data
+
+        for t, fn in (("availability", availability), ("layout", layout)):
             self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic(t), fn))
 
     async def _start_web(self) -> None:
@@ -427,6 +456,36 @@ def _register_services(hass: HomeAssistant) -> None:
         for b in _bridges(hass, call.data.get(CONF_BASE_TOPIC)):
             await b.run(action, call.data.get("params") or {})
 
+    async def configure_key(call: ServiceCall) -> None:
+        spec = {k: v for k, v in call.data.items() if k != CONF_BASE_TOPIC}
+        for b in _bridges(hass, call.data.get(CONF_BASE_TOPIC)):
+            await b.set_layout(spec)
+
+    async def remove_key(call: ServiceCall) -> None:
+        spec = {k: v for k, v in call.data.items() if k != CONF_BASE_TOPIC}
+        spec["remove"] = True
+        for b in _bridges(hass, call.data.get(CONF_BASE_TOPIC)):
+            await b.set_layout(spec)
+
+    async def get_layout(call: ServiceCall) -> ServiceResponse:
+        bridges = _bridges(hass, call.data.get(CONF_BASE_TOPIC))
+        return await bridges[0].get_layout()
+
+    place = {
+        vol.Required("key"): vol.All(vol.Coerce(int), vol.Range(min=0, max=12)),
+        vol.Optional("profile"): cv.string,
+        vol.Optional("page"): vol.All(cv.string, vol.Length(min=1, max=64)),
+        deck: cv.string,
+    }
+    hass.services.async_register(DOMAIN, SERVICE_CONFIGURE_KEY, configure_key, vol.Schema({
+        **place,
+        vol.Optional("label"): vol.Any(None, cv.string),
+        vol.Optional("icon"): vol.Any(None, cv.string),
+        vol.Optional("color"): vol.Any(None, cv.string),
+        vol.Optional("text_color"): vol.Any(None, cv.string),
+    }))
+    hass.services.async_register(DOMAIN, SERVICE_REMOVE_KEY, remove_key, vol.Schema(place))
+    hass.services.async_register(DOMAIN, SERVICE_GET_LAYOUT, get_layout, vol.Schema({deck: cv.string}), supports_response=SupportsResponse.ONLY)
     hass.services.async_register(DOMAIN, SERVICE_PRESS_KEY, press_key, vol.Schema({
         vol.Required("key"): vol.All(vol.Coerce(int), vol.Range(min=0, max=13)),
         vol.Optional("event", default="press"): vol.In(["press", "long_press", "double_press"]),

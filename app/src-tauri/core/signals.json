@@ -34,5 +34,9 @@
   {
     "name": "deck.state",
     "type": "object"
+  },
+  {
+    "name": "deck.layout",
+    "type": "object"
   }
 ]

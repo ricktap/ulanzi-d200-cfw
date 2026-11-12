@@ -316,6 +316,7 @@ STATE = {
     "usb": True, "computer": "Studio", "app": "Visual Studio Code", "profile": "Work", "profiles": ["Default", "Work"],
     "page": "Media", "pages": ["main", "Media"], "remote": False, "brightness": 180, "display": True, "screensaver": False,
     "follow": True, "notification": False, "version": "0.14.0", "latest": "0.15.0",
+    "theme": "Glacier", "themes": ["Night Signal", "Glacier"], "scene": "rain",
     "teams": {"presence": "Busy", "activity": "InAMeeting", "in_meeting": True, "muted": False},
     "media": {"playing": True, "title": "Song", "artist": "Band", "album": "LP", "player": "Spotify", "art_url": None},
     "pomodoro": {"phase": "focus", "running": True, "ends_at": "2026-11-12T12:00:00+00:00"},
@@ -379,6 +380,24 @@ async def test_one_device_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
     assert (up.state, up.attributes["installed_version"], up.attributes["latest_version"]) == ("on", "0.14.0", "0.15.0")
     assert not any(t.startswith("homeassistant/device_automation") and p for t, p in json.loads((pathlib.Path(__file__).parent / "discovery.json").read_text()).items())
 
+    assert st("select", "theme").state == "Glacier"
+    assert st("select", "screensaver_scene").state == "rain"
+    await hass.services.async_call("select", "select_option", {"entity_id": st("select", "theme").entity_id, "option": "Night Signal"}, blocking=True)
+    assert published(mqtt_mock, "d200/theme/set")[-1][0] == "Night Signal"
+
+    # the key builder
+    layout = {"profiles": [{"name": "Work", "pages": [{"name": "main", "keys": {"2": {"label": "Lamp", "icon": "core:light"}}}]}]}
+    async_fire_mqtt_message(hass, "d200/layout", json.dumps(layout), retain=True)
+    await hass.async_block_till_done()
+    got = await hass.services.async_call(DOMAIN, "get_layout", {}, blocking=True, return_response=True)
+    assert got == layout
+    await hass.services.async_call(DOMAIN, "configure_key", {"key": 4, "page": "Home", "label": "Fan", "icon": "core:fan", "color": "#102030"}, blocking=True)
+    assert json.loads(published(mqtt_mock, "d200/layout/set")[-1][0]) == {"key": 4, "page": "Home", "label": "Fan", "icon": "core:fan", "color": "#102030"}
+    await hass.services.async_call(DOMAIN, "remove_key", {"key": 4, "page": "Home"}, blocking=True)
+    assert json.loads(published(mqtt_mock, "d200/layout/set")[-1][0]) == {"key": 4, "page": "Home", "remove": True}
+    with pytest.raises(Exception):
+        await hass.services.async_call(DOMAIN, "configure_key", {"key": 13, "label": "x"}, blocking=True)
+
     # controls go to the deck's topics
     await hass.services.async_call("select", "select_option", {"entity_id": st("select", "page").entity_id, "option": "main"}, blocking=True)
     assert published(mqtt_mock, "d200/page/set")[-1][0] == "main"
@@ -418,6 +437,9 @@ async def test_web_api_only_device(hass: HomeAssistant, aioclient_mock, hass_cli
     for a in ("core:display", "core:page", "core:back", "core:brightness", "com.deckling.core:pomodoro"):
         aioclient_mock.post(f"{DECK}/api/actions/{a}", json={"ran": a})
     aioclient_mock.post(f"{DECK}/api/keys/4/press", json={"pressed": 4})
+    aioclient_mock.post(f"{DECK}/api/actions/core:theme", json={"ran": "core:theme"})
+    aioclient_mock.put(f"{DECK}/api/layout", json={"saved": True})
+    aioclient_mock.get(f"{DECK}/api/layout", json={"profiles": [{"name": "Work", "pages": []}]})
     entry = await setup_web(hass, aioclient_mock, entities=())
     assert web_calls(aioclient_mock, "POST", "/api/subscriptions")[-1][0]["events"] == ["presses", "keys", "state"]
     dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
@@ -455,6 +477,13 @@ async def test_web_api_only_device(hass: HomeAssistant, aioclient_mock, hass_cli
     assert web_calls(aioclient_mock, "POST", "/api/actions/com.deckling.core:pomodoro")[-1][0] == {"params": {"do": "press"}}
     await hass.services.async_call(DOMAIN, "press_key", {"key": 4}, blocking=True)
     assert web_calls(aioclient_mock, "POST", "/api/keys/4/press")[-1][0] == {"event": "press"}
+    assert st("theme").state == "Glacier" and st("screensaver_scene").state == "rain"
+    await hass.services.async_call("select", "select_option", {"entity_id": ents["theme"], "option": "Night Signal"}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/core:theme")[-1][0] == {"params": {"theme": "Night Signal"}}
+    await hass.services.async_call(DOMAIN, "configure_key", {"key": 1, "label": "Door"}, blocking=True)
+    assert web_calls(aioclient_mock, "PUT", "/api/layout")[-1][0] == {"key": 1, "label": "Door"}
+    got = await hass.services.async_call(DOMAIN, "get_layout", {}, blocking=True, return_response=True)
+    assert got["profiles"][0]["name"] == "Work"
 
     # key events over the webhook
     body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4, "label": "Door", "icon": "lock"}

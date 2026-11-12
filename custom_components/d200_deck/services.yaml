@@ -134,3 +134,70 @@ run_action:
       advanced: true
       selector:
         text:
+
+configure_key:
+  fields:
+    key:
+      required: true
+      example: 4
+      selector:
+        number:
+          min: 0
+          max: 12
+    profile:
+      example: "Default"
+      selector:
+        text:
+    page:
+      example: "Home"
+      selector:
+        text:
+    label:
+      example: "Lamp"
+      selector:
+        text:
+    icon:
+      example: "core:light"
+      selector:
+        text:
+    color:
+      example: "#1F2937"
+      selector:
+        text:
+    text_color:
+      example: "#FFFFFF"
+      selector:
+        text:
+    base_topic:
+      advanced: true
+      selector:
+        text:
+
+remove_key:
+  fields:
+    key:
+      required: true
+      example: 4
+      selector:
+        number:
+          min: 0
+          max: 12
+    profile:
+      example: "Default"
+      selector:
+        text:
+    page:
+      example: "Home"
+      selector:
+        text:
+    base_topic:
+      advanced: true
+      selector:
+        text:
+
+get_layout:
+  fields:
+    base_topic:
+      advanced: true
+      selector:
+        text:

@@ -207,6 +207,76 @@
           "description": "The deck's MQTT base topic or Web API host, when there are several."
         }
       }
+    },
+    "configure_key": {
+      "name": "Configure a key",
+      "description": "Put a key on a page of the deck, with a label, an icon and colours. Saved in the deck's settings; presses come back as Key pressed.",
+      "fields": {
+        "key": {
+          "name": "Key",
+          "description": "0 to 12, as in the configurator (the wide key is the status key)."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile name; the one the D200 shows if left out."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page name; the one the D200 shows if left out. A new page is added to the profile."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "The deck's MQTT base topic or Web API host, when there are several."
+        },
+        "label": {
+          "name": "Label",
+          "description": "The text on the key."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "An icon id such as core:light, or an emoji."
+        },
+        "color": {
+          "name": "Colour",
+          "description": "The background, #RRGGBB."
+        },
+        "text_color": {
+          "name": "Text colour",
+          "description": "#RRGGBB."
+        }
+      }
+    },
+    "remove_key": {
+      "name": "Remove a key",
+      "description": "Take a key off a page of the deck.",
+      "fields": {
+        "key": {
+          "name": "Key",
+          "description": "0 to 12, as in the configurator (the wide key is the status key)."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "A profile name; the one the D200 shows if left out."
+        },
+        "page": {
+          "name": "Page",
+          "description": "A page name; the one the D200 shows if left out. A new page is added to the profile."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "The deck's MQTT base topic or Web API host, when there are several."
+        }
+      }
+    },
+    "get_layout": {
+      "name": "Get the layout",
+      "description": "Every profile, page and key of the deck with its label, icon, colours and app.",
+      "fields": {
+        "base_topic": {
+          "name": "Deck",
+          "description": "The deck's MQTT base topic or Web API host, when there are several."
+        }
+      }
     }
   },
   "selector": {
@@ -267,6 +337,12 @@
       },
       "page": {
         "name": "Page"
+      },
+      "theme": {
+        "name": "Theme"
+      },
+      "screensaver_scene": {
+        "name": "Screensaver scene"
       }
     },
     "number": {

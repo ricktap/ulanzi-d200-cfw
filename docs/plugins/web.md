@@ -42,6 +42,9 @@ wrong token).
 | `GET /api/subscriptions` | webhooks registered over the API, with the seconds they have left |
 | `POST /api/subscriptions` | registers or renews a webhook: `{"url": ..., "ttl": 900, "events": ["presses", "keys"]}` (10 to 3600 s, at most 16). `presses`: presses on Web keys (the default); `keys`: every key event on any key, posted as `{"type": "key", "key", "event", "profile", "page", "n"}`; `state`: every change of `GET /api/state`, posted with `"type": "state"` |
 | `DELETE /api/subscriptions` | removes one: `{"url": ...}` |
+| `GET /api/layout` | every profile, page and key with label, icon, colours and app |
+| `PUT /api/layout` | puts a key on a page: `{key (0-12), profile?, page?, label?, icon?, color?, text_color?}`; a new page is added; saved to deck.json |
+| `DELETE /api/layout` | takes a key off a page: `{key, profile?, page?}` |
 | `GET /api/state` | what the deck shows and knows (the same as MQTT `d200/state`): profile, pages, page, remote, brightness, display, screensaver, follow, USB, the program in front, Teams, media, Pomodoro, version and latest version |
 | `GET /api/mqtt` | the deck's shared MQTT settings (the password only as `has_password`) |
 | `PUT /api/mqtt` | sets them and connects: `{"host", "port", "username", "password", "tls", "base_topic"}`; saved to deck.json |

@@ -161,5 +161,56 @@
         ]
       }
     ]
+  },
+  {
+    "id": "core:theme",
+    "name": "Theme",
+    "params": [
+      {
+        "key": "theme",
+        "label": "Theme",
+        "type": "select",
+        "values": {
+          "source": "core:themes"
+        }
+      }
+    ]
+  },
+  {
+    "id": "core:screensaver_scene",
+    "name": "Screensaver scene",
+    "params": [
+      {
+        "key": "scene",
+        "label": "Scene",
+        "type": "select",
+        "values": [
+          {
+            "label": "By season",
+            "value": "auto"
+          },
+          {
+            "label": "Snow",
+            "value": "snow"
+          },
+          {
+            "label": "Pink",
+            "value": "pink"
+          },
+          {
+            "label": "Beach",
+            "value": "beach"
+          },
+          {
+            "label": "Leaves",
+            "value": "leaves"
+          },
+          {
+            "label": "Rain",
+            "value": "rain"
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -125,6 +125,11 @@ try:
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     hook = f"http://127.0.0.1:{srv.server_address[1]}/hook"
     code, st = api("GET", "/api/state")
+    code, _ = api("PUT", "/api/layout", {"key": 3, "label": "Built", "page": "main"})
+    time.sleep(1.0)
+    code2, lay = api("GET", "/api/layout")
+    keys = [p["keys"] for pr in lay.get("profiles", []) for p in pr["pages"] if p["name"] == "main"]
+    check("PUT then GET /api/layout", code == 200 and code2 == 200 and keys and keys[0].get("3", {}).get("label") == "Built", keys)
     check("GET /api/state", code == 200 and st.get("profile") == "Default" and isinstance(st.get("pages"), list), st)
     code, sub = api("POST", "/api/subscriptions", {"url": hook, "ttl": 60, "events": ["presses", "keys", "state"]})
     api("PUT", "/api/keys/build", {"label": "Build"})

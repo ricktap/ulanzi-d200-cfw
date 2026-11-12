@@ -202,7 +202,7 @@ impl Web {
                 json!({
                     "name": "D200 Deck", "version": env!("CARGO_PKG_VERSION"),
                     "openapi": "/api/openapi.json",
-                    "endpoints": ["GET /api/state", "GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
+                    "endpoints": ["GET /api/state", "GET|PUT|DELETE /api/layout", "GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
                                   "POST /api/notify", "POST /api/actions/<action>", "POST /api/keys/<0-13>/press",
                                   "GET|POST|DELETE /api/subscriptions", "GET|PUT /api/mqtt"],
                 }),
@@ -273,6 +273,21 @@ impl Web {
                 Some((_, v)) => (200, v),
                 None => (503, json!({ "error": "the deck has no state yet" })),
             },
+            ("GET", ["api", "layout"]) => match host.all_signals().into_iter().find(|(n, _)| n == "deck.layout") {
+                Some((_, v)) => (200, v),
+                None => (503, json!({ "error": "the deck has no layout yet" })),
+            },
+            ("PUT" | "POST" | "DELETE", ["api", "layout"]) => {
+                let mut spec = body;
+                if !spec.get("key").is_some_and(|k| k.as_u64().is_some_and(|k| k < 13)) {
+                    return (400, json!({ "error": "key is 0 to 12" }));
+                }
+                if method == "DELETE" {
+                    spec["remove"] = json!(true);
+                }
+                host.request(HostRequest::SetLayoutKey(spec));
+                (200, json!({ "saved": true }))
+            }
             ("GET", ["api", "signals"]) => {
                 let mut all = host.all_signals();
                 all.sort_by(|a, b| a.0.cmp(&b.0));
@@ -499,6 +514,24 @@ pub fn openapi() -> Value {
             "/api": { "get": { "summary": "What this server offers", "responses": { "200": ok("Name, version, endpoints"), "401": err } } },
             "/api/openapi.json": { "get": { "summary": "This description", "security": [], "responses": { "200": ok("OpenAPI 3.1") } } },
             "/api/state": { "get": { "summary": "What the deck shows and knows: profile, page, display, screensaver, USB, the program in front, Teams, media, Pomodoro, versions", "responses": { "200": ok("The deck state"), "401": err, "503": err } } },
+            "/api/layout": {
+                "get": { "summary": "Every profile, page and key with its label, icon, colours and app", "responses": { "200": ok("{profiles: [{name, pages: [{name, keys: {\"0\": {label, icon, color, text_color, app}}}]}]}"), "401": err, "503": err } },
+                "put": {
+                    "summary": "Put a key on a page (saved to deck.json)",
+                    "description": "Profile and page are the ones the D200 shows unless given; a new page is added to the profile. Fields left out stay as they are; null clears one.",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["key"], "properties": {
+                        "key": { "type": "integer", "minimum": 0, "maximum": 12 }, "profile": { "type": "string" }, "page": { "type": "string" },
+                        "label": { "type": ["string", "null"] }, "icon": { "type": ["string", "null"], "description": "An icon id (e.g. core:light) or an emoji" },
+                        "color": { "type": ["string", "null"], "description": "Background, #RRGGBB" }, "text_color": { "type": ["string", "null"] } } } } } },
+                    "responses": { "200": ok("{saved}"), "400": err, "401": err },
+                },
+                "delete": {
+                    "summary": "Take a key off a page",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["key"], "properties": {
+                        "key": { "type": "integer", "minimum": 0, "maximum": 12 }, "profile": { "type": "string" }, "page": { "type": "string" } } } } } },
+                    "responses": { "200": ok("{saved}"), "400": err, "401": err },
+                },
+            },
             "/api/signals": { "get": { "summary": "Every signal with its value", "responses": { "200": ok("Object: signal name to value"), "401": err } } },
             "/api/signals/{name}": {
                 "parameters": [name("name", "A full signal name, e.g. com.deckling.core:system.cpu (GET) or a name in com.deckling.web (PUT)")],
@@ -845,6 +878,22 @@ mod tests {
     }
 
     #[test]
+    fn layout_routes() {
+        let mut web = Web::default();
+        let mut s = Signals::default();
+        let ((code, _), _) = call(&mut web, &mut s, "PUT", "/api/layout", json!({"key": 13, "label": "x"}));
+        assert_eq!(code, 400);
+        let ((code, _), reqs) = call(&mut web, &mut s, "PUT", "/api/layout", json!({"key": 2, "label": "Lamp", "page": "Home"}));
+        assert_eq!(code, 200);
+        assert!(matches!(&reqs[..], [HostRequest::SetLayoutKey(v)] if v["label"] == "Lamp"));
+        let ((_, _), reqs) = call(&mut web, &mut s, "DELETE", "/api/layout", json!({"key": 2}));
+        assert!(matches!(&reqs[..], [HostRequest::SetLayoutKey(v)] if v["remove"] == true));
+        s.publish("deck.layout", json!({"profiles": []}));
+        let ((code, v), _) = call(&mut web, &mut s, "GET", "/api/layout", Value::Null);
+        assert_eq!((code, v["profiles"].is_array()), (200, true));
+    }
+
+    #[test]
     fn state_and_state_subscriptions() {
         let mut web = Web::default();
         let mut s = Signals::default();
@@ -863,7 +912,7 @@ mod tests {
         let doc = openapi();
         assert_eq!(doc["openapi"], "3.1.0");
         let paths = doc["paths"].as_object().unwrap();
-        for p in ["/api/state", "/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
+        for p in ["/api/layout", "/api/state", "/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
             assert!(paths.contains_key(p), "{p}");
         }
         assert_eq!(doc["paths"]["/api/openapi.json"]["get"]["security"], json!([]));

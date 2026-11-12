@@ -149,6 +149,26 @@ check("press over MQTT fires a key event", any(m[1] == "d200/key" and json.loads
 check("... and Key pressed (key_event) with the key", any(m[1] == "d200/key_event" and json.loads(m[2]).get("key") == 3 and "key_label" in json.loads(m[2]) for m in broker.log[n:]), broker.log[-3:])
 check("... and the key's own event topic", any(m[1] == "d200/key/3" and json.loads(m[2]).get("event_type") == "long_press" for m in broker.log[n:]), broker.log[-3:])
 
+# the key builder and the look, as Home Assistant uses them
+broker.publish("d200/layout/set", json.dumps({"key": 4, "profile": "Default", "page": "HA built", "label": "Fan", "icon": "🌀", "color": "#102030"})); time.sleep(1.5)
+lay = json.loads(broker.retained.get("d200/layout", b"{}"))
+pg = [p for pr in lay.get("profiles", []) if pr["name"] == "Default" for p in pr["pages"] if p["name"] == "HA built"]
+check("layout/set adds a key on a new page", bool(pg) and pg[0]["keys"].get("4", {}).get("label") == "Fan" and pg[0]["keys"]["4"]["color"] == "#102030", pg)
+broker.publish("d200/page/set", "HA built"); time.sleep(1.2)
+check("... the page can be shown", state().get("page") == "HA built" and "HA built" in state().get("pages", []), state().get("page"))
+broker.publish("d200/layout/set", json.dumps({"key": 4, "page": "HA built", "remove": True})); time.sleep(1.5)
+lay = json.loads(broker.retained.get("d200/layout", b"{}"))
+pg = [p for pr in lay.get("profiles", []) if pr["name"] == "Default" for p in pr["pages"] if p["name"] == "HA built"]
+check("layout/set remove takes it off", bool(pg) and "4" not in pg[0]["keys"], pg)
+broker.publish("d200/screensaver/scene/set", "rain"); time.sleep(1.2)
+check("screensaver/scene/set", state().get("scene") == "rain", state().get("scene"))
+themes = state().get("themes", [])
+broker.publish("d200/theme/set", themes[-1]); time.sleep(1.2)
+t1 = state().get("theme")
+broker.publish("d200/theme/set", "Night Signal"); time.sleep(1.2)
+check("theme/set", len(themes) > 1 and t1 == themes[-1] and state().get("theme") == "Night Signal", (themes, t1, state().get("theme")))
+broker.publish("d200/page/set", "main"); time.sleep(0.8)
+
 # status key press -> home; long -> remote
 broker.publish("d200/profile/set", "Default"); time.sleep(0.5)
 key(13, 1); time.sleep(0.6); key(13, 0); time.sleep(0.6)

@@ -102,7 +102,7 @@ impl Mqtt {
 
     pub fn subscribe_all(&self) {
         for t in ["notify", "remote/show", "profile/set", "brightness/set", "availability", "page/set", "screensaver/set", "display/set",
-                  "follow/set", "notify/clear", "pomodoro/set", "press", "action"] {
+                  "follow/set", "notify/clear", "pomodoro/set", "press", "action", "theme/set", "screensaver/scene/set", "layout/set"] {
             let _ = self.client.try_subscribe(self.topic(t), QoS::AtLeastOnce);
         }
         let _ = self.client.try_subscribe("homeassistant/status", QoS::AtLeastOnce);
@@ -120,13 +120,13 @@ impl Mqtt {
 
     /// Retained Home Assistant discovery configs. An empty payload removes an entity
     /// (the old remote button and device triggers, Teams entities while Teams is off).
-    pub fn discovery(&self, profiles: &[String], pages: &[String], teams: bool) -> Vec<(String, String)> {
-        discovery(&self.base, profiles, pages, teams)
+    pub fn discovery(&self, profiles: &[String], pages: &[String], themes: &[String], teams: bool) -> Vec<(String, String)> {
+        discovery(&self.base, profiles, pages, themes, teams)
     }
 }
 
 /// Retained Home Assistant discovery configs for the base topic `b`.
-pub fn discovery(b: &str, profiles: &[String], pages: &[String], teams: bool) -> Vec<(String, String)> {
+pub fn discovery(b: &str, profiles: &[String], pages: &[String], themes: &[String], teams: bool) -> Vec<(String, String)> {
     let id = format!("{}_deck", b.replace('/', "_"));
     let device = json!({
         "identifiers": [id],
@@ -172,6 +172,11 @@ pub fn discovery(b: &str, profiles: &[String], pages: &[String], teams: bool) ->
         "command_topic": format!("{b}/profile/set"), "state_topic": format!("{b}/profile"), "options": profiles }));
     add("select", "page", json!({ "name": "Page", "icon": "mdi:book-open-page-variant",
         "command_topic": format!("{b}/page/set"), "state_topic": state, "value_template": "{{ value_json.page }}", "options": pages }));
+    add("select", "theme", json!({ "name": "Theme", "icon": "mdi:palette",
+        "command_topic": format!("{b}/theme/set"), "state_topic": state, "value_template": "{{ value_json.theme }}", "options": themes }));
+    add("select", "screensaver_scene", json!({ "name": "Screensaver scene", "icon": "mdi:image-filter-hdr", "entity_category": "config",
+        "command_topic": format!("{b}/screensaver/scene/set"), "state_topic": state, "value_template": "{{ value_json.scene }}",
+        "options": crate::config::SCENES }));
     add("number", "brightness", json!({ "name": "Brightness", "icon": "mdi:brightness-6",
         "command_topic": format!("{b}/brightness/set"), "state_topic": format!("{b}/brightness"), "min": 0, "max": 255, "mode": "slider" }));
     add("switch", "remote_page", json!({ "name": "Remote page", "icon": "mdi:remote",
@@ -247,7 +252,7 @@ mod tests {
 
     #[test]
     fn discovery_entities() {
-        let out = discovery("d200", &["Default".into()], &["main".into(), "Media".into()], false);
+        let out = discovery("d200", &["Default".into()], &["main".into(), "Media".into()], &["Night Signal".into()], false);
         let get = |t: &str| out.iter().find(|(topic, _)| topic == t).map(|(_, p)| p.clone()).unwrap_or_else(|| panic!("{t}"));
         // the old remote-page device triggers and the remote button are removed
         assert_eq!(get("homeassistant/device_automation/d200_deck/remote_0_press/config"), "");
@@ -268,7 +273,7 @@ mod tests {
         let c: Value = serde_json::from_str(&get("homeassistant/binary_sensor/d200_deck/connected/config")).unwrap();
         assert!(c.get("availability").is_none());
         assert_eq!(c["name"], "Computer online");
-        let teams = discovery("d200", &[], &[], true);
+        let teams = discovery("d200", &[], &[], &[], true);
         assert!(teams.iter().any(|(t, p)| t.ends_with("teams_meeting/config") && !p.is_empty()));
     }
 
@@ -276,7 +281,7 @@ mod tests {
     /// (`UPDATE_FIXTURES=1 cargo test --lib` writes it).
     #[test]
     fn discovery_fixture_is_current() {
-        let out = discovery("d200", &["Default".into(), "Work".into()], &["main".into(), "Media".into()], true);
+        let out = discovery("d200", &["Default".into(), "Work".into()], &["main".into(), "Media".into()], &["Night Signal".into(), "Glacier".into()], true);
         let v: serde_json::Map<String, Value> = out.into_iter().map(|(t, p)| (t, Value::String(p))).collect();
         let text = serde_json::to_string_pretty(&v).unwrap() + "\n";
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/ha/discovery.json");

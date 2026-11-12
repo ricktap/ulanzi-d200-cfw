@@ -97,7 +97,19 @@ pub enum Action {
     },
     /// Remove the notification on the status key, and those waiting.
     NotifyClear,
+    /// Use a full theme: its id or name; "Night Signal" (or empty) for the built-in palette.
+    Theme {
+        #[serde(default)]
+        theme: String,
+    },
+    /// The screensaver scene: "auto", "snow", "pink", "beach", "leaves", "rain".
+    ScreensaverScene { scene: String },
 }
+
+/// The screensaver scenes ("auto" picks one by season).
+pub const SCENES: [&str; 6] = ["auto", "snow", "pink", "beach", "leaves", "rain"];
+/// The built-in theme's name.
+pub const DEFAULT_THEME: &str = "Night Signal";
 
 /// "on", "off" or "toggle" (also true/false, 1/0) against the current state.
 pub fn switch_to(word: &str, now: bool) -> bool {
@@ -111,7 +123,7 @@ pub fn switch_to(word: &str, now: bool) -> bool {
 /// Actions the engine runs itself: (action id, `Action` type). `core:` is what is fixed
 /// in the app; `com.deckling.ha:mqtt` and `:remote` use the app's MQTT connection and
 /// the remote view. Every other action belongs to a plugin (plugins.rs).
-pub const ACTION_IDS: [(&str, &str); 13] = [
+pub const ACTION_IDS: [(&str, &str); 15] = [
     ("core:page", "page"),
     ("core:back", "back"),
     ("core:home", "home"),
@@ -123,6 +135,8 @@ pub const ACTION_IDS: [(&str, &str); 13] = [
     ("core:screensaver", "screensaver"),
     ("core:display", "display"),
     ("core:follow", "follow"),
+    ("core:theme", "theme"),
+    ("core:screensaver_scene", "screensaver_scene"),
     ("com.deckling.ha:mqtt", "mqtt"),
     ("com.deckling.ha:remote", "remote"),
 ];
@@ -879,6 +893,9 @@ mod action_tests {
         assert_eq!(r.parse(), Some(Action::Display { on: "off".into() }));
         assert_eq!(Action::NotifyClear.to_ref().action, "core:notify_clear");
         assert!(switch_to("", false) && !switch_to("off", true) && switch_to("toggle", false) && !switch_to("toggle", true));
+        let r = ActionRef { action: "core:screensaver_scene".into(), params: serde_json::json!({"scene": "rain"}).as_object().cloned().unwrap(), ..Default::default() };
+        assert_eq!(r.parse(), Some(Action::ScreensaverScene { scene: "rain".into() }));
+        assert_eq!(Action::Theme { theme: "Glacier".into() }.to_ref().action, "core:theme");
     }
 }
 
