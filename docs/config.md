@@ -36,6 +36,10 @@ Fields, apps and actions this version does not know are kept when the file is sa
 }
 ```
 
+A plugin that uses MQTT may have `own_mqtt` in its `config` (`enabled`, `host`, `port`,
+`username`, `password`, `base_topic`, `tls`): it then uses that broker instead of the deck's
+shared connection in `plugins.core.config.mqtt`. Today that is `com.deckling.ha`.
+
 `theme` names the active theme of type `full`; without it the deck uses Night Signal with the
 palette in `plugins.core.config.theme`. `overlays` are themes of type `partial` in order: when two
 set the same variable, the later one wins. `plugins.core.config.theme.variables` comes last. Themes

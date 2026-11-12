@@ -12,6 +12,9 @@ Packages → Web API → Settings:
 The plugin's card shows the addresses it listens on. It listens on every network interface; the
 first time, macOS may ask whether D200 Deck may accept incoming connections.
 
+While the server runs, the deck announces itself on the network (mDNS, `_d200deck._tcp`), so
+Home Assistant finds it by itself.
+
 Keep the token secret. Generating a new one locks out every script that uses the old one.
 
 ## Requests
@@ -39,6 +42,8 @@ wrong token).
 | `GET /api/subscriptions` | webhooks registered over the API, with the seconds they have left |
 | `POST /api/subscriptions` | registers or renews a webhook for presses on Web keys: `{"url": ..., "ttl": 900}` (10 to 3600 s, at most 16) |
 | `DELETE /api/subscriptions` | removes one: `{"url": ...}` |
+| `GET /api/mqtt` | the deck's shared MQTT settings (the password only as `has_password`) |
+| `PUT /api/mqtt` | sets them and connects: `{"host", "port", "username", "password", "tls", "base_topic"}`; saved to deck.json |
 | `GET /api/openapi.json` | the OpenAPI description, **without a token** |
 
 Ids and signal names are letters, digits, `_`, `-` and `.`.

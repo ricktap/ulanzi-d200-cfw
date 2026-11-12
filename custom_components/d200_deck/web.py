@@ -62,6 +62,12 @@ class DeckApi:
     async def action(self, action: str, params: dict[str, Any] | None = None) -> None:
         await self.call("POST", f"/api/actions/{action}", {"params": params or {}})
 
+    async def mqtt(self) -> dict[str, Any]:
+        return await self.call("GET", "/api/mqtt")
+
+    async def set_mqtt(self, settings: dict[str, Any]) -> None:
+        await self.call("PUT", "/api/mqtt", settings)
+
     async def subscribe(self, url: str, ttl: int) -> None:
         await self.call("POST", "/api/subscriptions", {"url": url, "ttl": ttl})
 

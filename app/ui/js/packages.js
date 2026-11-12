@@ -197,6 +197,8 @@ function status(id) {
   const i = state.snap?.integrations || {};
   if (id === "core") return s.connected ? { ok: true, text: "D200 connected" } : { ok: false, text: "D200 not connected", note: s.message };
   if (id === "com.deckling.ha") {
+    const own = i.own_mqtt?.["com.deckling.ha"];
+    if (own) return { ok: own.connected, text: own.connected ? "Connected (own broker)" : "Connecting (own broker)", note: own.status };
     const m = state.config.plugins?.core?.config?.mqtt || {};
     if (!m.enabled) return { ok: false, text: "MQTT off", note: "Switch it on under Deck, MQTT." };
     return s.mqtt_ok ? { ok: true, text: "Connected", note: s.mqtt } : { ok: false, text: "Connecting", note: s.mqtt };

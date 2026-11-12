@@ -86,12 +86,35 @@ struct Server {
     stop: Arc<AtomicBool>,
     port: u16,
     token: String,
+    /// The mDNS announcement (`_d200deck._tcp`), so Home Assistant can discover the deck.
+    mdns: Option<(mdns_sd::ServiceDaemon, String)>,
 }
 
 impl Drop for Server {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
+        if let Some((d, name)) = self.mdns.take() {
+            let _ = d.unregister(&name);
+            let _ = d.shutdown();
+        }
     }
+}
+
+/// The mDNS service type the deck announces while the server runs.
+pub const MDNS_TYPE: &str = "_d200deck._tcp.local.";
+
+/// Announce the server on the local network; None when mDNS is not available.
+fn announce(port: u16) -> Option<(mdns_sd::ServiceDaemon, String)> {
+    let host = crate::mqtt::host_name();
+    let label: String = host.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '-' }).collect();
+    let daemon = mdns_sd::ServiceDaemon::new().ok()?;
+    let props = [("id", label.as_str()), ("version", env!("CARGO_PKG_VERSION")), ("path", "/api")];
+    let info = mdns_sd::ServiceInfo::new(MDNS_TYPE, &format!("D200 Deck on {host}"), &format!("{label}-d200deck.local."), "", port, &props[..])
+        .ok()?
+        .enable_addr_auto();
+    let name = info.get_fullname().to_string();
+    daemon.register(info).ok()?;
+    Some((daemon, name))
 }
 
 #[derive(Default)]
@@ -101,6 +124,8 @@ pub struct Web {
     error: Option<String>,
     /// id -> label, for the id picker.
     ids: BTreeMap<String, String>,
+    /// The deck's shared MQTT settings, for GET /api/mqtt.
+    core_mqtt: crate::config::MqttCfg,
     /// Webhook URLs registered over the API (Home Assistant), until they expire.
     subs: BTreeMap<String, std::time::Instant>,
 }
@@ -151,10 +176,12 @@ impl Web {
             }
         });
         self.error = None;
+        let mdns = if std::env::var_os("D200_NO_MDNS").is_some() { None } else { announce(s.port) };
         self.server = Some(Server {
             stop,
             port: s.port,
             token: s.token.clone(),
+            mdns,
         });
     }
 
@@ -168,9 +195,41 @@ impl Web {
                     "openapi": "/api/openapi.json",
                     "endpoints": ["GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
                                   "POST /api/notify", "POST /api/actions/<action>", "POST /api/keys/<0-13>/press",
-                                  "GET|POST|DELETE /api/subscriptions"],
+                                  "GET|POST|DELETE /api/subscriptions", "GET|PUT /api/mqtt"],
                 }),
             ),
+            ("GET", ["api", "mqtt"]) => {
+                let m = &self.core_mqtt;
+                (200, json!({ "enabled": m.enabled, "host": m.host, "port": m.port, "username": m.username,
+                              "has_password": !m.password.is_empty(), "tls": m.tls, "base_topic": m.base_topic, "discovery": m.discovery }))
+            }
+            ("PUT", ["api", "mqtt"]) => {
+                let host_name = body.get("host").and_then(Value::as_str).unwrap_or("").trim().to_string();
+                if host_name.is_empty() || host_name.len() > 255 {
+                    return (400, json!({ "error": "host is required" }));
+                }
+                let mut m = self.core_mqtt.clone();
+                m.enabled = body.get("enabled").and_then(Value::as_bool).unwrap_or(true);
+                m.host = host_name;
+                if let Some(p) = body.get("port").and_then(Value::as_u64).and_then(|p| u16::try_from(p).ok()) {
+                    m.port = p;
+                }
+                if let Some(u) = body.get("username").and_then(Value::as_str) {
+                    m.username = u.to_string();
+                }
+                if let Some(p) = body.get("password").and_then(Value::as_str) {
+                    m.password = p.to_string();
+                }
+                if let Some(t) = body.get("tls").and_then(Value::as_bool) {
+                    m.tls = t;
+                }
+                if let Some(b) = body.get("base_topic").and_then(Value::as_str).map(str::trim).filter(|b| !b.is_empty() && !b.contains(['+', '#'])) {
+                    m.base_topic = b.to_string();
+                }
+                self.core_mqtt = m.clone();
+                host.request(HostRequest::SetMqtt(m));
+                (200, json!({ "saved": true }))
+            }
             ("GET", ["api", "subscriptions"]) => {
                 let now = std::time::Instant::now();
                 self.subs.retain(|_, until| *until > now);
@@ -306,6 +365,7 @@ impl Plugin for Web {
     }
 
     fn configure(&mut self, cfg: &Config, host: &mut Host) {
+        self.core_mqtt = cfg.settings.mqtt.clone();
         let s = Settings::from(cfg);
         if s != self.settings || self.server.is_none() {
             self.settings = s;
@@ -432,6 +492,17 @@ pub fn openapi() -> Value {
                     "description": "Actions that start programs or type (com.deckling.core:command, :open, :keys) are refused unless allowed in the plugin's settings.",
                     "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "params": { "type": "object" } } } } } },
                     "responses": { "200": ok("{ran}"), "403": err, "404": err, "401": err },
+                },
+            },
+            "/api/mqtt": {
+                "get": { "summary": "The deck's shared MQTT settings (without the password)", "responses": { "200": ok("{enabled, host, port, username, has_password, tls, base_topic, discovery}"), "401": err } },
+                "put": {
+                    "summary": "Set up the deck's shared MQTT connection",
+                    "description": "Saved to deck.json; the deck connects right away. Home Assistant's integration uses this to hand over its broker.",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["host"], "properties": {
+                        "host": { "type": "string" }, "port": { "type": "integer" }, "username": { "type": "string" }, "password": { "type": "string" },
+                        "tls": { "type": "boolean" }, "base_topic": { "type": "string" }, "enabled": { "type": "boolean", "default": true } } } } } },
+                    "responses": { "200": ok("{saved}"), "400": err, "401": err },
                 },
             },
             "/api/subscriptions": {
@@ -731,7 +802,7 @@ mod tests {
         let doc = openapi();
         assert_eq!(doc["openapi"], "3.1.0");
         let paths = doc["paths"].as_object().unwrap();
-        for p in ["/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
+        for p in ["/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
             assert!(paths.contains_key(p), "{p}");
         }
         assert_eq!(doc["paths"]["/api/openapi.json"]["get"]["security"], json!([]));

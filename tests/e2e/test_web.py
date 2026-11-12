@@ -5,6 +5,8 @@ Run through tests/e2e/run.sh. Args: <repo root> <work dir>. Needs numpy and Pill
 """
 import json, os, shutil, subprocess, sys, time, urllib.request, urllib.error
 import numpy as np
+sys.path.insert(0, os.path.dirname(__file__))
+from minibroker import Broker
 from PIL import Image
 P, S = sys.argv[1], sys.argv[2]
 PORT, TOKEN = 18765, "e2e-secret-token"
@@ -17,6 +19,8 @@ cfg = {
     "plugins": {
         "core": {"config": {"follow_active_app": False, "screensaver": {"enabled": False}}},
         "com.deckling.web": {"config": {"serve": True, "port": PORT, "token": TOKEN}},
+        # Home Assistant on a broker of its own; the deck's shared MQTT is set over the API below
+        "com.deckling.ha": {"config": {"own_mqtt": {"enabled": True, "host": "127.0.0.1", "port": 18884, "base_topic": "d200"}}},
     },
     "profiles": [{"name": "Default", "apps": [], "pages": {"main": {
         "0": {"app": "com.deckling.web:key", "config": {"id": "build"},
@@ -26,10 +30,11 @@ cfg = {
 }
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 
+shared, own = Broker(18883), Broker(18884)
 dev = subprocess.Popen([os.environ["D200FW_HOST_BIN"], "--no-kill", "--port", "7396",
                         "--fb", sim + "/fb", "--input", sim + "/kbd"], stderr=open(sim + "/devlog", "w"))
 kbd = open(sim + "/kbd", "wb", buffering=0)
-env = dict(os.environ, D200_DIRECT="1", D200_PORT="7396", D200_MEDIA_FILE=sim + "/no-player.txt")
+env = dict(os.environ, D200_NO_MDNS="1", D200_DIRECT="1", D200_PORT="7396", D200_MEDIA_FILE=sim + "/no-player.txt")
 eng = subprocess.Popen([os.environ.get("D200_HEADLESS", P + "/app/src-tauri/target/debug/examples/headless"), sim + "/cfg/deck.json"], env=env,
                        stdin=subprocess.PIPE, stdout=open(sim + "/eng.out", "w"), stderr=subprocess.STDOUT, text=True)
 
@@ -128,6 +133,26 @@ try:
     while not got and time.time() < deadline: time.sleep(0.1)
     check("POST /api/subscriptions, then a press reaches the webhook", code == 200 and got == [{"id": "build", "event": "press"}], (sub, got))
     srv.shutdown()
+
+    # MQTT settings pushed over the API (as the Home Assistant integration does)
+    code, before = api("GET", "/api/mqtt")
+    check("GET /api/mqtt", code == 200 and before.get("enabled") is False, before)
+    code, _ = api("PUT", "/api/mqtt", {"host": "127.0.0.1", "port": 18883, "username": "deck", "password": "pw"})
+    time.sleep(3)
+    saved = json.load(open(sim + "/cfg/deck.json"))["plugins"]["core"]["config"]["mqtt"]
+    check("PUT /api/mqtt saves the shared connection", code == 200 and saved["enabled"] and saved["host"] == "127.0.0.1" and saved["port"] == 18883 and saved["password"] == "pw", saved)
+    check("the deck connects to the shared broker", any(p.startswith(b"online") for p in shared.got("d200/availability")), shared.got("d200/availability"))
+    code, after = api("GET", "/api/mqtt")
+    check("GET /api/mqtt hides the password", after.get("has_password") is True and "password" not in after, after)
+
+    # Home Assistant's own broker: its keys come from there, not from the shared one
+    own.publish("d200/ha/light.own/set", b'{"label": "Own"}', retain=True)
+    shared.publish("d200/ha/light.shared/set", b'{"label": "Shared"}', retain=True)
+    time.sleep(1.5)
+    _, sig_own = api("GET", "/api/signals/com.deckling.ha:light.own.label")
+    code_shared, _ = api("GET", "/api/signals/com.deckling.ha:light.shared.label")
+    check("HA plugin reads its own broker", sig_own.get("value") == "Own", sig_own)
+    check("... and not the shared one", code_shared == 404, code_shared)
 finally:
     eng.terminate(); dev.terminate()
 

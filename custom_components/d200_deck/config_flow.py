@@ -10,6 +10,7 @@ from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .const import (
     CONF_BASE_TOPIC,
@@ -27,7 +28,10 @@ from .const import (
     TRANSPORT_MQTT,
     TRANSPORT_WEB,
 )
+from .mqtt_share import broker_for_deck, ha_broker
 from .web import DeckApi, WebError
+
+CONF_SETUP_MQTT = "setup_mqtt"
 
 
 def _clean(topic: str) -> str:
@@ -73,28 +77,75 @@ class D200DeckConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def _connect_web(self, host: str, port: int, token: str, setup_mqtt: bool) -> str | None:
+        """Check the token; hand Home Assistant's broker to the deck if asked. Returns an error key."""
+        api = DeckApi(self.hass, host, port, token)
+        try:
+            await api.info()
+            if setup_mqtt:
+                broker = await broker_for_deck(self.hass)
+                if broker is None:
+                    return "no_mqtt"
+                await api.set_mqtt(broker)
+                deck = await api.mqtt()
+                self._data[CONF_BASE_TOPIC] = (deck.get("base_topic") or DEFAULT_BASE_TOPIC).strip("/")
+                self._data[CONF_TRANSPORT] = TRANSPORT_BOTH
+        except WebError as err:
+            return "invalid_auth" if err.auth else "cannot_connect"
+        self._data.update({CONF_HOST: host, CONF_PORT: port, CONF_TOKEN: token, CONF_WEBHOOK_ID: webhook.async_generate_id()})
+        return None
+
+    def _web_schema(self, with_host: bool) -> vol.Schema:
+        fields: dict[Any, Any] = {}
+        if with_host:
+            fields[vol.Required(CONF_HOST)] = str
+            fields[vol.Required(CONF_PORT, default=DEFAULT_PORT)] = vol.All(vol.Coerce(int), vol.Range(min=1, max=65535))
+        fields[vol.Required(CONF_TOKEN)] = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
+        # only offered when the deck is reached over the Web API alone and Home Assistant has MQTT
+        if self._data.get(CONF_TRANSPORT) != TRANSPORT_BOTH and ha_broker(self.hass) is not None:
+            fields[vol.Required(CONF_SETUP_MQTT, default=True)] = bool
+        return vol.Schema(fields)
+
     async def async_step_web(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             host = user_input[CONF_HOST].strip().removeprefix("http://").removeprefix("https://").strip("/")
             port, token = user_input[CONF_PORT], user_input[CONF_TOKEN].strip()
-            try:
-                await DeckApi(self.hass, host, port, token).info()
-            except WebError as err:
-                errors["base"] = "invalid_auth" if err.auth else "cannot_connect"
+            err = await self._connect_web(host, port, token, user_input.get(CONF_SETUP_MQTT, False))
+            if err:
+                errors["base"] = err
             else:
-                self._data.update({CONF_HOST: host, CONF_PORT: port, CONF_TOKEN: token, CONF_WEBHOOK_ID: webhook.async_generate_id()})
                 await self.async_set_unique_id(self._data.get(CONF_BASE_TOPIC) or f"{host}:{port}")
                 self._abort_if_unique_id_configured()
                 return await self.async_step_entities()
+        return self.async_show_form(step_id="web", data_schema=self._web_schema(True), errors=errors)
+
+    # -------------------------------------------------------------- discovered on the network
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
+        """D200 Deck announces itself (_d200deck._tcp) while its Web API runs."""
+        deck_id = discovery_info.properties.get("id") or discovery_info.hostname
+        host, port = discovery_info.host, discovery_info.port or DEFAULT_PORT
+        await self.async_set_unique_id(f"deck-{deck_id}")
+        self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
+        self._data = {CONF_TRANSPORT: TRANSPORT_WEB, CONF_HOST: host, CONF_PORT: port}
+        self.context["title_placeholders"] = {"name": discovery_info.name.split("._d200deck")[0]}
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        host, port = self._data[CONF_HOST], self._data[CONF_PORT]
+        if user_input is not None:
+            err = await self._connect_web(host, port, user_input[CONF_TOKEN].strip(), user_input.get(CONF_SETUP_MQTT, False))
+            if err:
+                errors["base"] = err
+            else:
+                return await self.async_step_entities()
         return self.async_show_form(
-            step_id="web",
-            data_schema=vol.Schema({
-                vol.Required(CONF_HOST): str,
-                vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
-                vol.Required(CONF_TOKEN): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
-            }),
+            step_id="zeroconf_confirm",
+            data_schema=self._web_schema(False),
             errors=errors,
+            description_placeholders={"host": f"{host}:{port}"},
         )
 
     async def async_step_entities(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

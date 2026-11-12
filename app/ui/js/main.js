@@ -194,6 +194,12 @@ async function listenAll() {
     if (state.pane === "packages" && !typing) renderPackages();
   });
   await listen("teams-signin", (e) => teamsSignedIn(e.payload));
+  // the engine changed deck.json itself (Home Assistant set up MQTT over the Web API)
+  await listen("config-changed", async () => {
+    load(await invoke("get_state"));
+    if (state.pane === "packages") renderPackages();
+    toast("Settings changed by Home Assistant");
+  });
   // packages were added, removed or reloaded: new catalog, everything redrawn
   await listen("packages", async () => {
     await loadCatalog();

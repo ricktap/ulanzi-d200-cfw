@@ -12,5 +12,58 @@
     "actions": "actions.json",
     "apps": "apps/",
     "iconset": "iconset/"
-  }
+  },
+  "config": [
+    {
+      "key": "own_mqtt.enabled",
+      "label": "Use its own broker (off: the deck's shared connection under Deck, MQTT)",
+      "type": "toggle",
+      "default": false,
+      "group": "Own MQTT broker"
+    },
+    {
+      "key": "own_mqtt.host",
+      "label": "Host",
+      "type": "text",
+      "placeholder": "homeassistant.local",
+      "group": "Own MQTT broker"
+    },
+    {
+      "key": "own_mqtt.port",
+      "label": "Port",
+      "type": "number",
+      "default": 1883,
+      "min": 1,
+      "max": 65535,
+      "group": "Own MQTT broker"
+    },
+    {
+      "key": "own_mqtt.username",
+      "label": "User",
+      "type": "text",
+      "group": "Own MQTT broker"
+    },
+    {
+      "key": "own_mqtt.password",
+      "label": "Password",
+      "type": "text",
+      "secret": true,
+      "group": "Own MQTT broker"
+    },
+    {
+      "key": "own_mqtt.base_topic",
+      "label": "Base topic",
+      "type": "text",
+      "default": "d200",
+      "placeholder": "d200",
+      "group": "Own MQTT broker"
+    },
+    {
+      "key": "own_mqtt.tls",
+      "label": "TLS",
+      "type": "toggle",
+      "default": false,
+      "group": "Own MQTT broker"
+    }
+  ]
 }

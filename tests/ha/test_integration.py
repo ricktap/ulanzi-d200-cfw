@@ -236,3 +236,63 @@ async def test_deck_offline_does_not_break_setup(hass: HomeAssistant, aioclient_
     entry = MockConfigEntry(domain=DOMAIN, data=data, options={CONF_ENTITIES: ["light.kitchen"]})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
+
+
+# ------------------------------------------------------------------ discovery and MQTT hand-over
+
+from unittest.mock import patch
+
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from ipaddress import ip_address
+
+DISCOVERED = ZeroconfServiceInfo(
+    ip_address=ip_address("192.168.1.20"), ip_addresses=[ip_address("192.168.1.20")], port=8765,
+    hostname="studio-d200deck.local.", type="_d200deck._tcp.local.", name="D200 Deck on studio._d200deck._tcp.local.",
+    properties={"id": "studio", "version": "0.12.0", "path": "/api"},
+)
+FOUND = "http://192.168.1.20:8765"
+
+
+async def test_discovered_deck_gets_home_assistants_broker(hass: HomeAssistant, aioclient_mock) -> None:
+    # Home Assistant's MQTT runs on the Mosquitto add-on: the deck gets HA's address instead
+    MockConfigEntry(domain="mqtt", data={"broker": "core-mosquitto", "port": 1883, "username": "addons", "password": "secret"}).add_to_hass(hass)
+    aioclient_mock.get(f"{FOUND}/api", json={"name": "D200 Deck"})
+    aioclient_mock.put(f"{FOUND}/api/mqtt", json={"saved": True})
+    aioclient_mock.get(f"{FOUND}/api/mqtt", json={"enabled": True, "base_topic": "desk"})
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=DISCOVERED)
+    assert r["step_id"] == "zeroconf_confirm"
+    with patch("custom_components.d200_deck.mqtt_share.async_get_source_ip", return_value="192.168.1.5"):
+        r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_TOKEN: "t", "setup_mqtt": True})
+    assert r["step_id"] == "entities"
+    put = [c for c in aioclient_mock.mock_calls if c[0] == "PUT"][-1]
+    assert put[2] == {"host": "192.168.1.5", "port": 1883, "username": "addons", "password": "secret", "tls": False}
+    # (the flow is under test here, not the setup, which would wait for an MQTT client)
+    with patch("custom_components.d200_deck.async_setup_entry", return_value=True):
+        r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_ENTITIES: []})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    d = r["data"]
+    assert (d[CONF_TRANSPORT], d[CONF_BASE_TOPIC], d[CONF_HOST], d[CONF_PORT]) == ("both", "desk", "192.168.1.20", 8765)
+    assert r["result"].unique_id == "deck-studio"
+
+    # the same deck announcing itself again (new address) updates the entry instead
+    moved = ZeroconfServiceInfo(
+        ip_address=ip_address("192.168.1.21"), ip_addresses=[ip_address("192.168.1.21")], port=8765,
+        hostname=DISCOVERED.hostname, type=DISCOVERED.type, name=DISCOVERED.name, properties=DISCOVERED.properties,
+    )
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=moved)
+    assert r["type"] is FlowResultType.ABORT
+    assert hass.config_entries.async_entries(DOMAIN)[0].data[CONF_HOST] == "192.168.1.21"
+
+
+async def test_discovered_deck_without_mqtt_hand_over(hass: HomeAssistant, aioclient_mock) -> None:
+    aioclient_mock.get(f"{FOUND}/api", status=401, json={"error": "wrong token"})
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=DISCOVERED)
+    assert "setup_mqtt" not in r["data_schema"].schema, "no MQTT in Home Assistant: nothing to hand over"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_TOKEN: "bad"})
+    assert r["errors"] == {"base": "invalid_auth"}
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{FOUND}/api", json={"name": "D200 Deck"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_TOKEN: "t"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_ENTITIES: []})
+    assert r["data"][CONF_TRANSPORT] == "web"
+    assert not [c for c in aioclient_mock.mock_calls if c[0] == "PUT"]
