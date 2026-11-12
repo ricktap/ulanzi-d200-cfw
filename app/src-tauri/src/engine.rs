@@ -71,6 +71,8 @@ pub enum Msg {
     DevUp(Arc<Device>),
     Conn(Status),
     Mqtt(u64, MqttMsg),
+    /// A message on a plugin's own MQTT connection.
+    PluginMqtt(&'static str, u64, MqttMsg),
     Ui(Ui),
     Error(String),
     Art(String, Option<DynamicImage>),
@@ -123,6 +125,15 @@ struct Runtime {
     modes: HashMap<String, usize>,
 }
 
+/// A plugin's own MQTT connection.
+struct PluginMqtt {
+    conn: Mqtt,
+    cfg: crate::config::MqttCfg,
+    gen: u64,
+    up: bool,
+    status: String,
+}
+
 #[derive(Clone, Copy)]
 struct Held {
     since: Instant,
@@ -170,6 +181,8 @@ pub struct Engine {
     mqtt: Option<Mqtt>,
     mqtt_gen: u64,
     mqtt_up: bool,
+    /// Plugins with their own broker (`plugins.<id>.config.own_mqtt`).
+    plugin_mqtt: std::collections::HashMap<&'static str, PluginMqtt>,
     avail_owner: String,
     host: String,
 
@@ -377,6 +390,7 @@ impl Engine {
             mqtt: None,
             mqtt_gen: 0,
             mqtt_up: false,
+            plugin_mqtt: Default::default(),
             avail_owner: String::new(),
             host: mqtt::host_name(),
             np: None,
@@ -408,6 +422,7 @@ impl Engine {
             reads: vec![Reads::default(); NUM_KEYS],
         };
         e.restart_mqtt();
+        e.restart_plugin_mqtt();
         e.configure_plugins();
         e
     }
@@ -520,6 +535,7 @@ impl Engine {
             }
             Msg::Mqtt(gen, m) if gen == self.mqtt_gen => self.on_mqtt(m),
             Msg::Mqtt(..) => {}
+            Msg::PluginMqtt(id, gen, m) => self.on_plugin_mqtt(id, gen, m),
             Msg::Ui(u) => self.on_ui(u),
             Msg::Error(e) => (self.emit)("error", json!({ "message": e })),
             Msg::Art(k, img) => {
@@ -805,7 +821,10 @@ impl Engine {
             let profile = self.cfg.profiles.get(self.view.profile).map(|p| p.name.clone()).unwrap_or_default();
             let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };
             m.publish(&m.topic("key"), json!({ "profile": profile, "page": page, "key": k, "event": ev.name() }).to_string(), false);
-            if self.view.remote && k != STATUS_KEY {
+        }
+        // remote page keys belong to Home Assistant: its own broker, if it has one
+        if self.view.remote && k != STATUS_KEY {
+            if let Some(m) = self.mqtt_of(crate::plugins::ha::ID) {
                 m.publish(&m.topic(&format!("remote/{k}/action")), ev.name(), false);
             }
         }
@@ -938,9 +957,9 @@ impl Engine {
                 self.rt_dirty = true;
                 self.draw_key(k);
             }
-            Action::Mqtt { topic, payload, retain } => match &self.mqtt {
-                Some(m) if self.mqtt_up => m.publish(topic, payload.clone(), *retain),
-                _ => err("MQTT is not connected".into()),
+            Action::Mqtt { topic, payload, retain } => match self.mqtt_of(crate::plugins::ha::ID) {
+                Some(m) => m.publish(topic, payload.clone(), *retain),
+                None => err("MQTT is not connected".into()),
             },
             Action::Brightness { value } => {
                 let cur = self.cfg.settings.brightness as i32;
@@ -982,6 +1001,9 @@ impl Engine {
             "printer": self.printer.as_ref().map(|p| p.state.clone()),
             "debugging": crate::plugins::jetbrains::active(&self.signals),
         });
+        // plugins on their own broker
+        let own: Map<String, Value> = self.plugin_mqtt.iter().map(|(id, o)| (id.to_string(), json!({ "connected": o.up, "status": o.status }))).collect();
+        v["own_mqtt"] = Value::Object(own);
         // what the plugins report about their connections
         for p in self.plugins.iter().flatten() {
             if let (Value::Object(st), Some(out)) = (p.status(), v.as_object_mut()) {
@@ -1842,6 +1864,84 @@ impl Engine {
 
     // -------------------------------------------------------------- MQTT
 
+    /// A message for plugin `id` (topic relative to its base), and what the core follows.
+    fn plugin_mqtt_message(&mut self, id: &'static str, rest: &str, text: &str) {
+        self.call_plugin(id, |p, h, _| p.on_mqtt(rest, text, h));
+        if id == crate::plugins::ha::ID {
+            if rest == "printer" {
+                self.on_printer();
+            }
+            if let ["remote", k, "set"] = rest.split('/').collect::<Vec<_>>()[..] {
+                (self.emit)("remote", json!({ "key": k.parse::<usize>().unwrap_or(0) }));
+            }
+        }
+    }
+
+    /// The connection plugin `id` uses, when it is up: its own broker, else the shared one.
+    fn mqtt_of(&self, id: &str) -> Option<&Mqtt> {
+        match self.plugin_mqtt.get(id) {
+            Some(own) => own.up.then_some(&own.conn),
+            None => self.mqtt.as_ref().filter(|_| self.mqtt_up),
+        }
+    }
+
+    /// `plugins.<id>.config.own_mqtt` when it is switched on and has a host.
+    fn own_mqtt_cfg(&self, id: &str) -> Option<crate::config::MqttCfg> {
+        let v = self.cfg.plugins.get(id)?.config.get("own_mqtt")?.clone();
+        let c: crate::config::MqttCfg = serde_json::from_value(v).ok()?;
+        (c.enabled && !c.host.trim().is_empty() && self.plugin_enabled(id)).then_some(c)
+    }
+
+    /// Start, restart or stop the plugins' own MQTT connections to match the config.
+    fn restart_plugin_mqtt(&mut self) {
+        let ids: Vec<&'static str> = self.plugins.iter().flatten().filter(|p| !p.mqtt_topics().is_empty()).map(|p| p.id()).collect();
+        for id in ids {
+            let want = self.own_mqtt_cfg(id);
+            if self.plugin_mqtt.get(id).map(|o| &o.cfg) == want.as_ref() {
+                continue;
+            }
+            if let Some(old) = self.plugin_mqtt.remove(id) {
+                old.conn.stop();
+            }
+            let Some(cfg) = want else { continue };
+            self.mqtt_gen += 1;
+            let (tx, gen) = (self.tx.clone(), self.mqtt_gen);
+            let conn = Mqtt::start_as(&cfg, id.rsplit('.').next().unwrap_or(id), false, move |m| {
+                let _ = tx.send(Msg::PluginMqtt(id, gen, m));
+            });
+            let status = format!("connecting to {}…", cfg.host.trim());
+            self.plugin_mqtt.insert(id, PluginMqtt { conn, cfg, gen, up: false, status });
+        }
+        self.emit_integrations();
+    }
+
+    fn on_plugin_mqtt(&mut self, id: &'static str, gen: u64, m: MqttMsg) {
+        let Some(own) = self.plugin_mqtt.get_mut(id).filter(|o| o.gen == gen) else { return };
+        match m {
+            MqttMsg::Connected => {
+                own.up = true;
+                own.status = format!("connected to {}", own.cfg.host.trim());
+                let topics = self.plugins.iter().flatten().find(|p| p.id() == id).map(|p| p.mqtt_topics()).unwrap_or(&[]);
+                for t in topics {
+                    own.conn.subscribe(t);
+                }
+                self.emit_integrations();
+            }
+            MqttMsg::Disconnected(e) => {
+                own.up = false;
+                own.status = format!("MQTT: {e}");
+                self.emit_integrations();
+            }
+            MqttMsg::Message { topic, payload } => {
+                let base = own.conn.base.clone();
+                let text = String::from_utf8_lossy(&payload).trim().to_string();
+                if let Some(rest) = topic.strip_prefix(&format!("{base}/")) {
+                    self.plugin_mqtt_message(id, rest, &text);
+                }
+            }
+        }
+    }
+
     fn restart_mqtt(&mut self) {
         if let Some(m) = self.mqtt.take() {
             m.stop();
@@ -1939,22 +2039,17 @@ impl Engine {
                 }
             }
             _ => {
-                // Everything else belongs to the plugins that read it.
+                // Everything else belongs to the plugins that read it (on this connection).
                 let ids: Vec<&'static str> = self
                     .plugins
                     .iter()
                     .flatten()
+                    .filter(|p| !self.plugin_mqtt.contains_key(p.id()))
                     .filter(|p| p.mqtt_topics().iter().any(|t| crate::plugins::topic_matches(t, rest)))
                     .map(|p| p.id())
                     .collect();
                 for id in ids {
-                    self.call_plugin(id, |p, h, _| p.on_mqtt(rest, &text, h));
-                }
-                if rest == "printer" {
-                    self.on_printer();
-                }
-                if let ["remote", k, "set"] = rest.split('/').collect::<Vec<_>>()[..] {
-                    (self.emit)("remote", json!({ "key": k.parse::<usize>().unwrap_or(0) }));
+                    self.plugin_mqtt_message(id, rest, &text);
                 }
             }
         }
@@ -1968,7 +2063,11 @@ impl Engine {
         }
         let i = self.plugins.iter().position(|p| p.as_ref().is_some_and(|p| p.id() == id))?;
         let mut p = self.plugins[i].take()?;
-        let base = self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into());
+        let base = match self.plugin_mqtt.get(p.id()) {
+            Some(own) => own.conn.base.clone(),
+            None => self.mqtt.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "d200".into()),
+        };
+        let pid = p.id();
         let (r, out, errors, reqs) = {
             let dir = base_dir(&self.path);
             let sender = crate::plugins::Sender::new(p.id(), self.tx.clone());
@@ -1983,9 +2082,9 @@ impl Engine {
             (self.emit)("error", json!({ "message": e }));
         }
         for (topic, payload, retain) in out {
-            match &self.mqtt {
-                Some(m) if self.mqtt_up => m.publish(&topic, payload, retain),
-                _ => (self.emit)("error", json!({ "message": "MQTT is not connected" })),
+            match self.mqtt_of(pid) {
+                Some(m) => m.publish(&topic, payload, retain),
+                None => (self.emit)("error", json!({ "message": "MQTT is not connected" })),
             }
         }
         self.host_requests(reqs);
@@ -2025,6 +2124,18 @@ impl Engine {
                 HostRequest::Press { key, event } => {
                     if key < NUM_KEYS {
                         self.fire(key, event);
+                    }
+                }
+                HostRequest::SetMqtt(m) => {
+                    // Home Assistant set up the deck's MQTT connection over the Web API
+                    if self.cfg.settings.mqtt != m {
+                        self.cfg.settings.mqtt = m;
+                        self.cfg.sync();
+                        if let Err(e) = self.cfg.save(&self.path) {
+                            (self.emit)("error", json!({ "message": format!("could not save the MQTT settings: {e}") }));
+                        }
+                        self.restart_mqtt();
+                        (self.emit)("config-changed", json!(null));
                     }
                 }
             }
@@ -2266,6 +2377,7 @@ impl Engine {
             self.set_brightness(self.cfg.settings.brightness, false);
         }
         self.configure_plugins();
+        self.restart_plugin_mqtt();
         if old.settings.screensaver != self.cfg.settings.screensaver && self.saver.is_some() {
             self.saver = None;
             self.start_saver();

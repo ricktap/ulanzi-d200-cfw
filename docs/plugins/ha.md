@@ -9,6 +9,11 @@ label, icon (by kind, from the plugin's own icon set: light, switch, sensor, cli
 cover, scene, vacuum, automation, presence, energy), value, on/off, colour, progress and
 background. Choose another icon on the key to override it.
 
+## Settings
+
+**Own MQTT broker** (off by default): host, port, user, password, base topic, TLS. Off, the
+plugin uses the deck's shared connection (Packages, Deck, MQTT).
+
 ## Actions
 
 `press` (sends `press` or `long_press` back to Home Assistant), `mqtt` (publish any topic),

@@ -46,6 +46,8 @@ pub enum HostRequest {
     Notify(String),
     /// Press a key of the page on the device.
     Press { key: usize, event: crate::config::KeyEvent },
+    /// Use these settings for the deck's shared MQTT connection (saved to deck.json).
+    SetMqtt(crate::config::MqttCfg),
 }
 
 /// What a plugin may touch while it handles one call.

@@ -28,12 +28,21 @@ The entity ids above are what HA usually generates. Check yours in the device pa
 - By hand: copy `custom_components/d200_deck` into the `custom_components` folder of your
   Home Assistant configuration, then restart.
 
-**Set up:** [add the integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=d200_deck) (or Settings, Devices & services, Add integration,
+**Found by itself:** while the deck's Web API runs (Packages, Web API, Run the web server), the
+deck announces itself on the network. Home Assistant then shows **D200 Deck discovered** under
+Settings, Devices & services. Click Configure and enter the token. If Home Assistant has the MQTT
+integration, it also offers to **set up the deck's MQTT connection with Home Assistant's
+broker**: it sends the broker's address and login to the deck over the Web API, the deck saves
+them (Packages, Deck, MQTT) and connects, and the integration uses MQTT and the Web API. With the
+Mosquitto add-on, the deck gets Home Assistant's own address instead of `core-mosquitto`.
+
+**Set up by hand:** [add the integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=d200_deck) (or Settings, Devices & services, Add integration,
 **D200 Deck**):
 1. Choose the connection: MQTT, Web API, or both.
 2. MQTT: the base topic (`d200` unless you changed it in D200 Deck).
 3. Web API: the computer running D200 Deck (name or address), the port (8765) and the token. The
-   integration checks them right away.
+   integration checks them right away and, as above, can hand Home Assistant's broker to the
+   deck.
 4. Pick the entities to put on the deck. Change the list later under the integration's
    Configure.
 
@@ -92,6 +101,13 @@ Tests: `tests/ha/run.sh` (needs `pip install -r tests/ha/requirements.txt`) runs
 in Home Assistant's test harness.
 
 The sections below describe the MQTT topics themselves, for setups without the integration.
+
+## A broker of its own
+
+By default every plugin uses the deck's one MQTT connection (Packages, Deck, MQTT). The Home
+Assistant plugin can use a broker of its own instead: Packages, Home Assistant, Settings, **Own
+MQTT broker**. Its keys, the remote page, the printer and its `mqtt` action then go to that
+broker; key events, discovery and notifications stay on the deck's connection.
 
 ## Entities on any key
 

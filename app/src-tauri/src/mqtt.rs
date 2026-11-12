@@ -38,9 +38,18 @@ pub fn host_name() -> String {
 }
 
 impl Mqtt {
+    /// The deck's shared connection (with the availability last will).
     pub fn start(cfg: &MqttCfg, on: impl Fn(MqttMsg) + Send + 'static) -> Mqtt {
+        Mqtt::start_as(cfg, "", true, on)
+    }
+
+    /// A connection with a client id suffix (a plugin's own broker); `will`: publish
+    /// `<base>/availability` "offline" as the last will.
+    pub fn start_as(cfg: &MqttCfg, suffix: &str, will: bool, on: impl Fn(MqttMsg) + Send + 'static) -> Mqtt {
         let host: String = host_name().chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
-        let mut opts = MqttOptions::new(format!("d200deck-{host}"), cfg.host.trim(), cfg.port);
+        let suffix: String = suffix.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+        let id = if suffix.is_empty() { format!("d200deck-{host}") } else { format!("d200deck-{host}-{suffix}") };
+        let mut opts = MqttOptions::new(id, cfg.host.trim(), cfg.port);
         opts.set_keep_alive(Duration::from_secs(20));
         opts.set_max_packet_size(256 * 1024, 256 * 1024);
         if !cfg.username.is_empty() {
@@ -51,7 +60,9 @@ impl Mqtt {
         }
         let base = cfg.base_topic.trim().trim_end_matches('/').to_string();
         let base = if base.is_empty() { "d200".into() } else { base };
-        opts.set_last_will(rumqttc::LastWill::new(format!("{base}/availability"), "offline", QoS::AtLeastOnce, true));
+        if will {
+            opts.set_last_will(rumqttc::LastWill::new(format!("{base}/availability"), "offline", QoS::AtLeastOnce, true));
+        }
         let (client, mut conn) = Client::new(opts, 128);
         let stop = Arc::new(AtomicBool::new(false));
         let stop2 = stop.clone();

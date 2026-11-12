@@ -83,6 +83,7 @@ scripts/set-version.sh 1.2.3     # sets Cargo.toml/lock, tauri.conf.json, packag
   - `D200_DIRECT=1` with `D200_PORT` skips adb.
   - `D200_MEDIA_FILE` replaces AppleScript to Spotify/Music.
   - `D200FW_HOST_BIN` and `D200_HEADLESS` point the e2e tests at prebuilt binaries.
+  - `D200_NO_MDNS=1` keeps the Web API from announcing itself on the network.
 - The app embeds `bin/d200fw` with `include_bytes!`. If you change `device/` and don't copy the
   new binary to `bin/`, the app ships the old one.
 

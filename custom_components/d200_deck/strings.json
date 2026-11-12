@@ -16,11 +16,12 @@
       },
       "web": {
         "title": "Web API",
-        "description": "The computer running D200 Deck, and the token from Packages, Web API. Presses come back to a Home Assistant webhook, which the integration registers with the deck.",
+        "description": "The computer running D200 Deck, and the token from Packages, Web API. Presses come back to a Home Assistant webhook, which the integration registers with the deck. It can also hand Home Assistant's MQTT broker to the deck, so you don't enter it there.",
         "data": {
           "host": "Host (name or address of the computer)",
           "port": "Port",
-          "token": "Token"
+          "token": "Token",
+          "setup_mqtt": "Set up the deck's MQTT connection with Home Assistant's broker"
         }
       },
       "entities": {
@@ -29,16 +30,26 @@
         "data": {
           "entities": "Entities on the deck"
         }
+      },
+      "zeroconf_confirm": {
+        "title": "D200 Deck found",
+        "description": "D200 Deck is running at {host}. Enter the token from Packages, Web API, in D200 Deck.",
+        "data": {
+          "token": "Token",
+          "setup_mqtt": "Set up the deck's MQTT connection with Home Assistant's broker"
+        }
       }
     },
     "error": {
       "invalid_topic": "A topic without + or #, e.g. d200.",
       "cannot_connect": "The deck did not answer. Is D200 Deck running, with Run the web server on?",
-      "invalid_auth": "The deck refused the token."
+      "invalid_auth": "The deck refused the token.",
+      "no_mqtt": "Home Assistant has no MQTT broker set up; switch this off or add the MQTT integration first."
     },
     "abort": {
       "already_configured": "This D200 Deck is already set up."
-    }
+    },
+    "flow_title": "{name}"
   },
   "options": {
     "step": {
