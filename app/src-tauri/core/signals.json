@@ -26,5 +26,9 @@
   {
     "name": "time.second_progress",
     "type": "percent"
+  },
+  {
+    "name": "key.event",
+    "type": "event"
   }
 ]

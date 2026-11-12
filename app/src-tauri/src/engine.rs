@@ -218,6 +218,8 @@ pub struct Engine {
     swallow: [bool; NUM_KEYS],
     /// A press waiting to see whether a second one makes it a double press (until then).
     pending_press: [Option<Instant>; NUM_KEYS],
+    /// Key events so far (`n` in the signal `key.event`).
+    key_events: u64,
     /// The d200fw this app embeds, to upgrade an older one on the device (once per run).
     firmware: &'static [u8],
     fw_upgrade_tried: bool,
@@ -416,6 +418,7 @@ impl Engine {
             scene: Scene::new(),
             swallow: [false; NUM_KEYS],
             pending_press: [None; NUM_KEYS],
+            key_events: 0,
             firmware: &[],
             fw_upgrade_tried: false,
             signals: Signals::default(),
@@ -794,6 +797,20 @@ impl Engine {
         }
     }
 
+    /// The core signal `key.event` for every key event, handed to the plugins that follow it
+    /// (the Web API forwards it to Home Assistant). `n` counts, so equal events differ.
+    fn publish_key_event(&mut self, k: usize, ev: KeyEvent) {
+        self.key_events += 1;
+        let profile = self.cfg.profiles.get(self.view.profile).map(|p| p.name.clone()).unwrap_or_default();
+        let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };
+        let v = json!({ "key": k, "event": ev.name(), "profile": profile, "page": page, "n": self.key_events });
+        self.signals.publish("key.event", v.clone());
+        let ids: Vec<&'static str> = self.plugins.iter().flatten().filter(|p| p.watches().contains(&"key.event")).map(|p| p.id()).collect();
+        for id in ids {
+            self.call_plugin(id, |p, h, _| p.on_signal("key.event", &v, h));
+        }
+    }
+
     /// Does key k have double-press actions right now? Only those wait before a press.
     fn has_double(&self, k: usize) -> bool {
         if k == STATUS_KEY {
@@ -817,6 +834,7 @@ impl Engine {
     }
 
     fn fire(&mut self, k: usize, ev: KeyEvent) {
+        self.publish_key_event(k, ev);
         if let Some(m) = &self.mqtt {
             let profile = self.cfg.profiles.get(self.view.profile).map(|p| p.name.clone()).unwrap_or_default();
             let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };

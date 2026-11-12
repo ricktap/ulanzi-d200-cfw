@@ -126,8 +126,15 @@ pub struct Web {
     ids: BTreeMap<String, String>,
     /// The deck's shared MQTT settings, for GET /api/mqtt.
     core_mqtt: crate::config::MqttCfg,
-    /// Webhook URLs registered over the API (Home Assistant), until they expire.
-    subs: BTreeMap<String, std::time::Instant>,
+    /// Webhook URLs registered over the API (Home Assistant), until they expire, and
+    /// whether they also want every key event.
+    subs: BTreeMap<String, Sub>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Sub {
+    until: std::time::Instant,
+    keys: bool,
 }
 
 /// At most this many subscriptions; each lives up to an hour unless renewed.
@@ -232,8 +239,8 @@ impl Web {
             }
             ("GET", ["api", "subscriptions"]) => {
                 let now = std::time::Instant::now();
-                self.subs.retain(|_, until| *until > now);
-                let list: Vec<Value> = self.subs.iter().map(|(u, until)| json!({ "url": u, "expires_in": until.duration_since(now).as_secs() })).collect();
+                self.subs.retain(|_, s| s.until > now);
+                let list: Vec<Value> = self.subs.iter().map(|(u, s)| json!({ "url": u, "expires_in": s.until.duration_since(now).as_secs(), "keys": s.keys })).collect();
                 (200, json!(list))
             }
             ("POST", ["api", "subscriptions"]) => {
@@ -242,13 +249,15 @@ impl Web {
                     return (400, json!({ "error": "url must be an http:// or https:// URL" }));
                 }
                 let now = std::time::Instant::now();
-                self.subs.retain(|_, until| *until > now);
+                self.subs.retain(|_, s| s.until > now);
                 if !self.subs.contains_key(&url) && self.subs.len() >= MAX_SUBS {
                     return (400, json!({ "error": format!("at most {MAX_SUBS} subscriptions") }));
                 }
                 let ttl = body.get("ttl").and_then(Value::as_u64).unwrap_or(900).clamp(10, MAX_TTL);
-                self.subs.insert(url.clone(), now + Duration::from_secs(ttl));
-                (200, json!({ "url": url, "expires_in": ttl }))
+                // "events": ["presses"] (default) or ["presses", "keys"]: every key event too
+                let keys = body.get("events").and_then(Value::as_array).is_some_and(|e| e.iter().any(|x| x == "keys"));
+                self.subs.insert(url.clone(), Sub { until: now + Duration::from_secs(ttl), keys });
+                (200, json!({ "url": url, "expires_in": ttl, "keys": keys }))
             }
             ("DELETE", ["api", "subscriptions"]) => {
                 let url = body.get("url").and_then(Value::as_str).unwrap_or("");
@@ -409,7 +418,7 @@ impl Plugin for Web {
         host.publish(&format!("{id}.pressed"), json!(event));
         // the configured webhook and every live subscription get the press
         let now = std::time::Instant::now();
-        self.subs.retain(|_, until| *until > now);
+        self.subs.retain(|_, s| s.until > now);
         let mut urls: Vec<String> = self.subs.keys().cloned().collect();
         let hook = self.settings.webhook.clone();
         if (hook.starts_with("http://") || hook.starts_with("https://")) && !urls.contains(&hook) {
@@ -422,6 +431,26 @@ impl Plugin for Web {
             });
         }
         Some(Ok(()))
+    }
+
+    fn watches(&self) -> &'static [&'static str] {
+        &["key.event"]
+    }
+
+    /// Every key event goes to the subscriptions that asked for it.
+    fn on_signal(&mut self, name: &str, value: &Value, _host: &mut Host) {
+        if name != "key.event" {
+            return;
+        }
+        let now = std::time::Instant::now();
+        self.subs.retain(|_, s| s.until > now);
+        for url in self.subs.iter().filter(|(_, s)| s.keys).map(|(u, _)| u.clone()) {
+            let mut body = value.clone();
+            body["type"] = json!("key");
+            std::thread::spawn(move || {
+                let _ = ureq::post(&url).timeout(Duration::from_secs(5)).send_json(body);
+            });
+        }
     }
 
     fn options(&self, name: &str) -> Option<Vec<Value>> {
@@ -517,7 +546,8 @@ pub fn openapi() -> Value {
                 "post": {
                     "summary": "Register (or renew) a webhook for presses on Web keys",
                     "description": "The deck posts {\"id\", \"event\"} to the URL for every press on a key with the app Web key. A subscription expires after ttl seconds (10 to 3600, default 900); renew it before then.",
-                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" }, "ttl": { "type": "integer", "minimum": 10, "maximum": 3600 } } } } } },
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" }, "ttl": { "type": "integer", "minimum": 10, "maximum": 3600 },
+                        "events": { "type": "array", "items": { "type": "string", "enum": ["presses", "keys"] }, "description": "presses: presses on Web keys ({id, event}); keys: also every key event ({type: key, key, event, profile, page, n})" } } } } } },
                     "responses": { "200": ok("{url, expires_in}"), "400": err, "401": err },
                 },
                 "delete": {

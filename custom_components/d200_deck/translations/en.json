@@ -181,5 +181,37 @@
         "both": "MQTT and Web API"
       }
     }
+  },
+  "entity": {
+    "event": {
+      "key_event": {
+        "name": "Key event",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "press": "Press",
+              "long_press": "Long press",
+              "double_press": "Double press"
+            }
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      }
+    },
+    "sensor": {
+      "profile": {
+        "name": "Profile"
+      },
+      "page": {
+        "name": "Page"
+      },
+      "computer": {
+        "name": "Computer"
+      }
+    }
   }
 }

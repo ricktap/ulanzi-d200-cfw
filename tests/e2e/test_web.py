@@ -124,14 +124,18 @@ try:
     srv = http.server.HTTPServer(("127.0.0.1", 0), Hook)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     hook = f"http://127.0.0.1:{srv.server_address[1]}/hook"
-    code, sub = api("POST", "/api/subscriptions", {"url": hook, "ttl": 60})
+    code, sub = api("POST", "/api/subscriptions", {"url": hook, "ttl": 60, "events": ["presses", "keys"]})
     api("PUT", "/api/keys/build", {"label": "Build"})
     api("POST", "/api/actions/core:page", {"params": {"page": "main"}})
     time.sleep(0.8)
     api("POST", "/api/keys/0/press")
     deadline = time.time() + 5
-    while not got and time.time() < deadline: time.sleep(0.1)
-    check("POST /api/subscriptions, then a press reaches the webhook", code == 200 and got == [{"id": "build", "event": "press"}], (sub, got))
+    while len([g for g in got if g.get("type") == "key"]) < 2 and time.time() < deadline: time.sleep(0.1)
+    time.sleep(0.5)
+    presses = [g for g in got if "id" in g]
+    keys = [(g["key"], g["event"]) for g in got if g.get("type") == "key"]
+    check("POST /api/subscriptions, then a press reaches the webhook", code == 200 and presses == [{"id": "build", "event": "press"}], (sub, got))
+    check("... and every key event too", (0, "press") in keys and all(g.get("profile") == "Default" for g in got if g.get("type") == "key"), keys)
     srv.shutdown()
 
     # MQTT settings pushed over the API (as the Home Assistant integration does)

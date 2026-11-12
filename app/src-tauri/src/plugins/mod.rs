@@ -171,6 +171,15 @@ pub trait Plugin: Send {
     /// more than once.
     fn stop(&mut self) {}
 
+    /// Signals this plugin follows (e.g. `key.event`); `on_signal` gets every new value.
+    /// Following is all a plugin may do with key events: forwarding them, never acting on them.
+    fn watches(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    /// A new value of a signal from `watches`.
+    fn on_signal(&mut self, _name: &str, _value: &Value, _host: &mut Host) {}
+
     /// Once a second.
     fn tick(&mut self, _ticks: u64, _cfg: &Config, _host: &mut Host) {}
 

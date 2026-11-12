@@ -41,4 +41,9 @@ for the CPU) can show them.
 `audio.muted`, `weather.*`, `pomodoro.*`, `media.*` (title, artist, album, progress, player).
 The Signals view shows them live.
 
+The deck itself (namespace `core`) publishes `key.event` on every key event:
+`{key, event, profile, page, n}` with `event` one of `press`, `long_press`, `double_press`,
+`down`, `up`. Plugins can follow it (`watches()`); the Web API forwards it to subscriptions with
+`"events": ["keys"]`.
+
 Code: [app/src-tauri/src/plugins/core](../../app/src-tauri/src/plugins/core/).
