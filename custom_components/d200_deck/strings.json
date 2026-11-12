@@ -3,25 +3,48 @@
     "step": {
       "user": {
         "title": "D200 Deck",
-        "description": "D200 Deck must use the same MQTT broker as Home Assistant. Pick the entities to put on the deck; you can change them later.",
+        "description": "How should Home Assistant reach D200 Deck? MQTT needs the MQTT integration on the same broker as the deck. The Web API needs the plugin Web API switched on in D200 Deck (Packages, Web API) and its token.",
         "data": {
-          "base_topic": "Base topic (as in D200 Deck: Packages, Deck, MQTT)",
+          "transport": "Connection"
+        }
+      },
+      "mqtt": {
+        "title": "MQTT",
+        "data": {
+          "base_topic": "Base topic (as in D200 Deck: Packages, Deck, MQTT)"
+        }
+      },
+      "web": {
+        "title": "Web API",
+        "description": "The computer running D200 Deck, and the token from Packages, Web API. Presses come back to a Home Assistant webhook, which the integration registers with the deck.",
+        "data": {
+          "host": "Host (name or address of the computer)",
+          "port": "Port",
+          "token": "Token"
+        }
+      },
+      "entities": {
+        "title": "Entities on the deck",
+        "description": "Pick the entities to put on the deck; you can change them later. On the deck, use the app Home Assistant (MQTT) or Web key (Web API) and pick the entity's id.",
+        "data": {
           "entities": "Entities on the deck"
         }
       }
     },
     "error": {
-      "invalid_topic": "A topic without + or #, e.g. d200."
+      "invalid_topic": "A topic without + or #, e.g. d200.",
+      "cannot_connect": "The deck did not answer. Is D200 Deck running, with Run the web server on?",
+      "invalid_auth": "The deck refused the token."
     },
     "abort": {
-      "already_configured": "A D200 Deck with this base topic is already set up."
+      "already_configured": "This D200 Deck is already set up."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Entities on the deck",
-        "description": "Each entity becomes an id you can put on any key with the app Home Assistant. Taking one off removes it from the deck.",
+        "description": "Each entity becomes an id you can put on any key: with the app Home Assistant (MQTT) or Web key (Web API). Taking one off removes it from the deck.",
         "data": {
           "entities": "Entities on the deck",
           "default_actions": "A press runs the entity's default action (toggle, run the scene, press the button)"
@@ -34,45 +57,117 @@
       "name": "Notify",
       "description": "Shows a notification on the wide key.",
       "fields": {
-        "message": { "name": "Message", "description": "The text." },
-        "title": { "name": "Title", "description": "A title above the text." },
-        "icon": { "name": "Icon", "description": "A Night Signal icon name or an emoji." },
-        "color": { "name": "Colour", "description": "Accent colour, e.g. #FFBF69." },
-        "duration": { "name": "Duration", "description": "Seconds on the key." },
-        "critical": { "name": "Critical", "description": "Stays until the key is pressed." },
-        "base_topic": { "name": "Base topic", "description": "Only this D200 Deck (when there are several)." }
+        "message": {
+          "name": "Message",
+          "description": "The text."
+        },
+        "title": {
+          "name": "Title",
+          "description": "A title above the text."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "A Night Signal icon name or an emoji."
+        },
+        "color": {
+          "name": "Colour",
+          "description": "Accent colour, e.g. #FFBF69."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Seconds on the key."
+        },
+        "critical": {
+          "name": "Critical",
+          "description": "Stays until the key is pressed."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "Only this D200 Deck: its MQTT base topic or its Web API host."
+        }
       }
     },
     "set_key": {
       "name": "Set key",
       "description": "Describes a key by id; put the app Home Assistant on a key in D200 Deck and pick the id.",
       "fields": {
-        "key_id": { "name": "Key id", "description": "Letters, digits, _, - and ." },
-        "label": { "name": "Label", "description": "Text on the key." },
-        "kind": { "name": "Kind", "description": "Picks the icon." },
-        "icon": { "name": "Icon", "description": "Overrides the kind: an icon name or an emoji." },
-        "value": { "name": "Value", "description": "Shown on the key." },
-        "on": { "name": "On", "description": "On or off, for icons that show it." },
-        "color": { "name": "Colour", "description": "The entity's colour, for icons that show one." },
-        "progress": { "name": "Progress", "description": "0 to 100." },
-        "background": { "name": "Background", "description": "The key's background colour." },
-        "base_topic": { "name": "Base topic", "description": "Only this D200 Deck." }
+        "key_id": {
+          "name": "Key id",
+          "description": "Letters, digits, _, - and ."
+        },
+        "label": {
+          "name": "Label",
+          "description": "Text on the key."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Picks the icon."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "Overrides the kind: an icon name or an emoji."
+        },
+        "value": {
+          "name": "Value",
+          "description": "Shown on the key."
+        },
+        "on": {
+          "name": "On",
+          "description": "On or off, for icons that show it."
+        },
+        "color": {
+          "name": "Colour",
+          "description": "The entity's colour, for icons that show one."
+        },
+        "progress": {
+          "name": "Progress",
+          "description": "0 to 100."
+        },
+        "background": {
+          "name": "Background",
+          "description": "The key's background colour."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "Only this D200 Deck: its MQTT base topic or its Web API host."
+        }
       }
     },
     "clear_key": {
       "name": "Clear key",
       "description": "Removes a key id from the deck.",
       "fields": {
-        "key_id": { "name": "Key id", "description": "The id to remove." },
-        "base_topic": { "name": "Base topic", "description": "Only this D200 Deck." }
+        "key_id": {
+          "name": "Key id",
+          "description": "The id to remove."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "Only this D200 Deck: its MQTT base topic or its Web API host."
+        }
       }
     },
     "show_remote_page": {
       "name": "Show remote page",
       "description": "Shows or leaves the deck's remote page.",
       "fields": {
-        "show": { "name": "Show", "description": "Off leaves the page." },
-        "base_topic": { "name": "Base topic", "description": "Only this D200 Deck." }
+        "show": {
+          "name": "Show",
+          "description": "Off leaves the page."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "Only this D200 Deck: its MQTT base topic or its Web API host."
+        }
+      }
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "mqtt": "MQTT",
+        "web": "Web API",
+        "both": "MQTT and Web API"
       }
     }
   }

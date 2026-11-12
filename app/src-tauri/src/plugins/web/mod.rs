@@ -101,7 +101,13 @@ pub struct Web {
     error: Option<String>,
     /// id -> label, for the id picker.
     ids: BTreeMap<String, String>,
+    /// Webhook URLs registered over the API (Home Assistant), until they expire.
+    subs: BTreeMap<String, std::time::Instant>,
 }
+
+/// At most this many subscriptions; each lives up to an hour unless renewed.
+const MAX_SUBS: usize = 16;
+const MAX_TTL: u64 = 3600;
 
 impl Web {
     fn start(&mut self, host: &Host) {
@@ -159,10 +165,39 @@ impl Web {
                 200,
                 json!({
                     "name": "D200 Deck", "version": env!("CARGO_PKG_VERSION"),
+                    "openapi": "/api/openapi.json",
                     "endpoints": ["GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
-                                  "POST /api/notify", "POST /api/actions/<action>", "POST /api/keys/<0-13>/press"],
+                                  "POST /api/notify", "POST /api/actions/<action>", "POST /api/keys/<0-13>/press",
+                                  "GET|POST|DELETE /api/subscriptions"],
                 }),
             ),
+            ("GET", ["api", "subscriptions"]) => {
+                let now = std::time::Instant::now();
+                self.subs.retain(|_, until| *until > now);
+                let list: Vec<Value> = self.subs.iter().map(|(u, until)| json!({ "url": u, "expires_in": until.duration_since(now).as_secs() })).collect();
+                (200, json!(list))
+            }
+            ("POST", ["api", "subscriptions"]) => {
+                let url = body.get("url").and_then(Value::as_str).unwrap_or("").trim().to_string();
+                if !(url.starts_with("http://") || url.starts_with("https://")) || url.len() > 2048 {
+                    return (400, json!({ "error": "url must be an http:// or https:// URL" }));
+                }
+                let now = std::time::Instant::now();
+                self.subs.retain(|_, until| *until > now);
+                if !self.subs.contains_key(&url) && self.subs.len() >= MAX_SUBS {
+                    return (400, json!({ "error": format!("at most {MAX_SUBS} subscriptions") }));
+                }
+                let ttl = body.get("ttl").and_then(Value::as_u64).unwrap_or(900).clamp(10, MAX_TTL);
+                self.subs.insert(url.clone(), now + Duration::from_secs(ttl));
+                (200, json!({ "url": url, "expires_in": ttl }))
+            }
+            ("DELETE", ["api", "subscriptions"]) => {
+                let url = body.get("url").and_then(Value::as_str).unwrap_or("");
+                match self.subs.remove(url) {
+                    Some(_) => (200, json!({ "removed": url })),
+                    None => (404, json!({ "error": "no such subscription" })),
+                }
+            }
             ("GET", ["api", "signals"]) => {
                 let mut all = host.all_signals();
                 all.sort_by(|a, b| a.0.cmp(&b.0));
@@ -305,12 +340,18 @@ impl Plugin for Web {
             .unwrap_or("press")
             .to_string();
         host.publish(&format!("{id}.pressed"), json!(event));
-        let url = self.settings.webhook.clone();
-        if url.starts_with("http://") || url.starts_with("https://") {
+        // the configured webhook and every live subscription get the press
+        let now = std::time::Instant::now();
+        self.subs.retain(|_, until| *until > now);
+        let mut urls: Vec<String> = self.subs.keys().cloned().collect();
+        let hook = self.settings.webhook.clone();
+        if (hook.starts_with("http://") || hook.starts_with("https://")) && !urls.contains(&hook) {
+            urls.push(hook);
+        }
+        for url in urls {
+            let body = json!({ "id": id, "event": event });
             std::thread::spawn(move || {
-                let _ = ureq::post(&url)
-                    .timeout(Duration::from_secs(5))
-                    .send_json(json!({ "id": id, "event": event }));
+                let _ = ureq::post(&url).timeout(Duration::from_secs(5)).send_json(body);
             });
         }
         Some(Ok(()))
@@ -332,6 +373,109 @@ impl Plugin for Web {
             "addresses": self.server.as_ref().map(|s| local_addresses(s.port)),
         }})
     }
+}
+
+/// The OpenAPI 3.1 description of this API (served without a token at /api/openapi.json).
+pub fn openapi() -> Value {
+    let err = json!({ "$ref": "#/components/responses/Error" });
+    let ok = |desc: &str| json!({ "description": desc, "content": { "application/json": { "schema": { "type": "object" } } } });
+    let name = |n: &str, d: &str| json!({ "name": n, "in": "path", "required": true, "description": d, "schema": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,128}$" } });
+    let key = json!({ "$ref": "#/components/schemas/Key" });
+    json!({
+        "openapi": "3.1.0",
+        "info": {
+            "title": "D200 Deck Web API",
+            "version": env!("CARGO_PKG_VERSION"),
+            "description": "Drive a Ulanzi D200 through D200 Deck: keys by id, signals, notifications, presses and actions. Every endpoint but this description needs the token from the plugin's settings (Packages, Web API).",
+        },
+        "servers": [{ "url": "/" }],
+        "security": [{ "token": [] }],
+        "paths": {
+            "/api": { "get": { "summary": "What this server offers", "responses": { "200": ok("Name, version, endpoints"), "401": err } } },
+            "/api/openapi.json": { "get": { "summary": "This description", "security": [], "responses": { "200": ok("OpenAPI 3.1") } } },
+            "/api/signals": { "get": { "summary": "Every signal with its value", "responses": { "200": ok("Object: signal name to value"), "401": err } } },
+            "/api/signals/{name}": {
+                "parameters": [name("name", "A full signal name, e.g. com.deckling.core:system.cpu (GET) or a name in com.deckling.web (PUT)")],
+                "get": { "summary": "One signal", "responses": { "200": ok("{name, value}"), "404": err, "401": err } },
+                "put": {
+                    "summary": "Set the signal com.deckling.web:<name>",
+                    "description": "Themes and icons can bind to it. The body is any JSON value, or {\"value\": ...}.",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": {} } } },
+                    "responses": { "200": ok("{signal}"), "400": err, "401": err },
+                },
+            },
+            "/api/keys": { "get": { "summary": "Key ids set over this API, with their labels", "responses": { "200": ok("Object: id to label"), "401": err } } },
+            "/api/keys/{id}": {
+                "parameters": [name("id", "The key id; put the app Web key on a key and pick it")],
+                "put": { "summary": "Describe a key", "requestBody": { "required": true, "content": { "application/json": { "schema": key } } }, "responses": { "200": ok("{key}"), "400": err, "401": err } },
+                "delete": { "summary": "Remove a key", "responses": { "200": ok("{removed}"), "404": err, "401": err } },
+            },
+            "/api/keys/{index}/press": {
+                "parameters": [{ "name": "index", "in": "path", "required": true, "description": "0 to 12, 13 is the wide key", "schema": { "type": "integer", "minimum": 0, "maximum": 13 } }],
+                "post": {
+                    "summary": "Press a key of the page on the device",
+                    "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "event": { "type": "string", "enum": ["press", "long", "double", "down", "up"], "default": "press" } } } } } },
+                    "responses": { "200": ok("{pressed}"), "400": err, "401": err },
+                },
+            },
+            "/api/notify": {
+                "post": {
+                    "summary": "Show a notification on the wide key",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "oneOf": [{ "type": "string" }, { "$ref": "#/components/schemas/Notification" }] } } } },
+                    "responses": { "200": ok("{shown}"), "400": err, "401": err },
+                },
+            },
+            "/api/actions/{action}": {
+                "parameters": [{ "name": "action", "in": "path", "required": true, "description": "An action id, e.g. core:page or com.deckling.core:media", "schema": { "type": "string" } }],
+                "post": {
+                    "summary": "Run an action",
+                    "description": "Actions that start programs or type (com.deckling.core:command, :open, :keys) are refused unless allowed in the plugin's settings.",
+                    "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "params": { "type": "object" } } } } } },
+                    "responses": { "200": ok("{ran}"), "403": err, "404": err, "401": err },
+                },
+            },
+            "/api/subscriptions": {
+                "get": { "summary": "Webhooks registered over this API", "responses": { "200": ok("[{url, expires_in}]"), "401": err } },
+                "post": {
+                    "summary": "Register (or renew) a webhook for presses on Web keys",
+                    "description": "The deck posts {\"id\", \"event\"} to the URL for every press on a key with the app Web key. A subscription expires after ttl seconds (10 to 3600, default 900); renew it before then.",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "format": "uri" }, "ttl": { "type": "integer", "minimum": 10, "maximum": 3600 } } } } } },
+                    "responses": { "200": ok("{url, expires_in}"), "400": err, "401": err },
+                },
+                "delete": {
+                    "summary": "Remove a webhook",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["url"], "properties": { "url": { "type": "string" } } } } } },
+                    "responses": { "200": ok("{removed}"), "404": err, "401": err },
+                },
+            },
+        },
+        "components": {
+            "securitySchemes": { "token": { "type": "http", "scheme": "bearer", "description": "The token from Packages, Web API (also accepted as ?token=)" } },
+            "responses": { "Error": { "description": "An error", "content": { "application/json": { "schema": { "type": "object", "properties": { "error": { "type": "string" } } } } } } },
+            "schemas": {
+                "Key": {
+                    "type": "object",
+                    "properties": {
+                        "label": { "type": "string" },
+                        "kind": { "type": "string", "enum": ["light", "switch", "sensor", "climate", "lock", "unlock", "cover", "scene", "vacuum", "automation", "presence", "energy"] },
+                        "icon": { "type": "string", "description": "An icon name, a full icon id or an emoji; overrides kind" },
+                        "value": { "type": "string" },
+                        "on": { "type": "boolean" },
+                        "color": { "type": "string", "description": "#RRGGBB" },
+                        "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+                        "background": { "type": "string", "description": "#RRGGBB" },
+                    },
+                },
+                "Notification": {
+                    "type": "object",
+                    "properties": {
+                        "title": { "type": "string" }, "text": { "type": "string" }, "icon": { "type": "string" }, "color": { "type": "string" },
+                        "duration": { "type": "number" }, "priority": { "type": "string", "enum": ["normal", "critical"] },
+                    },
+                },
+            },
+        },
+    })
 }
 
 fn valid_name(n: &str) -> bool {
@@ -397,6 +541,12 @@ fn serve(mut s: TcpStream, token: &str, sender: &crate::plugins::Sender) -> std:
             .find_map(|kv| kv.strip_prefix("token="))
             .unwrap_or("")
             .to_string();
+    }
+    // The API description is public: it holds no secrets and lets tools discover the API.
+    if method == "GET" && path == "/api/openapi.json" {
+        let out = openapi().to_string();
+        write!(s, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{out}", out.len())?;
+        return s.flush();
     }
     let (code, body) = if !same(&auth, token) {
         (401, json!({ "error": "missing or wrong token" }))
@@ -560,6 +710,31 @@ mod tests {
             Value::Null,
         );
         assert_eq!(code, 404);
+    }
+
+    #[test]
+    fn subscriptions() {
+        let (mut web, mut s) = (Web::default(), Signals::default());
+        let ((code, _), _) = call(&mut web, &mut s, "POST", "/api/subscriptions", json!({"url": "ftp://x"}));
+        assert_eq!(code, 400);
+        let ((code, v), _) = call(&mut web, &mut s, "POST", "/api/subscriptions", json!({"url": "http://ha.local:8123/api/webhook/abc", "ttl": 99999}));
+        assert_eq!((code, v["expires_in"].as_u64()), (200, Some(MAX_TTL)));
+        let ((_, list), _) = call(&mut web, &mut s, "GET", "/api/subscriptions", Value::Null);
+        assert_eq!(list[0]["url"], "http://ha.local:8123/api/webhook/abc");
+        let ((code, _), _) = call(&mut web, &mut s, "DELETE", "/api/subscriptions", json!({"url": "http://ha.local:8123/api/webhook/abc"}));
+        assert_eq!(code, 200);
+        assert!(web.subs.is_empty());
+    }
+
+    #[test]
+    fn openapi_describes_every_route() {
+        let doc = openapi();
+        assert_eq!(doc["openapi"], "3.1.0");
+        let paths = doc["paths"].as_object().unwrap();
+        for p in ["/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
+            assert!(paths.contains_key(p), "{p}");
+        }
+        assert_eq!(doc["paths"]["/api/openapi.json"]["get"]["security"], json!([]));
     }
 
     #[test]

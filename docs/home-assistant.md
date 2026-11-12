@@ -18,8 +18,9 @@ The entity ids above are what HA usually generates. Check yours in the device pa
 
 ## The integration (recommended)
 
-`custom_components/d200_deck` is the counterpart in Home Assistant. It needs the MQTT
-integration, connected to the same broker as D200 Deck.
+`custom_components/d200_deck` is the counterpart in Home Assistant. It reaches D200 Deck over
+**MQTT** (the MQTT integration on the same broker as the deck), over the deck's **Web API**
+([plugins/web.md](plugins/web.md): switch on the server and copy the token), or **both**.
 
 **Install:**
 - With HACS: add this repository as a custom repository of type Integration, install
@@ -27,13 +28,22 @@ integration, connected to the same broker as D200 Deck.
 - By hand: copy `custom_components/d200_deck` into the `custom_components` folder of your
   Home Assistant configuration, then restart.
 
-**Set up:** Settings, Devices & services, Add integration, **D200 Deck**. Enter the base topic
-(`d200` unless you changed it in D200 Deck) and pick the entities to put on the deck. Change
-the list later under the integration's Configure.
+**Set up:** Settings, Devices & services, Add integration, **D200 Deck**:
+1. Choose the connection: MQTT, Web API, or both.
+2. MQTT: the base topic (`d200` unless you changed it in D200 Deck).
+3. Web API: the computer running D200 Deck (name or address), the port (8765) and the token. The
+   integration checks them right away.
+4. Pick the entities to put on the deck. Change the list later under the integration's
+   Configure.
+
+With the Web API, presses come back to a Home Assistant webhook. The integration registers it
+with the deck (`POST /api/subscriptions`) and renews it every 5 minutes, sending every key
+again at the same time, so a deck that restarted is complete within minutes. The deck must be
+able to reach Home Assistant's internal URL (Settings, System, Network).
 
 What it does:
 - **Every chosen entity becomes a key id** (its entity id, e.g. `light.kitchen`). In D200 Deck,
-  put the app **Home Assistant** on a key and pick the id. The key follows the entity: label,
+  put the app **Home Assistant** (MQTT) or **Web key** (Web API) on a key and pick the id. The key follows the entity: label,
   icon by domain, on/off, a light's colour and brightness, a sensor's value, a cover's position,
   a thermostat's temperature. Taking an entity off the list removes it from the deck.
 - **A press runs the entity's default action:** toggle (lights, switches, fans, covers, media
@@ -52,7 +62,8 @@ Services:
 | `d200_deck.clear_key` | removes a key id |
 | `d200_deck.show_remote_page` | shows (`show: true`) or leaves the remote page |
 
-All take `base_topic` to address one deck when there are several.
+All take `base_topic` to address one deck when there are several: its MQTT base topic or its
+Web API host.
 
 A long press dims the kitchen light:
 

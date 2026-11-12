@@ -1,4 +1,4 @@
-# Web API
+# Web API (`com.deckling.web`)
 
 The built-in plugin **Web API** (`com.deckling.web`) runs an HTTP server in D200 Deck, so
 scripts, CI jobs and other tools on your network can drive the deck without MQTT.
@@ -16,6 +16,10 @@ Keep the token secret. Generating a new one locks out every script that uses the
 
 ## Requests
 
+The full description is an OpenAPI 3.1 document at **`GET /api/openapi.json`**. It needs no
+token (it holds no secrets), so tools such as Swagger UI, Postman or code generators can read
+it directly, e.g. `http://studio.local:8765/api/openapi.json`.
+
 Send the token as `Authorization: Bearer <token>` (or `?token=<token>`). Bodies are JSON (up to
 64 KB). Answers are JSON; errors have `{"error": "..."}` and a status code (401 for a missing or
 wrong token).
@@ -31,7 +35,11 @@ wrong token).
 | `DELETE /api/keys/<id>` | removes it |
 | `POST /api/notify` | a notification on the wide key: text, or JSON like MQTT `notify` (`{title, text, icon, color, duration, priority}` or a full card) |
 | `POST /api/actions/<action>` | runs an action with `{"params": {...}}`, e.g. `core:page`, `core:profile`, `com.deckling.core:media` |
-| `POST /api/keys/<0-13>/press` | presses a key of the page on the device; `{"event": "long"}` for a long press (also `down`, `up`) |
+| `POST /api/keys/<0-13>/press` | presses a key of the page on the device; `{"event": "long"}` for a long press (also `double`, `down`, `up`) |
+| `GET /api/subscriptions` | webhooks registered over the API, with the seconds they have left |
+| `POST /api/subscriptions` | registers or renews a webhook for presses on Web keys: `{"url": ..., "ttl": 900}` (10 to 3600 s, at most 16) |
+| `DELETE /api/subscriptions` | removes one: `{"url": ...}` |
+| `GET /api/openapi.json` | the OpenAPI description, **without a token** |
 
 Ids and signal names are letters, digits, `_`, `-` and `.`.
 
@@ -53,9 +61,11 @@ you switch on **Allow actions that start programs or type**.
 
 The key updates whenever the script sends a new description.
 
-A press on that key sets the signal `com.deckling.web:<id>.pressed` (`press` or `long_press`). If
-the plugin has a **Webhook** URL, the press is also posted there as
-`{"id": "build", "event": "press"}`.
+A press on that key sets the signal `com.deckling.web:<id>.pressed` (`press` or `long_press`) and
+is posted as `{"id": "build", "event": "press"}` to the **Webhook** URL from the plugin's
+settings and to every live subscription. A tool that wants presses registers its own URL with
+`POST /api/subscriptions` and renews it before the `ttl` runs out; the Home Assistant
+integration does this by itself.
 
 ## Signals for themes and icons
 
@@ -70,4 +80,5 @@ build fails:
 ## Tests
 
 `tests/e2e/test_web.py` runs the server in the real engine against a simulated D200: token,
-keys drawn on the device, signals, presses, actions and notifications.
+keys drawn on the device, signals, presses, actions, notifications, the OpenAPI document and a
+subscription that receives a press. Code: [app/src-tauri/src/plugins/web](../../app/src-tauri/src/plugins/web/).

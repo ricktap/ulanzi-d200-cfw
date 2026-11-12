@@ -105,8 +105,8 @@ git tag v1.2.3 && git push origin v1.2.3            # v1.2.3-rc.1 makes a pre-re
 |---|---|
 | [docs/app.md](docs/app.md) | Using the app: design, keys, widgets, integrations, platform notes |
 | [docs/config.md](docs/config.md) | `deck.json` reference |
-| [app/src-tauri/src/plugins/](app/src-tauri/src/plugins/) | The built-in plugins (Core apps, Teams, JetBrains, Home Assistant, Web API): code, package data and a README each |
-| [docs/web-api.md](docs/web-api.md) | The HTTP API for scripts and other tools (plugin Web API) |
+| [docs/plugins/](docs/plugins/README.md) | The built-in plugins: Core apps, Microsoft Teams, JetBrains, Home Assistant, Web API (HTTP API with OpenAPI) |
+| [app/src-tauri/src/plugins/](app/src-tauri/src/plugins/) | Their code, package data and a README each |
 | [docs/home-assistant.md](docs/home-assistant.md) | The Home Assistant integration, MQTT topics and examples |
 | [docs/firmware.md](docs/firmware.md) | Try, install and uninstall on the device, safety and recovery |
 | [docs/hardware.md](docs/hardware.md) | What is known about the D200 hardware |

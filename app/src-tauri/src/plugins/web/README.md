@@ -14,7 +14,8 @@ type (`command`, `open`, `keys`) are refused unless allowed in the settings.
 
 **Endpoints:** `GET /api`, `GET /api/signals[/<name>]`, `PUT /api/signals/<name>`,
 `GET /api/keys`, `PUT|DELETE /api/keys/<id>`, `POST /api/notify`,
-`POST /api/actions/<action>`, `POST /api/keys/<0-13>/press`.
+`POST /api/actions/<action>`, `POST /api/keys/<0-13>/press`, `GET|POST|DELETE /api/subscriptions`,
+`GET /api/openapi.json` (no token).
 
 **App:** Web key: shows a key a script describes with `PUT /api/keys/<id>`. A press sets
 `<id>.pressed` and is posted to the webhook, if one is set.
@@ -22,5 +23,5 @@ type (`command`, `open`, `keys`) are refused unless allowed in the settings.
 **Signals:** `<id>.*` as for Home Assistant keys, `<id>.pressed`, and any `<name>` a script
 sets.
 
-Reference with examples: [docs/web-api.md](../../../../../docs/web-api.md). Tests: unit tests in
+Reference with examples: [docs/plugins/web.md](../../../../../docs/plugins/web.md). Tests: unit tests in
 mod.rs, `tests/e2e/test_web.py` against the real engine.

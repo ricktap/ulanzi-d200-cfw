@@ -1,4 +1,4 @@
-"""Set up D200 Deck: the MQTT base topic, then which entities go on the deck."""
+"""Set up D200 Deck: MQTT, the deck's Web API or both, then the entities for the deck."""
 
 from __future__ import annotations
 
@@ -6,11 +6,28 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import CONF_BASE_TOPIC, CONF_DEFAULT_ACTIONS, CONF_ENTITIES, DEFAULT_BASE_TOPIC, DOMAIN
+from .const import (
+    CONF_BASE_TOPIC,
+    CONF_DEFAULT_ACTIONS,
+    CONF_ENTITIES,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_TOKEN,
+    CONF_TRANSPORT,
+    CONF_WEBHOOK_ID,
+    DEFAULT_BASE_TOPIC,
+    DEFAULT_PORT,
+    DOMAIN,
+    TRANSPORT_BOTH,
+    TRANSPORT_MQTT,
+    TRANSPORT_WEB,
+)
+from .web import DeckApi, WebError
 
 
 def _clean(topic: str) -> str:
@@ -20,27 +37,79 @@ def _clean(topic: str) -> str:
 class D200DeckConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._data: dict[str, Any] = {}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            self._data[CONF_TRANSPORT] = user_input[CONF_TRANSPORT]
+            if user_input[CONF_TRANSPORT] in (TRANSPORT_MQTT, TRANSPORT_BOTH):
+                return await self.async_step_mqtt()
+            return await self.async_step_web()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({
+                vol.Required(CONF_TRANSPORT, default=TRANSPORT_MQTT): selector.SelectSelector(selector.SelectSelectorConfig(
+                    options=[TRANSPORT_MQTT, TRANSPORT_WEB, TRANSPORT_BOTH], translation_key=CONF_TRANSPORT, mode=selector.SelectSelectorMode.LIST)),
+            }),
+        )
+
+    async def async_step_mqtt(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             base = _clean(user_input[CONF_BASE_TOPIC])
             if not base or any(c in base for c in "+#"):
                 errors[CONF_BASE_TOPIC] = "invalid_topic"
             else:
+                self._data[CONF_BASE_TOPIC] = base
+                if self._data[CONF_TRANSPORT] == TRANSPORT_BOTH:
+                    return await self.async_step_web()
                 await self.async_set_unique_id(base)
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=f"D200 Deck ({base})",
-                    data={CONF_BASE_TOPIC: base},
-                    options={CONF_ENTITIES: user_input.get(CONF_ENTITIES, []), CONF_DEFAULT_ACTIONS: True},
-                )
+                return await self.async_step_entities()
         return self.async_show_form(
-            step_id="user",
+            step_id="mqtt",
+            data_schema=vol.Schema({vol.Required(CONF_BASE_TOPIC, default=DEFAULT_BASE_TOPIC): str}),
+            errors=errors,
+        )
+
+    async def async_step_web(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip().removeprefix("http://").removeprefix("https://").strip("/")
+            port, token = user_input[CONF_PORT], user_input[CONF_TOKEN].strip()
+            try:
+                await DeckApi(self.hass, host, port, token).info()
+            except WebError as err:
+                errors["base"] = "invalid_auth" if err.auth else "cannot_connect"
+            else:
+                self._data.update({CONF_HOST: host, CONF_PORT: port, CONF_TOKEN: token, CONF_WEBHOOK_ID: webhook.async_generate_id()})
+                await self.async_set_unique_id(self._data.get(CONF_BASE_TOPIC) or f"{host}:{port}")
+                self._abort_if_unique_id_configured()
+                return await self.async_step_entities()
+        return self.async_show_form(
+            step_id="web",
             data_schema=vol.Schema({
-                vol.Required(CONF_BASE_TOPIC, default=DEFAULT_BASE_TOPIC): str,
-                vol.Optional(CONF_ENTITIES, default=[]): selector.EntitySelector(selector.EntitySelectorConfig(multiple=True)),
+                vol.Required(CONF_HOST): str,
+                vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+                vol.Required(CONF_TOKEN): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
             }),
             errors=errors,
+        )
+
+    async def async_step_entities(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            target = self._data.get(CONF_BASE_TOPIC) or self._data.get(CONF_HOST)
+            return self.async_create_entry(
+                title=f"D200 Deck ({target})",
+                data=self._data,
+                options={CONF_ENTITIES: user_input.get(CONF_ENTITIES, []), CONF_DEFAULT_ACTIONS: True},
+            )
+        return self.async_show_form(
+            step_id="entities",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_ENTITIES, default=[]): selector.EntitySelector(selector.EntitySelectorConfig(multiple=True)),
+            }),
         )
 
     @staticmethod

@@ -19,7 +19,8 @@ cfg = {
         "com.deckling.web": {"config": {"serve": True, "port": PORT, "token": TOKEN}},
     },
     "profiles": [{"name": "Default", "apps": [], "pages": {"main": {
-        "0": {"app": "com.deckling.web:key", "config": {"id": "build"}},
+        "0": {"app": "com.deckling.web:key", "config": {"id": "build"},
+              "states": [{"on": {"press": [{"action": "com.deckling.web:press", "params": {"id": "{id}"}}]}}]},
         "1": {"states": [{"label": "Mark", "on": {"press": [{"action": "com.deckling.core:command", "params": {"command": f"touch {marker}"}}]}}]},
     }, "more": {}}}],
 }
@@ -101,6 +102,32 @@ try:
     check("DELETE /api/keys/build", code == 200 and keys == {}, keys)
     code, _ = api("POST", "/api/keys/99/press")
     check("bad key: 400", code == 400, code)
+
+    # the API description is public
+    code, doc = api("GET", "/api/openapi.json", token=None)
+    check("GET /api/openapi.json without token", code == 200 and doc.get("openapi") == "3.1.0" and "/api/keys/{id}" in doc["paths"], code)
+    json.dump(doc, open(sim + "/openapi.json", "w"))
+
+    # a subscription gets presses on Web keys
+    import http.server, threading
+    got = []
+    class Hook(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            got.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            self.send_response(200); self.end_headers()
+        def log_message(self, *a): pass
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Hook)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    hook = f"http://127.0.0.1:{srv.server_address[1]}/hook"
+    code, sub = api("POST", "/api/subscriptions", {"url": hook, "ttl": 60})
+    api("PUT", "/api/keys/build", {"label": "Build"})
+    api("POST", "/api/actions/core:page", {"params": {"page": "main"}})
+    time.sleep(0.8)
+    api("POST", "/api/keys/0/press")
+    deadline = time.time() + 5
+    while not got and time.time() < deadline: time.sleep(0.1)
+    check("POST /api/subscriptions, then a press reaches the webhook", code == 200 and got == [{"id": "build", "event": "press"}], (sub, got))
+    srv.shutdown()
 finally:
     eng.terminate(); dev.terminate()
 

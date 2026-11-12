@@ -19,5 +19,6 @@ label, icon (by `kind` or `icon`), value, on/off, colour, progress and backgroun
 
 The Home Assistant side is the integration in
 [custom_components/d200_deck](../../../../../custom_components/d200_deck): pick entities there
-and they appear here as ids, kept up to date. Topics and examples:
+and they appear here as ids, kept up to date (over the Web API they use the app Web key
+instead). Topics and examples:
 [docs/home-assistant.md](../../../../../docs/home-assistant.md).

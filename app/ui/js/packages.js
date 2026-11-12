@@ -266,6 +266,7 @@ const SETUP = {
     const url = (w.addresses || [])[1] || (w.addresses || [])[0] || `http://<this computer>:${c.port || 8765}/api`;
     const base = url.replace(/\/api$/, "");
     return h("div", { class: "steps" },
+      h("p", { class: "sub" }, `The API description (OpenAPI) is at ${base}/api/openapi.json and needs no token.`),
       h("p", { class: "sub" }, "Anyone on the network with the token can drive the deck. Keep the token secret; generate a new one to lock out old scripts. Actions that start programs or type are refused unless you allow them below."),
       h("pre", { class: "code" }, `# a key: put the app "Web key" on a key and pick the id "build"
 curl -X PUT -H "Authorization: Bearer $TOKEN" \\
@@ -288,7 +289,7 @@ curl -H "Authorization: Bearer $TOKEN" ${base}/api/signals`));
     const base = state.config.plugins?.core?.config?.mqtt?.base_topic || "d200";
     return h("div", { class: "steps" },
       h("p", { class: "sub" }, "The connection to the broker is part of the core (Deck, MQTT). With discovery on, Home Assistant gets a Ulanzi D200 device with button triggers, a notify entity, a profile select and brightness."),
-      h("p", { class: "sub" }, "In Home Assistant, add the integration D200 Deck (custom_components/d200_deck in this repository, or through HACS) and pick the entities for the deck. Then put the app Home Assistant on a key and choose the entity's id. A press runs its default action."),
+      h("p", { class: "sub" }, "In Home Assistant, add the integration D200 Deck (custom_components/d200_deck in this repository, or through HACS) and pick the entities for the deck. It connects over MQTT or the Web API. Then put the app Home Assistant (MQTT) or Web key (Web API) on a key and choose the entity's id. A press runs its default action."),
       h("p", { class: "sub" }, `Without the integration, Home Assistant describes a key on ${base}/ha/<id>/set (label, value, on, color, icon); presses come back on ${base}/ha/<id>/action.`));
   },
 };

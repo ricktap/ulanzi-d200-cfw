@@ -9,7 +9,15 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.d200_deck.const import CONF_BASE_TOPIC, CONF_DEFAULT_ACTIONS, CONF_ENTITIES, DOMAIN, EVENT_PRESS
+import aiohttp
+from homeassistant.core_config import async_process_ha_core_config
+from homeassistant.setup import async_setup_component
+
+from custom_components.d200_deck.const import (
+    CONF_BASE_TOPIC, CONF_DEFAULT_ACTIONS, CONF_ENTITIES, CONF_HOST, CONF_PORT, CONF_TOKEN, CONF_TRANSPORT, CONF_WEBHOOK_ID, DOMAIN, EVENT_PRESS,
+)
+
+DECK = "http://deck.local:8765"
 
 
 @pytest.fixture(autouse=True)
@@ -30,14 +38,17 @@ async def setup(hass, mqtt_mock, entities=("light.kitchen",), defaults=True):
     return entry
 
 
-async def test_config_flow(hass: HomeAssistant, mqtt_mock) -> None:
+async def test_config_flow_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
     r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert r["type"] is FlowResultType.FORM
-    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_BASE_TOPIC: "/bad/#", CONF_ENTITIES: []})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_TRANSPORT: "mqtt"})
+    assert r["step_id"] == "mqtt"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_BASE_TOPIC: "/bad/#"})
     assert r["errors"] == {CONF_BASE_TOPIC: "invalid_topic"}
-    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_BASE_TOPIC: "/desk/", CONF_ENTITIES: ["light.kitchen"]})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_BASE_TOPIC: "/desk/"})
+    assert r["step_id"] == "entities"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_ENTITIES: ["light.kitchen"]})
     assert r["type"] is FlowResultType.CREATE_ENTRY
-    assert r["data"] == {CONF_BASE_TOPIC: "desk"}
+    assert r["data"] == {CONF_TRANSPORT: "mqtt", CONF_BASE_TOPIC: "desk"}
     assert r["options"][CONF_ENTITIES] == ["light.kitchen"]
 
 
@@ -113,3 +124,115 @@ async def test_deck_coming_online_gets_every_key(hass: HomeAssistant, mqtt_mock)
     async_fire_mqtt_message(hass, "d200/availability", "online Studio-Mac")
     await hass.async_block_till_done()
     assert len(published(mqtt_mock, "d200/ha/light.kitchen/set")) == n + 1
+
+
+# ------------------------------------------------------------------ Web API
+
+
+async def test_config_flow_web(hass: HomeAssistant, aioclient_mock) -> None:
+    r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_TRANSPORT: "web"})
+    assert r["step_id"] == "web"
+    aioclient_mock.get(f"{DECK}/api", exc=aiohttp.ClientError())
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_HOST: "deck.local", CONF_PORT: 8765, CONF_TOKEN: "t"})
+    assert r["errors"] == {"base": "cannot_connect"}
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{DECK}/api", status=401, json={"error": "missing or wrong token"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_HOST: "deck.local", CONF_PORT: 8765, CONF_TOKEN: "t"})
+    assert r["errors"] == {"base": "invalid_auth"}
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{DECK}/api", json={"name": "D200 Deck"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_HOST: "http://deck.local/", CONF_PORT: 8765, CONF_TOKEN: " t "})
+    assert r["step_id"] == "entities"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {CONF_ENTITIES: []})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    d = r["data"]
+    assert (d[CONF_TRANSPORT], d[CONF_HOST], d[CONF_PORT], d[CONF_TOKEN]) == ("web", "deck.local", 8765, "t")
+    assert d[CONF_WEBHOOK_ID]
+    assert aioclient_mock.mock_calls[-1][3]["Authorization"] == "Bearer t"
+
+
+def web_calls(aioclient_mock, method, path):
+    return [(c[2], c[3]) for c in aioclient_mock.mock_calls if c[0] == method and str(c[1]) == DECK + path]
+
+
+async def setup_web(hass, aioclient_mock, entities=("light.kitchen",)):
+    await async_process_ha_core_config(hass, {"internal_url": "http://ha.local:8123"})
+    assert await async_setup_component(hass, "webhook", {})
+    for e in entities:
+        aioclient_mock.put(f"{DECK}/api/keys/{e}", json={"key": e})
+        aioclient_mock.delete(f"{DECK}/api/keys/{e}", json={"removed": e})
+    aioclient_mock.post(f"{DECK}/api/subscriptions", json={"expires_in": 900})
+    aioclient_mock.delete(f"{DECK}/api/subscriptions", json={"removed": True})
+    aioclient_mock.post(f"{DECK}/api/notify", json={"shown": True})
+    aioclient_mock.post(f"{DECK}/api/actions/com.deckling.ha:remote", json={"ran": True})
+    data = {CONF_TRANSPORT: "web", CONF_HOST: "deck.local", CONF_PORT: 8765, CONF_TOKEN: "t", CONF_WEBHOOK_ID: "hook123"}
+    entry = MockConfigEntry(domain=DOMAIN, data=data, options={CONF_ENTITIES: list(entities), CONF_DEFAULT_ACTIONS: True}, unique_id="deck.local:8765")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    return entry
+
+
+async def test_web_keys_subscription_and_presses(hass: HomeAssistant, aioclient_mock, hass_client_no_auth) -> None:
+    hass.states.async_set("light.kitchen", "on", {"friendly_name": "Kitchen"})
+    calls = async_mock_service(hass, "light", "toggle")
+    events = async_capture_events(hass, EVENT_PRESS)
+    entry = await setup_web(hass, aioclient_mock)
+
+    put = web_calls(aioclient_mock, "PUT", "/api/keys/light.kitchen")
+    assert put and put[-1][0] == {"label": "Kitchen", "kind": "light", "on": True, "value": "on"}
+    assert put[-1][1]["Authorization"] == "Bearer t"
+    sub = web_calls(aioclient_mock, "POST", "/api/subscriptions")
+    assert sub[-1][0] == {"url": "http://ha.local:8123/api/webhook/hook123", "ttl": 900}
+
+    # the deck posts a press to the webhook
+    client = await hass_client_no_auth()
+    resp = await client.post("/api/webhook/hook123", json={"id": "light.kitchen", "event": "press"})
+    assert resp.status == 200
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert events[-1].data == {"id": "light.kitchen", "entity_id": "light.kitchen", "event": "press", "base_topic": "deck.local"}
+
+    # state changes go out as PUTs
+    hass.states.async_set("light.kitchen", "off", {"friendly_name": "Kitchen"})
+    await hass.async_block_till_done()
+    assert web_calls(aioclient_mock, "PUT", "/api/keys/light.kitchen")[-1][0]["on"] is False
+
+    # services over the Web API
+    await hass.services.async_call(DOMAIN, "notify", {"message": "Done"}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/notify")[-1][0] == {"text": "Done"}
+    await hass.services.async_call(DOMAIN, "show_remote_page", {}, blocking=True)
+    assert web_calls(aioclient_mock, "POST", "/api/actions/com.deckling.ha:remote")
+
+    # unloading drops the subscription
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert web_calls(aioclient_mock, "DELETE", "/api/subscriptions")[-1][0] == {"url": "http://ha.local:8123/api/webhook/hook123"}
+
+
+async def test_web_resync_renews_and_resends(hass: HomeAssistant, aioclient_mock) -> None:
+    from datetime import timedelta
+    from homeassistant.util import dt as dt_util
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+
+    hass.states.async_set("light.kitchen", "on", {})
+    await setup_web(hass, aioclient_mock)
+    n_sub = len(web_calls(aioclient_mock, "POST", "/api/subscriptions"))
+    n_put = len(web_calls(aioclient_mock, "PUT", "/api/keys/light.kitchen"))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=6))
+    await hass.async_block_till_done()
+    assert len(web_calls(aioclient_mock, "POST", "/api/subscriptions")) == n_sub + 1
+    assert len(web_calls(aioclient_mock, "PUT", "/api/keys/light.kitchen")) == n_put + 1
+
+
+async def test_deck_offline_does_not_break_setup(hass: HomeAssistant, aioclient_mock) -> None:
+    await async_process_ha_core_config(hass, {"internal_url": "http://ha.local:8123"})
+    assert await async_setup_component(hass, "webhook", {})
+    aioclient_mock.put(f"{DECK}/api/keys/light.kitchen", exc=aiohttp.ClientError())
+    aioclient_mock.post(f"{DECK}/api/subscriptions", exc=aiohttp.ClientError())
+    hass.states.async_set("light.kitchen", "on", {})
+    data = {CONF_TRANSPORT: "web", CONF_HOST: "deck.local", CONF_PORT: 8765, CONF_TOKEN: "t", CONF_WEBHOOK_ID: "h"}
+    entry = MockConfigEntry(domain=DOMAIN, data=data, options={CONF_ENTITIES: ["light.kitchen"]})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)

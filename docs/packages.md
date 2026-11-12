@@ -28,7 +28,7 @@ key and sees no key presses.
 | `com.deckling.ha` (`plugins/ha`) | entities by id, the remote page keys, printer signals, `press` | `mqtt` and `remote` actions |
 | `com.deckling.teams` (`plugins/teams`, protocol in `api.rs`) | meeting link, pairing, Microsoft 365 sign-in, presence, mail, calendar, `meeting` and `presence` actions | |
 | `com.deckling.jetbrains` (`plugins/jetbrains`) | debugger detection | |
-| `com.deckling.web` (`plugins/web`) | the HTTP API ([web-api.md](web-api.md)): keys by id, signals, notifications, presses, actions; the app `Web key` | |
+| `com.deckling.web` (`plugins/web`) | the HTTP API ([plugins/web.md](plugins/web.md)): keys by id, signals, notifications, presses, actions; the app `Web key` | |
 | `com.deckling.core` (`plugins/core`) | system monitor, mute and volume, weather, Pomodoro, media, commands, open, shortcuts | |
 
 A plugin's calls: `mqtt_topics`/`on_mqtt`, `on_action`, `options`, `configure` (at start and
