@@ -652,7 +652,7 @@ mod tests {
         assert!(r.actions.contains_key("com.deckling.ha:mqtt"));
         assert!(r.signals.contains_key("time.second"));
         assert!(r.signals.contains_key("com.deckling.teams:mic_on"));
-        assert_eq!(r.icons.keys().filter(|i| i.starts_with("com.deckling.core:")).count(), 218);
+        assert_eq!(r.icons.keys().filter(|i| i.starts_with("com.deckling.core:")).count(), 219);
         assert_eq!(r.icons.keys().filter(|i| i.starts_with("com.deckling.ha:")).count(), crate::plugins::ha::ICONS.len());
         assert_eq!(r.icon("com.deckling.core:light").unwrap().roles, vec!["rgb", "toggle", "button"]);
         assert!(r.icon("volume-on").is_some(), "plain names still resolve");

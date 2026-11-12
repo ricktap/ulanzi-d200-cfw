@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn all_icons_render() {
-        assert_eq!(ICONS.len(), 218);
+        assert_eq!(ICONS.len(), 219);
         for (n, _) in ICONS {
             let pm = render(n, 64, &[]).unwrap_or_else(|| panic!("{n} does not render"));
             assert!(pm.data().chunks_exact(4).any(|p| p[3] > 0), "{n} is empty");
