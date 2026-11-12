@@ -166,6 +166,11 @@ pub trait Plugin: Send {
     /// At start and after every config change: start or stop what the deck needs.
     fn configure(&mut self, _cfg: &Config, _host: &mut Host) {}
 
+    /// The plugin was switched off: close connections, stop servers and threads. It is not
+    /// called again until it is switched back on (then `configure` starts it). May be called
+    /// more than once.
+    fn stop(&mut self) {}
+
     /// Once a second.
     fn tick(&mut self, _ticks: u64, _cfg: &Config, _host: &mut Host) {}
 
