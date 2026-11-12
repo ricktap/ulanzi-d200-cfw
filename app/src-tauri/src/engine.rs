@@ -2022,6 +2022,8 @@ impl Engine {
                     let default_bg = render::DEFAULT_BG;
                     let (bg, fg) = render::look_colors(&st.look, default_bg);
                     let mode = self.rt.modes.get(&path).copied().unwrap_or(0);
+                    // "Text below" None: the built-in faces leave their status pill out
+                    let _pill = apps::PillGuard::hide(key.cfg_str("pill") == Some("none"));
                     match kind {
                         AppKind::Sysmon => {
                             let modes = apps::sysmon_modes(&key);
@@ -2073,13 +2075,19 @@ impl Engine {
                 _ if key.app.is_some() => {
                     // Any icon the user picked, fed by the app's interfaces.
                     let d = def.expect("checked above");
-                    let env = IconEnv::new(Ctx { implements: Some(&d.implements), props: Some(&st0.look.props), config: &key.config, signals: &self.signals, theme: &vars });
+                    // "Show as" (config `as`): which of the app's interfaces the icon gets, and
+                    // whether the value is drawn
+                    let show_as = key.cfg_str("as").unwrap_or("auto");
+                    let implements = shown_interfaces(&d.implements, show_as);
+                    let env = IconEnv::new(Ctx { implements: Some(&implements), props: Some(&st0.look.props), config: &key.config, signals: &self.signals, theme: &vars });
                     // The app may pick icon, text, value and background per key; the key's own wins.
                     let pick = |b: &Option<Value>| {
                         b.as_ref().and_then(|b| bind::resolve(b, &env.ctx, &mut env.reads.borrow_mut())).map(|v| bind::text(&v)).filter(|t| !t.is_empty())
                     };
                     let mut look = st0.look.clone();
-                    if chosen.is_none() {
+                    if show_as == "value" {
+                        look.icon = None;
+                    } else if chosen.is_none() {
                         look.icon = pick(&d.icon);
                     }
                     if look.label.is_none() {
@@ -2088,7 +2096,20 @@ impl Engine {
                     if look.bg.is_none() {
                         look.bg = pick(&d.background).filter(|c| render::parse_color(c).is_some());
                     }
-                    let value = pick(&d.value);
+                    // "Text below" (config `pill`): none, the state as On/Off, or the value (Off when off)
+                    let on = || {
+                        d.implements.get("toggle").and_then(|t| t.get("on")).and_then(|b| bind::resolve(b, &env.ctx, &mut env.reads.borrow_mut())).and_then(|v| v.as_bool())
+                    };
+                    let value = match key.cfg_str("pill").unwrap_or("auto") {
+                        "none" => None,
+                        "state" => on().map(|o| (if o { "On" } else { "Off" }).to_string()).or_else(|| pick(&d.value)),
+                        "value" => match on() {
+                            Some(false) => Some("Off".to_string()),
+                            _ => pick(&d.value),
+                        },
+                        _ if matches!(show_as, "auto" | "progress" | "value") => pick(&d.value),
+                        _ => None,
+                    };
                     let c = render::button(f, &base, &look, value.as_deref(), size, render::DEFAULT_BG, Some(&env));
                     reads = env.reads.into_inner();
                     c
@@ -2696,8 +2717,9 @@ impl Engine {
                 let def = k.app.as_deref().and_then(|id| reg.app(id));
                 let vars = self.theme_vars();
                 let st = k.state(0);
+                let shown = def.map(|d| shown_interfaces(&d.implements, k.cfg_str("as").unwrap_or("auto")));
                 let env = IconEnv::new(Ctx {
-                    implements: def.map(|d| &d.implements),
+                    implements: shown.as_ref(),
                     props: Some(&st.look.props),
                     config: &k.config,
                     signals: &self.signals,
@@ -2796,6 +2818,37 @@ fn try_connect(id: u64, events: Sender<DevEvent>) -> Result<Device, Status> {
 
 fn now_secs() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+/// The interfaces an app's icon gets for "Show as" (key config `as`): `auto` all of them,
+/// `button` none (the icon as drawn), `toggle` on/off, `rgb` on/off and colour, `progress` the
+/// progress, `value` the text only.
+pub fn shown_interfaces(implements: &Map<String, Value>, show_as: &str) -> Map<String, Value> {
+    let keep: &[&str] = match show_as {
+        "button" => &[],
+        "toggle" => &["toggle"],
+        "rgb" => &["toggle", "rgb"],
+        "progress" => &["progress", "label"],
+        "value" => &["label"],
+        _ => return implements.clone(),
+    };
+    implements.iter().filter(|(k, _)| keep.contains(&k.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect()
+}
+
+#[cfg(test)]
+mod show_as_tests {
+    use super::*;
+
+    #[test]
+    fn show_as_picks_interfaces() {
+        let all: Map<String, Value> = json!({"toggle": {}, "rgb": {}, "progress": {}, "label": {}}).as_object().cloned().unwrap();
+        let keys = |m: Map<String, Value>| m.keys().cloned().collect::<Vec<_>>();
+        assert_eq!(keys(shown_interfaces(&all, "auto")).len(), 4);
+        assert!(keys(shown_interfaces(&all, "button")).is_empty());
+        assert_eq!(keys(shown_interfaces(&all, "toggle")), ["toggle"]);
+        assert_eq!(keys(shown_interfaces(&all, "rgb")), ["toggle", "rgb"]);
+        assert_eq!(keys(shown_interfaces(&all, "value")), ["label"]);
+    }
 }
 
 #[cfg(test)]

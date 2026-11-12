@@ -435,8 +435,35 @@ fn key(bg: Rgb) -> Canvas {
     Canvas::new(K as u32, K as u32, bg)
 }
 
+thread_local! {
+    /// The key being drawn wants no status pill ("Text below": None). Set only while the
+    /// engine draws one built-in face (`PillGuard`).
+    static HIDE_PILL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Hides the status pill of the built-in faces drawn while it lives.
+pub struct PillGuard;
+
+impl PillGuard {
+    pub fn hide(hide: bool) -> PillGuard {
+        HIDE_PILL.with(|h| h.set(hide));
+        PillGuard
+    }
+}
+
+impl Drop for PillGuard {
+    fn drop(&mut self) {
+        HIDE_PILL.with(|h| h.set(false));
+    }
+}
+
+fn pill_hidden() -> bool {
+    HIDE_PILL.with(|h| h.get())
+}
+
 /// Icon on top, label and optional pill below: the standard key layout.
 fn icon_label_pill(f: &Fonts, bg: Rgb, icon: &str, ovr: &[(&str, &str)], label: Option<&str>, pill: Option<(&str, Rgb)>) -> Canvas {
+    let pill = pill.filter(|_| !pill_hidden());
     let mut c = key(bg);
     match (label, pill) {
         (Some(l), Some((p, col))) => {
@@ -761,6 +788,10 @@ pub fn presence_face(f: &Fonts, p: Option<&Presence>, signed_in: bool, err: Opti
     };
     let _ = presence_style;
     let mut c = key(bg);
+    if pill_hidden() {
+        c.set_icon(icon, 38.0, 38.0, 120.0, 120.0, &[]);
+        return c;
+    }
     c.set_icon(icon, 46.0, 20.0, 104.0, 104.0, &[]);
     // pill text can be long ("Do not disturb"): shrink via caps width check
     let t = text.to_uppercase();

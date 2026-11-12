@@ -72,11 +72,22 @@ function appBox(key, app) {
     help ? h("p", { class: "sub" }, help) : null);
 }
 
+/** Every app key: the text under the icon (the status pill or the value). */
+const TEXT_BELOW = {
+  key: "pill", label: "Text below", type: "select",
+  values: [
+    { label: "Automatic", value: "auto" },
+    { label: "None", value: "none" },
+    { label: "On/Off", value: "state" },
+    { label: "Value (Off when off)", value: "value" },
+  ],
+};
+
 function settingsBox(k, key, app) {
-  if (!app.config?.length) return null;
+  const fields = [...(app.config || []), TEXT_BELOW];
   return h("div", { class: "box" },
     h("span", { class: "label" }, "Settings"),
-    app.config.map((f) => schemaField(f, () => keyObj(k)?.config?.[f.key], (v, typing) => {
+    fields.map((f) => schemaField(f, () => keyObj(k)?.config?.[f.key], (v, typing) => {
       edit(`${app.name} · ${f.label || f.key}`, () => {
         const key = ensureKey(k);
         if (v === undefined) {

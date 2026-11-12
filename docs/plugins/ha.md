@@ -9,6 +9,21 @@ label, icon (by kind, from the plugin's own icon set: light, switch, sensor, cli
 cover, scene, vacuum, automation, presence, energy), value, on/off, colour, progress and
 background. Choose another icon on the key to override it.
 
+**Show as** decides what the icon gets from the entity, whatever its kind:
+
+| Show as | The icon | Value below |
+|---|---|---|
+| Automatic | everything Home Assistant sends | yes |
+| Push button | nothing: always drawn the same | no |
+| On/off | on and off (a lit or a dark icon) | no |
+| Colour light | on, off and the colour | no |
+| Progress | the progress (a ring, a bar) | yes |
+| Value | no icon: the value, big | yes |
+
+**Text below** (every app key has it) decides the text under the icon: Automatic (as above),
+None, On/Off (a pill), or Value (the value while on, Off while off). The Web key has both
+settings too.
+
 ## Settings
 
 **Own MQTT broker** (off by default): host, port, user, password, base topic, TLS. Off, the
