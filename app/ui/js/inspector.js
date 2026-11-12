@@ -236,7 +236,7 @@ function wideKey() {
     h("div", { class: "box" },
       h("label", { class: "field" }, h("span", { class: "label" }, "Content"), app),
       (sk.app || "profile") === "profile" ? h("label", { class: "field" }, h("span", { class: "label" }, "Right side"), show) : null),
-    actionSections(keyHolder(STATUS_KEY), { where: "the wide key", slots: [["press", "On press", false], ["long", "Long press", true]] }),
+    actionSections(keyHolder(STATUS_KEY), { where: "the wide key", slots: [["press", "On press", false], ["long", "Long press", true], ["double", "Double press", true]] }),
     h("button", { class: "btn", type: "button", onclick: testPress }, "Test press"),
   ];
 }

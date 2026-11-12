@@ -153,11 +153,14 @@ pub struct Actions {
     pub down: Vec<ActionRef>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub up: Vec<ActionRef>,
+    /// Two presses within `double_press_ms`. Only keys that have these wait before a press.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub double: Vec<ActionRef>,
 }
 
 impl Actions {
     pub fn is_empty(&self) -> bool {
-        self.press.is_empty() && self.long.is_empty() && self.down.is_empty() && self.up.is_empty()
+        self.press.is_empty() && self.long.is_empty() && self.down.is_empty() && self.up.is_empty() && self.double.is_empty()
     }
     pub fn get(&self, ev: KeyEvent) -> &[ActionRef] {
         match ev {
@@ -165,10 +168,11 @@ impl Actions {
             KeyEvent::Long => &self.long,
             KeyEvent::Down => &self.down,
             KeyEvent::Up => &self.up,
+            KeyEvent::Double => &self.double,
         }
     }
     pub fn all(&self) -> impl Iterator<Item = &ActionRef> {
-        self.press.iter().chain(&self.long).chain(&self.down).chain(&self.up)
+        self.press.iter().chain(&self.long).chain(&self.down).chain(&self.up).chain(&self.double)
     }
 }
 
@@ -179,6 +183,7 @@ pub enum KeyEvent {
     Up,
     Press,
     Long,
+    Double,
 }
 
 impl KeyEvent {
@@ -188,6 +193,7 @@ impl KeyEvent {
             KeyEvent::Up => "up",
             KeyEvent::Press => "press",
             KeyEvent::Long => "long_press",
+            KeyEvent::Double => "double_press",
         }
     }
 }
@@ -521,6 +527,8 @@ impl Default for TeamsCfg {
 pub struct Settings {
     pub brightness: u8,
     pub long_press_ms: u64,
+    /// Two presses within this time are a double press (keys with double-press actions only).
+    pub double_press_ms: u64,
     /// Switch profiles to match the frontmost app.
     pub follow_active_app: bool,
     pub weather: WeatherCfg,
@@ -539,6 +547,7 @@ impl Default for Settings {
         Settings {
             brightness: 180,
             long_press_ms: 500,
+            double_press_ms: 300,
             follow_active_app: true,
             weather: WeatherCfg::default(),
             pomodoro: PomodoroCfg::default(),
@@ -605,7 +614,7 @@ pub struct Config {
 }
 
 /// The current deck.json format.
-pub const VERSION: u32 = 5;
+pub const VERSION: u32 = 6;
 
 fn yes() -> bool {
     true

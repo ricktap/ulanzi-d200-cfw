@@ -197,6 +197,7 @@ impl Web {
                         "long" | "long_press" => KeyEvent::Long,
                         "down" => KeyEvent::Down,
                         "up" => KeyEvent::Up,
+                        "double" | "double_press" => KeyEvent::Double,
                         _ => KeyEvent::Press,
                     };
                     host.request(HostRequest::Press { key, event });

@@ -18,6 +18,15 @@
       "group": "Keys"
     },
     {
+      "key": "double_press_ms",
+      "label": "Double press within (ms)",
+      "type": "number",
+      "default": 300,
+      "min": 100,
+      "max": 1000,
+      "group": "Keys"
+    },
+    {
       "key": "follow_active_app",
       "label": "Profiles follow the program in front",
       "type": "toggle",

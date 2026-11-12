@@ -8,7 +8,7 @@ Custom software for the **Ulanzi D200 / D200H** stream controller, in two parts:
 - **D200 Deck** is a desktop app (Tauri: Rust plus plain HTML/JS). It draws every key, runs the
   actions and edits the config. Features:
   - profiles that follow the active app
-  - four key events (down, up, press, long press)
+  - five key events (down, up, press, long press, double press)
   - key states
   - built-in live widgets
   - notification cards on the wide key

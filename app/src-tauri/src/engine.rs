@@ -203,6 +203,8 @@ pub struct Engine {
     scene: Scene,
     /// Keys whose press woke the screensaver: their up/press/long are swallowed.
     swallow: [bool; NUM_KEYS],
+    /// A press waiting to see whether a second one makes it a double press (until then).
+    pending_press: [Option<Instant>; NUM_KEYS],
     /// The d200fw this app embeds, to upgrade an older one on the device (once per run).
     firmware: &'static [u8],
     fw_upgrade_tried: bool,
@@ -399,6 +401,7 @@ impl Engine {
             saver: None,
             scene: Scene::new(),
             swallow: [false; NUM_KEYS],
+            pending_press: [None; NUM_KEYS],
             firmware: &[],
             fw_upgrade_tried: false,
             signals: Signals::default(),
@@ -437,6 +440,9 @@ impl Engine {
                 d = d.min(h.since + lp);
             }
         }
+        for t in self.pending_press.iter().flatten() {
+            d = d.min(*t);
+        }
         d.max(now)
     }
 
@@ -447,8 +453,17 @@ impl Engine {
             if let Some(h) = self.held[k] {
                 if !h.long_fired && now >= h.since + lp {
                     self.held[k] = Some(Held { long_fired: true, ..h });
+                    // a long second press: the first one was a press after all
+                    if self.pending_press[k].take().is_some() {
+                        self.fire(k, KeyEvent::Press);
+                    }
                     self.fire(k, KeyEvent::Long);
                 }
+            }
+            // no second press came in time: it was a single press
+            if self.held[k].is_none() && self.pending_press[k].is_some_and(|t| now >= t) {
+                self.pending_press[k] = None;
+                self.fire(k, KeyEvent::Press);
             }
         }
         if self.saver.as_ref().is_some_and(|sv| now >= sv.next_frame) {
@@ -482,6 +497,7 @@ impl Engine {
                 self.saver = None;
                 self.connected.store(false, Ordering::SeqCst);
                 self.held = [None; NUM_KEYS];
+                self.pending_press = [None; NUM_KEYS];
                 self.set_status(|s| {
                     s.connected = false;
                     s.version = None;
@@ -747,11 +763,32 @@ impl Engine {
         self.draw_key(k);
         self.fire(k, KeyEvent::Up);
         if h.is_some_and(|h| !h.long_fired) {
-            self.fire(k, KeyEvent::Press);
+            if self.pending_press[k].take().is_some() {
+                self.fire(k, KeyEvent::Double);
+            } else if self.has_double(k) {
+                // wait for a second press; timers() fires the press if none comes
+                let wait = Duration::from_millis(self.cfg.settings.double_press_ms.clamp(100, 1000));
+                self.pending_press[k] = Some(Instant::now() + wait);
+            } else {
+                self.fire(k, KeyEvent::Press);
+            }
         }
         if k == STATUS_KEY {
             self.status_capture = None;
         }
+    }
+
+    /// Does key k have double-press actions right now? Only those wait before a press.
+    fn has_double(&self, k: usize) -> bool {
+        if k == STATUS_KEY {
+            return !self.cfg.status_key.on.double.is_empty();
+        }
+        if self.view.remote {
+            return false;
+        }
+        let key = self.key_cfg(k);
+        let cur = self.rt.states.get(&self.key_path(k)).copied().unwrap_or(0);
+        !key.state(cur).on.double.is_empty()
     }
 
     fn key_cfg(&self, k: usize) -> Key {
@@ -1075,6 +1112,7 @@ impl Engine {
         }
         self.view = v;
         self.held = [None; NUM_KEYS];
+        self.pending_press = [None; NUM_KEYS];
         self.draw_all();
         (self.emit)("view", json!({ "profile": self.view.profile, "page": self.view.page, "remote": self.view.remote }));
         self.publish_state();

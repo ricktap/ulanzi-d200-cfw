@@ -39,6 +39,8 @@ pub fn migrate(mut v: Value, target: u32) -> Result<Value, String> {
             3 => v3_to_v4(v),
             // 4 to 5 adds the optional `theme` and `overlays` (theme packages); nothing moves.
             4 => v,
+            // 5 to 6 adds `on.double` (double press) and `double_press_ms`; nothing moves.
+            5 => v,
             _ => return Err(format!("no migration from version {ver}")),
         };
         ver += 1;
@@ -349,6 +351,7 @@ mod tests {
     fn newer_versions_are_refused() {
         assert!(migrate(json!({"version": 9, "profiles": []}), 4).is_err());
         assert_eq!(migrate(json!({"version": 4, "x": 1}), 5).unwrap(), json!({"version": 5, "x": 1}));
+        assert_eq!(migrate(json!({"version": 4, "x": 1}), 6).unwrap(), json!({"version": 6, "x": 1}));
         assert_eq!(migrate(json!({"version": 4, "x": 1}), 4).unwrap(), json!({"version": 4, "x": 1}));
     }
 }

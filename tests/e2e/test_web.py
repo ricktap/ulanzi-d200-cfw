@@ -13,7 +13,7 @@ sim = S + "/simweb"; shutil.rmtree(sim, ignore_errors=True); os.makedirs(sim + "
 open(sim + "/fb", "wb").write(bytes(720 * 1280 * 4)); os.mkfifo(sim + "/kbd")
 marker = sim + "/pressed"
 cfg = {
-    "version": 5,
+    "version": 6,
     "plugins": {
         "core": {"config": {"follow_active_app": False, "screensaver": {"enabled": False}}},
         "com.deckling.web": {"config": {"serve": True, "port": PORT, "token": TOKEN}},

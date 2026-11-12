@@ -11,6 +11,7 @@ import { schemaField } from "./fields.js";
 export const SLOTS = [
   ["press", "On press", false],
   ["long", "Long press", true],
+  ["double", "Double press", true],
   ["down", "Extended: key down", true],
   ["up", "Extended: key up", true],
 ];
@@ -51,6 +52,7 @@ export function actionSections(holder, { where, slots = SLOTS } = {}) {
     } },
       h("b", {}, title),
       ev === "long" ? h("span", { class: "count" }, `${ms} ms`) : null,
+      ev === "double" ? h("span", { class: "count" }, `within ${settingsOf(state.config).double_press_ms ?? 300} ms`) : null,
       target ? h("span", { class: "tgt" }, "target") : null,
       h("span", { class: "count" }, count));
     const body = open
