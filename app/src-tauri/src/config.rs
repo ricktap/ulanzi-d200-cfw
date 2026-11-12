@@ -80,12 +80,38 @@ pub enum Action {
     },
     /// Show the Home Assistant remote page.
     Remote,
+    /// Screensaver now: "on", "off" or "toggle".
+    Screensaver {
+        #[serde(default)]
+        on: String,
+    },
+    /// Screen dark (brightness 0, the level kept) or lit again: "on", "off" or "toggle".
+    Display {
+        #[serde(default)]
+        on: String,
+    },
+    /// Follow the program in front (switch profiles by it): "on", "off" or "toggle".
+    Follow {
+        #[serde(default)]
+        on: String,
+    },
+    /// Remove the notification on the status key, and those waiting.
+    NotifyClear,
+}
+
+/// "on", "off" or "toggle" (also true/false, 1/0) against the current state.
+pub fn switch_to(word: &str, now: bool) -> bool {
+    match word.trim().to_ascii_lowercase().as_str() {
+        "toggle" => !now,
+        "off" | "false" | "0" | "no" => false,
+        _ => true,
+    }
 }
 
 /// Actions the engine runs itself: (action id, `Action` type). `core:` is what is fixed
 /// in the app; `com.deckling.ha:mqtt` and `:remote` use the app's MQTT connection and
 /// the remote view. Every other action belongs to a plugin (plugins.rs).
-pub const ACTION_IDS: [(&str, &str); 9] = [
+pub const ACTION_IDS: [(&str, &str); 13] = [
     ("core:page", "page"),
     ("core:back", "back"),
     ("core:home", "home"),
@@ -93,6 +119,10 @@ pub const ACTION_IDS: [(&str, &str); 9] = [
     ("core:state", "state"),
     ("core:brightness", "brightness"),
     ("core:notify", "notify"),
+    ("core:notify_clear", "notify_clear"),
+    ("core:screensaver", "screensaver"),
+    ("core:display", "display"),
+    ("core:follow", "follow"),
     ("com.deckling.ha:mqtt", "mqtt"),
     ("com.deckling.ha:remote", "remote"),
 ];
@@ -834,6 +864,21 @@ pub fn resolve(base: &Path, p: &str) -> PathBuf {
         pb
     } else {
         base.join(pb)
+    }
+}
+
+#[cfg(test)]
+mod action_tests {
+    use super::*;
+
+    #[test]
+    fn switch_actions() {
+        let r = ActionRef { action: "core:screensaver".into(), ..Default::default() };
+        assert_eq!(r.parse(), Some(Action::Screensaver { on: String::new() }));
+        let r = ActionRef { action: "core:display".into(), params: serde_json::json!({"on": "off"}).as_object().cloned().unwrap(), ..Default::default() };
+        assert_eq!(r.parse(), Some(Action::Display { on: "off".into() }));
+        assert_eq!(Action::NotifyClear.to_ref().action, "core:notify_clear");
+        assert!(switch_to("", false) && !switch_to("off", true) && switch_to("toggle", false) && !switch_to("toggle", true));
     }
 }
 

@@ -1,13 +1,16 @@
 """The device the D200 Deck entities belong to.
 
-Over MQTT the deck already announces a device, "Ulanzi D200", with brightness, profile,
-notifications, connected and computer. The integration joins that device and adds only what it
-lacks (key events, page). Over the Web API alone there is no such device; the integration makes
-it, with the connected, computer and profile sensors as well.
+Over MQTT the deck announces a device itself, "Ulanzi D200", with every control and sensor
+(MQTT discovery). The integration joins that device and adds only the key events. Over the
+Web API alone there is no such device; the integration makes it, with the same entities, read
+from the deck's state (`GET /api/state`, pushed to the webhook when it changes).
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+from homeassistant.const import EntityCategory
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -48,3 +51,31 @@ class DeckEntity(Entity):
     @callback
     def _update(self, data) -> None:
         self.async_write_ha_state()
+
+
+def web_only(entry) -> bool:
+    return not entry.runtime_data.use_mqtt
+
+
+class StateEntity(DeckEntity):
+    """Web API only: an entity that shows a field of the deck's state."""
+
+    def __init__(self, bridge, key: str, field: str = "", icon: str | None = None, diagnostic: bool = False, config: bool = False) -> None:
+        super().__init__(bridge, key)
+        self.field = field or key
+        if icon:
+            self._attr_icon = icon
+        if diagnostic:
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        elif config:
+            self._attr_entity_category = EntityCategory.CONFIG
+
+    def get(self, path: str | None = None) -> Any:
+        v: Any = self.bridge.state
+        for part in (path or self.field).split("."):
+            v = v.get(part) if isinstance(v, dict) else None
+        return v
+
+    @property
+    def available(self) -> bool:
+        return self.bridge.connected is True

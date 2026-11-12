@@ -124,7 +124,9 @@ try:
     srv = http.server.HTTPServer(("127.0.0.1", 0), Hook)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     hook = f"http://127.0.0.1:{srv.server_address[1]}/hook"
-    code, sub = api("POST", "/api/subscriptions", {"url": hook, "ttl": 60, "events": ["presses", "keys"]})
+    code, st = api("GET", "/api/state")
+    check("GET /api/state", code == 200 and st.get("profile") == "Default" and isinstance(st.get("pages"), list), st)
+    code, sub = api("POST", "/api/subscriptions", {"url": hook, "ttl": 60, "events": ["presses", "keys", "state"]})
     api("PUT", "/api/keys/build", {"label": "Build"})
     api("POST", "/api/actions/core:page", {"params": {"page": "main"}})
     time.sleep(0.8)
@@ -136,6 +138,11 @@ try:
     keys = [(g["key"], g["event"]) for g in got if g.get("type") == "key"]
     check("POST /api/subscriptions, then a press reaches the webhook", code == 200 and presses == [{"id": "build", "event": "press"}], (sub, got))
     check("... and every key event too", (0, "press") in keys and all(g.get("profile") == "Default" for g in got if g.get("type") == "key"), keys)
+    api("POST", "/api/actions/core:display", {"params": {"on": "off"}})
+    deadline = time.time() + 5
+    while not any(g.get("type") == "state" and g.get("display") is False for g in got) and time.time() < deadline: time.sleep(0.1)
+    check("... and state changes (display off)", any(g.get("type") == "state" and g.get("display") is False for g in got), [g for g in got if g.get("type") == "state"][-1:])
+    api("POST", "/api/actions/core:display", {"params": {"on": "on"}})
     srv.shutdown()
 
     # MQTT settings pushed over the API (as the Home Assistant integration does)

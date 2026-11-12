@@ -139,6 +139,9 @@ pub fn watch(app: AppHandle) {
         loop {
             match newer_release(&app) {
                 Ok(Some(tag)) if told.as_deref() != Some(tag.as_str()) => {
+                    if let Some(h) = app.try_state::<crate::engine::Handle>() {
+                        h.send(crate::engine::Ui::Latest(tag.trim_start_matches('v').to_string()));
+                    }
                     if let Ok(Some(u)) = tauri::async_runtime::block_on(fetch(&app)) {
                         let _ = app.emit("update", describe(&u));
                         told = Some(tag);

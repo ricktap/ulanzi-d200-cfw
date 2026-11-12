@@ -171,6 +171,42 @@
           "description": "Only this D200 Deck: its MQTT base topic or its Web API host."
         }
       }
+    },
+    "press_key": {
+      "name": "Press a key",
+      "description": "Press a key of the page the D200 shows, as if pressed on the deck.",
+      "fields": {
+        "key": {
+          "name": "Key",
+          "description": "0 to 13 (13 is the wide key)."
+        },
+        "event": {
+          "name": "Event",
+          "description": "press, long_press or double_press."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "The deck's MQTT base topic or Web API host, when there are several."
+        }
+      }
+    },
+    "run_action": {
+      "name": "Run a deck action",
+      "description": "Run an action of the deck, such as core:page, core:profile or com.deckling.core:media. Actions that start programs or type are refused.",
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "The action id, e.g. core:page."
+        },
+        "params": {
+          "name": "Parameters",
+          "description": "The action's parameters, e.g. {page: Media}."
+        },
+        "base_topic": {
+          "name": "Deck",
+          "description": "The deck's MQTT base topic or Web API host, when there are several."
+        }
+      }
     }
   },
   "selector": {
@@ -199,18 +235,73 @@
     },
     "binary_sensor": {
       "connected": {
-        "name": "Connected"
+        "name": "Computer online"
+      },
+      "usb": {
+        "name": "D200 plugged in"
+      },
+      "teams_meeting": {
+        "name": "In a meeting"
       }
     },
     "sensor": {
+      "computer": {
+        "name": "Computer"
+      },
+      "app": {
+        "name": "Program in front"
+      },
+      "teams_presence": {
+        "name": "Teams presence"
+      },
+      "now_playing": {
+        "name": "Now playing"
+      },
+      "pomodoro": {
+        "name": "Pomodoro"
+      }
+    },
+    "switch": {
+      "remote_page": {
+        "name": "Remote page"
+      },
+      "screensaver": {
+        "name": "Screensaver"
+      },
+      "display": {
+        "name": "Display"
+      },
+      "follow": {
+        "name": "Follow program in front"
+      }
+    },
+    "select": {
       "profile": {
         "name": "Profile"
       },
       "page": {
         "name": "Page"
+      }
+    },
+    "number": {
+      "brightness": {
+        "name": "Brightness"
+      }
+    },
+    "button": {
+      "notify_clear": {
+        "name": "Clear notification"
       },
-      "computer": {
-        "name": "Computer"
+      "pomodoro_toggle": {
+        "name": "Pomodoro start or pause"
+      },
+      "pomodoro_reset": {
+        "name": "Pomodoro reset"
+      }
+    },
+    "update": {
+      "app_update": {
+        "name": "D200 Deck"
       }
     }
   }

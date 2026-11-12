@@ -51,6 +51,8 @@ pub struct Status {
 
 pub enum Ui {
     Snapshot(Reply<Value>),
+    /// The updater found a newer release (for Home Assistant's update entity).
+    Latest(String),
     Save(Box<Config>, Reply<Result<Value, String>>),
     View { profile: usize, page: String, remote: bool },
     Preview { profile: usize, page: String, remote: bool, key: usize, reply: Reply<Result<String, String>> },
@@ -220,6 +222,15 @@ pub struct Engine {
     pending_press: [Option<Instant>; NUM_KEYS],
     /// Key events so far (`n` in the signal `key.event`).
     key_events: u64,
+    /// The display is dark (core:display off): the brightness to go back to.
+    display_off: Option<u8>,
+    /// The last `deck.state` sent (signal, MQTT `<base>/state`), and its pages for discovery.
+    last_state: String,
+    last_pages: Vec<String>,
+    /// A newer release of the app, if the updater found one.
+    latest: Option<String>,
+    /// When the Pomodoro phase ends (kept steady between ticks).
+    pomodoro_ends: Option<chrono::DateTime<chrono::Utc>>,
     /// The d200fw this app embeds, to upgrade an older one on the device (once per run).
     firmware: &'static [u8],
     fw_upgrade_tried: bool,
@@ -380,6 +391,11 @@ impl Engine {
             next_tick: now,
             ticks: 0,
             notes: VecDeque::new(),
+            display_off: None,
+            last_state: String::new(),
+            last_pages: Vec::new(),
+            latest: None,
+            pomodoro_ends: None,
             note: None,
             next_frame: now,
             plugins: vec![
@@ -578,6 +594,7 @@ impl Engine {
         self.connected.store(true, Ordering::SeqCst);
         self.sent = [0; NUM_KEYS];
         let _ = dev.brightness(self.cfg.settings.brightness);
+        self.display_off = None;
         let _ = dev.clear();
         self.draw_all();
         self.set_status(|s| {
@@ -652,6 +669,7 @@ impl Engine {
             self.start_saver();
         }
         self.publish_core();
+        self.publish_deck_state();
         if self.saver.is_some() {
             return; // the scene owns the screen
         }
@@ -760,10 +778,11 @@ impl Engine {
         if k == STATUS_KEY && self.saver.is_none() {
             self.status_capture = Some(self.visible());
         }
-        if self.saver.is_some() {
+        if self.saver.is_some() || self.display_off.is_some() {
             // Waking does not run the key's action; a fresh press is needed.
             self.swallow[k] = true;
             self.stop_saver();
+            self.set_display(true);
             return;
         }
         self.held[k] = Some(Held { since: Instant::now(), long_fired: false });
@@ -805,10 +824,7 @@ impl Engine {
         let page = if self.view.remote { "remote".to_string() } else { self.view.page.clone() };
         let v = json!({ "key": k, "event": ev.name(), "profile": profile, "page": page, "n": self.key_events });
         self.signals.publish("key.event", v.clone());
-        let ids: Vec<&'static str> = self.plugins.iter().flatten().filter(|p| p.watches().contains(&"key.event")).map(|p| p.id()).collect();
-        for id in ids {
-            self.call_plugin(id, |p, h, _| p.on_signal("key.event", &v, h));
-        }
+        self.tell_watchers("key.event", &v);
     }
 
     /// Does key k have double-press actions right now? Only those wait before a press.
@@ -999,6 +1015,133 @@ impl Engine {
                     self.set_view(View { remote: true, ..self.view.clone() });
                 }
             }
+            Action::Screensaver { on } => {
+                let on = crate::config::switch_to(on, self.saver.is_some());
+                if on && self.saver.is_none() && self.dev.is_some() {
+                    self.start_saver();
+                } else if !on {
+                    self.last_input = Instant::now(); // or the idle timer starts it again
+                    self.stop_saver();
+                }
+            }
+            Action::Display { on } => {
+                let on = crate::config::switch_to(on, self.display_off.is_none());
+                self.set_display(on);
+            }
+            Action::Follow { on } => {
+                let on = crate::config::switch_to(on, self.cfg.settings.follow_active_app);
+                if on != self.cfg.settings.follow_active_app {
+                    self.cfg.settings.follow_active_app = on;
+                    self.cfg.sync();
+                    let _ = self.cfg.save(&self.path);
+                    self.manual = false;
+                    self.status.active_app = None; // re-evaluate
+                    (self.emit)("config-changed", json!({}));
+                }
+            }
+            Action::NotifyClear => {
+                self.notes.clear();
+                self.dismiss_note();
+            }
+        }
+        self.publish_deck_state();
+    }
+
+    /// Dark (brightness 0, the level kept) or lit again.
+    fn set_display(&mut self, on: bool) {
+        match (on, self.display_off) {
+            (false, None) => {
+                self.display_off = Some(self.cfg.settings.brightness);
+                if let Some(d) = &self.dev {
+                    let _ = d.brightness(0);
+                }
+            }
+            (true, Some(_)) => {
+                self.display_off = None;
+                if let Some(d) = &self.dev {
+                    let _ = d.brightness(self.cfg.settings.brightness);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// What Home Assistant shows of the deck: one JSON value, as the core signal `deck.state`,
+    /// on MQTT (`<base>/state`, retained) and over the Web API (`GET /api/state`).
+    fn deck_state(&mut self) -> Value {
+        let sig = |s: &Signals, n: &str| s.get(n).cloned().unwrap_or(Value::Null);
+        let profile = self.cfg.profiles.get(self.view.profile);
+        let teams = self.plugin_enabled(crate::plugins::teams::ID).then(|| {
+            let t = |n: &str| sig(&self.signals, &format!("{}:{n}", crate::plugins::teams::ID));
+            json!({ "presence": t("presence"), "activity": t("presence.activity"), "in_meeting": t("in_meeting").as_bool().unwrap_or(false),
+                    "muted": t("meeting.muted") })
+        });
+        let c = |n: &str| sig(&self.signals, &format!("com.deckling.core:{n}"));
+        let media = c("media.title").as_str().filter(|t| !t.is_empty()).map(|_| {
+            json!({ "playing": c("media.playing").as_bool().unwrap_or(false), "title": c("media.title"), "artist": c("media.artist"),
+                    "album": c("media.album"), "player": c("media.player"), "art_url": c("media.art_url") })
+        });
+        // Pomodoro: when the phase ends, steady between ticks (no new state every second)
+        let running = c("pomodoro.running").as_bool().unwrap_or(false);
+        let ends = match (running, c("pomodoro.remaining_ms").as_f64()) {
+            (true, Some(ms)) => {
+                let t = chrono::Utc::now() + chrono::Duration::milliseconds(ms as i64);
+                match self.pomodoro_ends {
+                    Some(old) if (old - t).num_seconds().abs() <= 2 => Some(old),
+                    _ => Some({ use chrono::Timelike; t.with_nanosecond(0).unwrap_or(t) }),
+                }
+            }
+            _ => None,
+        };
+        self.pomodoro_ends = ends;
+        json!({
+            "usb": self.dev.is_some(),
+            "computer": self.host,
+            "app": self.status.active_app.as_ref().map(|a| a.name.clone()),
+            "profile": profile.map(|p| p.name.clone()),
+            "profiles": self.cfg.profiles.iter().map(|p| p.name.clone()).collect::<Vec<_>>(),
+            "page": self.view.page,
+            "pages": profile.map(|p| p.pages.keys().cloned().collect::<Vec<_>>()).unwrap_or_default(),
+            "remote": self.view.remote,
+            "brightness": self.cfg.settings.brightness,
+            "display": self.display_off.is_none(),
+            "screensaver": self.saver.is_some(),
+            "follow": self.cfg.settings.follow_active_app,
+            "notification": self.note.is_some(),
+            "version": env!("CARGO_PKG_VERSION"),
+            "latest": self.latest.clone().unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string()),
+            "teams": teams,
+            "media": media,
+            "pomodoro": { "phase": c("pomodoro.phase"), "running": running, "ends_at": ends.map(|t| t.to_rfc3339()) },
+        })
+    }
+
+    fn publish_deck_state(&mut self) {
+        let v = self.deck_state();
+        let text = v.to_string();
+        if text == self.last_state {
+            return;
+        }
+        self.last_state = text.clone();
+        let pages: Vec<String> = serde_json::from_value(v["pages"].clone()).unwrap_or_default();
+        if pages != self.last_pages {
+            self.last_pages = pages;
+            self.publish_discovery(); // the page select offers this profile's pages
+        }
+        if let Some(m) = &self.mqtt {
+            if self.mqtt_up {
+                m.publish(&m.topic("state"), text, true);
+            }
+        }
+        self.signals.publish("deck.state", v.clone());
+        self.tell_watchers("deck.state", &v);
+    }
+
+    /// Plugins that follow a core signal (`watches()`) get its new value.
+    fn tell_watchers(&mut self, name: &str, v: &Value) {
+        let ids: Vec<&'static str> = self.plugins.iter().flatten().filter(|p| p.watches().contains(&name)).map(|p| p.id()).collect();
+        for id in ids {
+            self.call_plugin(id, |p, h, _| p.on_signal(name, v, h));
         }
     }
 
@@ -2059,6 +2202,37 @@ impl Engine {
                     self.set_brightness(v.clamp(0.0, 255.0) as u8, true);
                 }
             }
+            "page/set" => self.run_action(&Action::Page { page: text }, None),
+            "screensaver/set" => self.run_action(&Action::Screensaver { on: text }, None),
+            "display/set" => self.run_action(&Action::Display { on: text }, None),
+            "follow/set" => self.run_action(&Action::Follow { on: text }, None),
+            "notify/clear" => self.run_action(&Action::NotifyClear, None),
+            "pomodoro/set" => {
+                let what = if text == "reset" { "reset" } else { "press" };
+                self.run_plugin_action("com.deckling.core:pomodoro", json!({ "do": what }));
+            }
+            "press" => {
+                // {"key": 0-13, "event": "press" | "long_press" | "double_press"}
+                let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+                if let Some(k) = v["key"].as_u64().map(|k| k as usize).filter(|k| *k < NUM_KEYS) {
+                    let ev = match v["event"].as_str().unwrap_or("press") {
+                        "long" | "long_press" => KeyEvent::Long,
+                        "double" | "double_press" => KeyEvent::Double,
+                        _ => KeyEvent::Press,
+                    };
+                    self.fire(k, ev);
+                }
+            }
+            "action" => {
+                // {"action": "core:page", "params": {...}}; nothing that starts programs or types
+                if let Ok(r) = serde_json::from_str::<crate::config::ActionRef>(&text) {
+                    if crate::plugins::web::PROGRAM_ACTIONS.contains(&r.action.as_str()) {
+                        (self.emit)("error", json!({ "message": format!("{} is not allowed over MQTT", r.action) }));
+                    } else {
+                        self.run_ref(&r, None);
+                    }
+                }
+            }
             _ => {
                 // Everything else belongs to the plugins that read it (on this connection).
                 let ids: Vec<&'static str> = self
@@ -2201,7 +2375,9 @@ impl Engine {
             return;
         }
         let names: Vec<String> = self.cfg.profiles.iter().map(|p| p.name.clone()).collect();
-        for (t, p) in m.discovery(&names) {
+        let pages: Vec<String> = self.cfg.profiles.get(self.view.profile).map(|p| p.pages.keys().cloned().collect()).unwrap_or_default();
+        let teams = self.plugin_enabled(crate::plugins::teams::ID);
+        for (t, p) in m.discovery(&names, &pages, teams) {
             m.publish(&t, p, true);
         }
     }
@@ -2262,6 +2438,10 @@ impl Engine {
         match u {
             Ui::Snapshot(r) => {
                 let _ = r.send(self.snapshot());
+            }
+            Ui::Latest(v) => {
+                self.latest = Some(v);
+                self.publish_deck_state();
             }
             Ui::Save(cfg, r) => {
                 let res = self.apply_config(*cfg).map(|_| self.snapshot());

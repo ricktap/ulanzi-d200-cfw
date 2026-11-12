@@ -52,6 +52,8 @@ from .const import (
     SERVICE_CLEAR_KEY,
     SERVICE_NOTIFY,
     SERVICE_SET_KEY,
+    SERVICE_PRESS_KEY,
+    SERVICE_RUN_ACTION,
     SERVICE_SHOW_REMOTE,
     TRANSPORT_BOTH,
     TRANSPORT_MQTT,
@@ -64,7 +66,13 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-PLATFORMS = [Platform.EVENT, Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS = [
+    Platform.EVENT, Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH, Platform.SELECT, Platform.NUMBER,
+    Platform.BUTTON, Platform.UPDATE,
+]
+# Actions that start programs or type on the computer: the deck refuses them over MQTT, and
+# over the Web API unless allowed there.
+PROGRAM_ACTIONS = ("com.deckling.core:command", "com.deckling.core:open", "com.deckling.core:keys")
 # Key events the event entity shows (down and up would only add noise).
 KEY_EVENTS = ("press", "long_press", "double_press")
 # Web API only: how often to check that the deck answers.
@@ -105,11 +113,9 @@ class Bridge:
         self.entities: list[str] = list(entry.options.get(CONF_ENTITIES, []))
         self.default_actions: bool = entry.options.get(CONF_DEFAULT_ACTIONS, True)
         self._unsub: list[Any] = []
-        # what the entities show
+        # Web API only (over MQTT the deck's own device has all this): what the entities show
         self.connected: bool | None = None
-        self.computer: str | None = None
-        self.profile: str | None = None
-        self.page: str | None = None
+        self.state: dict[str, Any] = {}
         self.signal = f"{DOMAIN}_{entry.entry_id}"
 
     @callback
@@ -119,11 +125,29 @@ class Bridge:
     @callback
     def key_event(self, data: dict[str, Any]) -> None:
         """A key event from the deck (MQTT `<base>/key` or the webhook)."""
-        if data.get("profile"):
-            self.profile = str(data["profile"])
-        if data.get("page"):
-            self.page = str(data["page"])
         async_dispatcher_send(self.hass, self.signal, data)
+
+    @callback
+    def set_state(self, state: dict[str, Any]) -> None:
+        """The deck's state (GET /api/state, or pushed to the webhook)."""
+        state = {k: v for k, v in state.items() if k != "type"}
+        if state != self.state or self.connected is not True:
+            self.state, self.connected = state, True
+            self._changed()
+
+    async def run(self, action: str, params: dict[str, Any] | None = None) -> None:
+        """Run a deck action (`core:page`, `com.deckling.core:pomodoro` ...)."""
+        if self.use_mqtt:
+            await mqtt.async_publish(self.hass, self.topic("action"), json.dumps({"action": action, "params": params or {}}))
+        elif self.api:
+            await self._web(action, self.api.action(action, params))
+            await self._ping()
+
+    async def press_key(self, key: int, event: str) -> None:
+        if self.use_mqtt:
+            await mqtt.async_publish(self.hass, self.topic("press"), json.dumps({"key": key, "event": event}))
+        elif self.api:
+            await self._web(f"press {key}", self.api.press(key, event))
 
     def topic(self, rest: str) -> str:
         return f"{self.base}/{rest}"
@@ -200,11 +224,7 @@ class Bridge:
 
         @callback
         def availability(msg: mqtt.ReceiveMessage) -> None:
-            payload = text(msg)
-            self.connected = payload.startswith("online")
-            self.computer = (payload[6:].strip(" :") or None) if self.connected else None
-            self._changed()
-            if self.connected:
+            if text(msg).startswith("online"):
                 # a computer took the D200: make sure it has every key (retained anyway, cheap)
                 self.hass.async_create_task(self.publish_all())
 
@@ -217,22 +237,7 @@ class Bridge:
             if isinstance(data, dict):
                 self.key_event(data)
 
-        @callback
-        def profile(msg: mqtt.ReceiveMessage) -> None:
-            self.profile = text(msg) or None
-            self._changed()
-
-        @callback
-        def page(msg: mqtt.ReceiveMessage) -> None:
-            try:
-                data = json.loads(text(msg))
-            except ValueError:
-                return
-            self.page = "remote" if data.get("remote") else data.get("page")
-            self.profile = data.get("profile", self.profile)
-            self._changed()
-
-        for t, fn in (("availability", availability), ("key", key), ("profile", profile), ("page", page)):
+        for t, fn in (("availability", availability), ("key", key)):
             self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic(t), fn))
 
     async def _start_web(self) -> None:
@@ -245,6 +250,9 @@ class Bridge:
                     return web.Response(status=400)
                 if data.get("type") == "key":
                     self.key_event(data)
+                    return web.Response(status=200)
+                if data.get("type") == "state":
+                    self.set_state(data)
                     return web.Response(status=200)
                 kid, what = str(data.get("id", "")), str(data.get("event", "press"))
                 if kid:
@@ -272,15 +280,16 @@ class Bridge:
             self._unsub.append(async_track_time_interval(self.hass, ping, WEB_PING))
 
     async def _ping(self) -> None:
-        """Web API only: is the deck there?"""
+        """Web API only: is the deck there, and what does it show?"""
         try:
-            await self.api.info()
-            ok = True
+            state = await self.api.state()
         except WebError:
-            ok = False
-        if ok != self.connected:
-            self.connected = ok
-            self._changed()
+            if self.connected is not False:
+                self.connected = False
+                self._changed()
+            return
+        if isinstance(state, dict):
+            self.set_state(state)
 
     async def _resync(self) -> None:
         """Renew the webhook subscription; send every key again (the deck may have restarted)."""
@@ -336,9 +345,10 @@ def _tidy_registry(hass: HomeAssistant, bridge: Bridge) -> None:
     entry = bridge.entry
     ents, devs = er.async_get(hass), dr.async_get(hass)
     if bridge.use_mqtt:
-        for key, domain in (("connected", "binary_sensor"), ("computer", "sensor"), ("profile", "sensor")):
-            if eid := ents.async_get_entity_id(domain, DOMAIN, f"{entry.entry_id}_{key}"):
-                ents.async_remove(eid)
+        # the deck's own device has these (0.13 made copies)
+        for e in er.async_entries_for_config_entry(ents, entry.entry_id):
+            if e.unique_id != f"{entry.entry_id}_key_event":
+                ents.async_remove(e.entity_id)
     wanted = device_identifiers(bridge)
     for dev in dr.async_entries_for_config_entry(devs, entry.entry_id):
         if not dev.identifiers & wanted:
@@ -409,4 +419,25 @@ def _register_services(hass: HomeAssistant) -> None:
     }))
     hass.services.async_register(DOMAIN, SERVICE_SET_KEY, set_key, vol.Schema({vol.Required("key_id"): ID_RE, deck: cv.string, **KEY_FIELDS}))
     hass.services.async_register(DOMAIN, SERVICE_CLEAR_KEY, clear_key, vol.Schema({vol.Required("key_id"): ID_RE, deck: cv.string}))
+    async def press_key(call: ServiceCall) -> None:
+        for b in _bridges(hass, call.data.get(CONF_BASE_TOPIC)):
+            await b.press_key(call.data["key"], call.data["event"])
+
+    async def run_action(call: ServiceCall) -> None:
+        action = call.data["action"]
+        if action in PROGRAM_ACTIONS:
+            raise HomeAssistantError(f"{action} starts programs on the computer; the deck only runs it from its own keys")
+        for b in _bridges(hass, call.data.get(CONF_BASE_TOPIC)):
+            await b.run(action, call.data.get("params") or {})
+
+    hass.services.async_register(DOMAIN, SERVICE_PRESS_KEY, press_key, vol.Schema({
+        vol.Required("key"): vol.All(vol.Coerce(int), vol.Range(min=0, max=13)),
+        vol.Optional("event", default="press"): vol.In(["press", "long_press", "double_press"]),
+        deck: cv.string,
+    }))
+    hass.services.async_register(DOMAIN, SERVICE_RUN_ACTION, run_action, vol.Schema({
+        vol.Required("action"): vol.Match(r"^[A-Za-z0-9_.\-]+:[A-Za-z0-9_.\-]+$"),
+        vol.Optional("params"): dict,
+        deck: cv.string,
+    }))
     hass.services.async_register(DOMAIN, SERVICE_SHOW_REMOTE, show_remote, vol.Schema({vol.Optional("show", default=True): cv.boolean, deck: cv.string}))

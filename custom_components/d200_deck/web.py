@@ -68,8 +68,15 @@ class DeckApi:
     async def set_mqtt(self, settings: dict[str, Any]) -> None:
         await self.call("PUT", "/api/mqtt", settings)
 
+    async def state(self) -> dict[str, Any]:
+        return await self.call("GET", "/api/state")
+
+    async def press(self, key: int, event: str) -> None:
+        await self.call("POST", f"/api/keys/{key}/press", {"event": event})
+
     async def subscribe(self, url: str, ttl: int, keys: bool = False) -> None:
-        events = ["presses", "keys"] if keys else ["presses"]
+        # keys: every key event and every state change too (when MQTT does not bring them)
+        events = ["presses", "keys", "state"] if keys else ["presses"]
         await self.call("POST", "/api/subscriptions", {"url": url, "ttl": ttl, "events": events})
 
     async def unsubscribe(self, url: str) -> None:

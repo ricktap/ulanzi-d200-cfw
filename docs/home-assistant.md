@@ -63,19 +63,53 @@ What it does:
   (`press` or `long_press`) and `base_topic`, for your own automations.
 - **When a computer takes the D200** (`online` on `d200/availability`), every key is sent again.
 
-**One device per deck, "Ulanzi D200"** (Settings, Devices). Over MQTT the deck announces it
-itself (brightness, profile, notifications, connected, computer, remote page); the integration
-joins it and adds:
+**One device per deck, "Ulanzi D200"** (Settings, Devices):
 
-| Entity | Shows |
+| Entity | Type | Does or shows |
+|---|---|---|
+| Key event | event | every press, long press and double press on **any** key, with `key` (0 to 13), `profile` and `page` |
+| Profile, Page | select | what the D200 shows; pick one to switch (Page offers the pages of the current profile) |
+| Brightness | number | 0–255 |
+| Remote page | switch | the Home Assistant remote page on or off |
+| Screensaver | switch | start or stop it now |
+| Display | switch | dark (brightness 0) or lit again; a key press also lights it |
+| Follow program in front | switch (config) | switch profiles by the program in front |
+| Notification | notify | a notification on the wide key |
+| Clear notification | button | removes it, and those waiting |
+| Pomodoro start or pause, Pomodoro reset | buttons | the Pomodoro timer |
+| Program in front | sensor | the program the deck follows |
+| Now playing | sensor | `title – artist` from Spotify or Music; `idle`. Attributes: playing, album, player, art_url |
+| Pomodoro | sensor | phase (`work`, `break`, `idle` …); attributes: running, `ends_at` |
+| Teams presence, In a meeting | sensor, binary sensor | from the Teams plugin, while it is on; attributes: activity, muted |
+| D200 plugged in | binary sensor (diagnostic) | the USB link to the D200 is up |
+| Computer online, Computer | diagnostic | a computer has the D200, and which one |
+| D200 Deck | update | a newer release (install it from the app) |
+
+Over MQTT the deck announces all of these itself (MQTT discovery, from `d200/state`); the
+integration joins that device and adds the key events. Over the Web API alone the integration
+makes the same entities, from `GET /api/state` and the webhook (`"events": ["presses", "keys",
+"state"]`); Computer online is then whether the deck answers. (HACS lists one more device, "D200
+Deck" from HACS: that is HACS's record of the download, not a deck.)
+
+Two services work with any key or action:
+
+| Service | Does |
 |---|---|
-| `event.ulanzi_d200_key_event` | every press, long press and double press on **any** key, with the attributes `key` (0 to 13), `profile` and `page` |
-| `sensor.ulanzi_d200_page` | the page the D200 shows; `remote` on the remote page |
+| `d200_deck.press_key` | presses key `key` (0–13) of the page the D200 shows: `event` `press`, `long_press` or `double_press` |
+| `d200_deck.run_action` | runs a deck action: `action` (e.g. `core:page`, `core:profile`, `com.deckling.core:media`) with `params` (e.g. `{page: Media}`). Actions that start programs or type (`com.deckling.core:command`, `:open`, `:keys`) are refused |
 
-Over the Web API alone there is no MQTT device, so the integration makes "Ulanzi D200" itself,
-with **Connected** (the deck answers, checked every minute), **Computer** and **Profile** as
-well. (HACS lists one more device, "D200 Deck" from HACS: that is HACS's record of the download,
-not a deck.)
+An "on air" lamp at the door:
+
+```yaml
+automation:
+  - alias: "On air"
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.ulanzi_d200_in_a_meeting
+    actions:
+      - action: "light.turn_{{ 'on' if trigger.to_state.state == 'on' else 'off' }}"
+        target: { entity_id: light.door }
+```
 
 The key events show up in the logbook and history, and the automation editor offers them as a
 trigger (Entity, State or the device's triggers). Over MQTT they come from `d200/key`; over the
@@ -195,6 +229,13 @@ other keys can read it.
 | `d200/profile`, `d200/profile/set` | from / to deck | profile name (`auto` = follow the active app again) |
 | `d200/brightness`, `d200/brightness/set` | from / to deck | 0–255 |
 | `d200/page` | from deck, retained | `{profile, page, remote}` |
+| `d200/state` | from deck, retained | everything the entities show: `{usb, computer, app, profile, profiles, page, pages, remote, brightness, display, screensaver, follow, notification, version, latest, teams, media, pomodoro}` |
+| `d200/page/set` | to deck | a page of the current profile |
+| `d200/screensaver/set`, `d200/display/set`, `d200/follow/set` | to deck | `on`, `off` or `toggle` |
+| `d200/notify/clear` | to deck | anything: removes the notifications |
+| `d200/pomodoro/set` | to deck | `press` (start, pause, resume) or `reset` |
+| `d200/press` | to deck | `{key, event}`: presses a key (`press`, `long_press`, `double_press`) |
+| `d200/action` | to deck | `{action, params}`: runs an action; not those that start programs or type |
 | `d200/availability` | from deck, retained | `online <computer>` / `offline` |
 
 The Remote page is reached from a key with the "Show Home Assistant page" action, a long press
@@ -243,7 +284,7 @@ Toggle it on press, dim it on long press:
                 data: { brightness_pct: 20 }
 ```
 
-(Or pick the device trigger "Ulanzi D200 · button_3 short press" in the automation editor.)
+(With the integration, the **Key event** entity has these presses too: `key` 2 on `page` `remote`.)
 
 Animated doorbell notification:
 

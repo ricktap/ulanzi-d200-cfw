@@ -61,7 +61,8 @@ time.sleep(4)
 snap("v2_main")
 check("device drawn (sysmon key not black)", px(0, 60, 60) != (0, 0, 0), px(0, 60, 60))
 disc = [t for t in broker.retained if t.startswith("homeassistant/")]
-check("HA discovery published", len(disc) >= 30, len(disc))
+check("HA discovery published", len(disc) >= 18 and any(t.endswith("/page/config") for t in disc)
+      and not any("device_automation" in t for t in disc), len(disc))
 check("availability online", broker.retained.get("d200/availability", b"").startswith(b"online"), broker.retained.get("d200/availability"))
 check("profile state published", broker.retained.get("d200/profile") == b"Default")
 
@@ -123,6 +124,28 @@ check("HA key: background from HA", px(12)[1] > 120 and px(12)[0] < 60, px(12))
 check("HA key: light icon in the entity colour", blue > 200, blue)
 tap(12); time.sleep(0.6)
 check("HA key press goes back to HA", b"press" in broker.got("d200/ha/light.kitchen/action"), broker.got("d200/ha/light.kitchen/action"))
+
+# the deck's state for Home Assistant, and its commands
+def state():
+    return json.loads(broker.retained.get("d200/state", b"{}"))
+time.sleep(1.2)
+st = state()
+check("state published", st.get("usb") is True and st.get("profile") == "Default" and "main" in st.get("pages", []) and st.get("display") is True, st)
+broker.publish("d200/page/set", st["pages"][-1]); time.sleep(1.2)
+check("page/set", state().get("page") == st["pages"][-1], state().get("page"))
+broker.publish("d200/display/set", "off"); time.sleep(1.2)
+check("display/set off", state().get("display") is False, state().get("display"))
+tap(5); time.sleep(1.2)
+check("a key press lights the display again", state().get("display") is True, state().get("display"))
+broker.publish("d200/screensaver/set", "on"); time.sleep(1.2)
+on = state().get("screensaver")
+broker.publish("d200/screensaver/set", "off"); time.sleep(1.2)
+check("screensaver/set on and off", on is True and state().get("screensaver") is False, (on, state().get("screensaver")))
+broker.publish("d200/action", json.dumps({"action": "core:page", "params": {"page": "main"}})); time.sleep(1.2)
+check("action core:page over MQTT", state().get("page") == "main", state().get("page"))
+n = len([m for m in broker.log if m[1] == "d200/key"])
+broker.publish("d200/press", json.dumps({"key": 3, "event": "long_press"})); time.sleep(0.8)
+check("press over MQTT fires a key event", any(m[1] == "d200/key" and json.loads(m[2]).get("event") == "long_press" for m in broker.log[n:]), broker.log[-3:])
 
 # status key press -> home; long -> remote
 broker.publish("d200/profile/set", "Default"); time.sleep(0.5)
