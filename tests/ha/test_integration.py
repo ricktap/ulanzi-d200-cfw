@@ -312,19 +312,28 @@ def entity(hass, entry, key):
 
 
 async def test_device_and_entities_over_mqtt(hass: HomeAssistant, mqtt_mock) -> None:
-    entry = await setup(hass, mqtt_mock, entities=())
-    dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
-    assert dev and dev.name == "D200 Deck" and dev.manufacturer == "Ulanzi"
-    ev, conn, prof, page, comp = (entity(hass, entry, k) for k in ("key_event", "connected", "profile", "page", "computer"))
-    assert all((ev, conn, prof, page, comp))
+    # 0.13.0 made a device of its own with duplicates of the deck's MQTT entities
+    old_entry = MockConfigEntry(domain=DOMAIN, data={CONF_BASE_TOPIC: "d200"}, options={CONF_ENTITIES: []}, unique_id="d200")
+    old_entry.add_to_hass(hass)
+    devs, ents = dr.async_get(hass), er.async_get(hass)
+    old = devs.async_get_or_create(config_entry_id=old_entry.entry_id, identifiers={(DOMAIN, old_entry.entry_id)}, name="D200 Deck")
+    ents.async_get_or_create("binary_sensor", DOMAIN, f"{old_entry.entry_id}_connected", config_entry=old_entry, device_id=old.id)
+    assert await hass.config_entries.async_setup(old_entry.entry_id)
+    await hass.async_block_till_done()
+    entry = old_entry
+
+    # one device: the one the deck announces over MQTT
+    assert devs.async_get_device(identifiers={(DOMAIN, entry.entry_id)}) is None
+    dev = devs.async_get_device(identifiers={("mqtt", "d200_deck")})
+    assert dev and dev.name == "Ulanzi D200" and entry.entry_id in dev.config_entries
+    ev, page = entity(hass, entry, "key_event"), entity(hass, entry, "page")
+    assert ev and page and ents.async_get(ev).device_id == dev.id
+    assert not any(entity(hass, entry, k) for k in ("connected", "computer", "profile"))
     assert hass.states.get(ev).attributes["event_types"] == ["press", "long_press", "double_press"]
 
-    async_fire_mqtt_message(hass, "d200/availability", "online Studio-Mac")
     async_fire_mqtt_message(hass, "d200/page", json.dumps({"profile": "Work", "page": "Media", "remote": False}))
     await hass.async_block_till_done()
-    assert hass.states.get(conn).state == "on"
-    assert hass.states.get(comp).state == "Studio-Mac"
-    assert (hass.states.get(prof).state, hass.states.get(page).state) == ("Work", "Media")
+    assert hass.states.get(page).state == "Media"
 
     # any key, not just Home Assistant ones; down and up are left out
     async_fire_mqtt_message(hass, "d200/key", json.dumps({"profile": "Work", "page": "Main", "key": 3, "event": "down"}))
@@ -337,14 +346,13 @@ async def test_device_and_entities_over_mqtt(hass: HomeAssistant, mqtt_mock) -> 
     assert (st.attributes["key"], st.attributes["profile"], st.attributes["page"]) == (3, "Work", "Main")
     assert hass.states.get(page).state == "Main"
 
-    async_fire_mqtt_message(hass, "d200/availability", "offline")
-    await hass.async_block_till_done()
-    assert hass.states.get(conn).state == "off"
-    assert hass.states.get(comp).state == "unknown"
-
 
 async def test_key_events_over_the_web_api(hass: HomeAssistant, aioclient_mock, hass_client_no_auth) -> None:
     entry = await setup_web(hass, aioclient_mock, entities=())
+    # no MQTT device to join: the integration makes its own, with every sensor
+    dev = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert dev and dev.name == "Ulanzi D200"
+    assert all(entity(hass, entry, k) for k in ("connected", "computer", "profile", "page"))
     assert hass.states.get(entity(hass, entry, "connected")).state == "on"
     client = await hass_client_no_auth()
     body = {"type": "key", "key": 7, "event": "long_press", "profile": "Default", "page": "remote", "n": 4}

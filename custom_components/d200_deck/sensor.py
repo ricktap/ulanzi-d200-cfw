@@ -10,7 +10,11 @@ from .entity import DeckEntity
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     b = entry.runtime_data
-    async_add_entities([Value(b, "profile"), Value(b, "page"), Value(b, "computer", diagnostic=True)])
+    values = [Value(b, "page")]
+    # over MQTT the deck's own device has these already (profile as a select)
+    if not b.use_mqtt:
+        values += [Value(b, "profile"), Value(b, "computer", diagnostic=True)]
+    async_add_entities(values)
 
 
 class Value(DeckEntity, SensorEntity):
