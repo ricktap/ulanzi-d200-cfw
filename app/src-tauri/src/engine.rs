@@ -406,6 +406,7 @@ impl Engine {
                 Some(Box::new(crate::plugins::teams::Teams::default())),
                 Some(Box::new(crate::plugins::jetbrains::JetBrains::default())),
                 Some(Box::new(crate::plugins::web::Web::default())),
+                Some(Box::new(crate::plugins::bambu::Bambu::default())),
             ],
             mqtt: None,
             mqtt_gen: 0,
@@ -948,7 +949,11 @@ impl Engine {
     fn app_action(&mut self, k: usize, kind: AppKind, ev: KeyEvent) {
         let path = self.key_path(k);
         match (kind, ev) {
-            (AppKind::Sysmon, KeyEvent::Press) | (AppKind::Clock, KeyEvent::Press) => {
+            (AppKind::Printer, KeyEvent::Long) => {
+                let device = self.key_cfg(k).cfg_str("device").unwrap_or("").to_string();
+                self.run_plugin_action("com.deckling.bambu:light", json!({ "device": device }));
+            }
+            (AppKind::Sysmon, KeyEvent::Press) | (AppKind::Clock, KeyEvent::Press) | (AppKind::Printer, KeyEvent::Press) => {
                 *self.rt.modes.entry(path).or_insert(0) += 1;
                 self.rt_dirty = true;
                 self.draw_key(k);
@@ -2130,6 +2135,10 @@ impl Engine {
                             bg,
                         ),
                         AppKind::Debugger => apps::debugger_face(f, crate::plugins::jetbrains::active(&self.signals).as_deref(), bg, fg),
+                        AppKind::Printer => {
+                            let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64() % 3600.0);
+                            crate::plugins::bambu::face(f, &key, crate::plugins::bambu::printer(&self.signals, &key), mode as usize, t, bg)
+                        }
                     }
                 }
                 _ if key.app.is_some() && def.is_none() => render::missing_plugin(f, key.app.as_deref().unwrap_or(""), size),
@@ -2575,6 +2584,14 @@ impl Engine {
                 HostRequest::Press { key, event } => {
                     if key < NUM_KEYS {
                         self.fire(key, event);
+                    }
+                }
+                HostRequest::Topic { topic, payload } => {
+                    // the Web API's way in for what otherwise arrives over MQTT
+                    let ids: Vec<&'static str> =
+                        self.plugins.iter().flatten().filter(|p| p.mqtt_topics().iter().any(|t| crate::plugins::topic_matches(t, &topic))).map(|p| p.id()).collect();
+                    for id in ids {
+                        self.plugin_mqtt_message(id, &topic, &payload);
                     }
                 }
                 HostRequest::SetLayoutKey(spec) => {

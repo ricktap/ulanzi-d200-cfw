@@ -252,6 +252,11 @@ fn options() -> &'static resvg::usvg::Options<'static> {
     })
 }
 
+/// Any SVG as a `size` x `size` pixmap (cached): for widgets that build their drawing.
+pub fn rasterise_svg(text: &str, size: u32) -> Option<Arc<Pixmap>> {
+    cached(text.to_string(), size)
+}
+
 fn rasterise(text: &str, size: u32) -> Option<Pixmap> {
     let tree = resvg::usvg::Tree::from_str(text, options()).ok()?;
     let mut pm = resvg::tiny_skia::Pixmap::new(size, size)?;

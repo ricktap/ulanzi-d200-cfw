@@ -2,7 +2,8 @@
   "domain": "d200_deck",
   "name": "D200 Deck",
   "after_dependencies": [
-    "mqtt"
+    "mqtt",
+    "bambu_lab"
   ],
   "codeowners": [],
   "config_flow": true,
@@ -15,7 +16,7 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/ricktap/ulanzi-d200-cfw/issues",
   "requirements": [],
-  "version": "0.20.3",
+  "version": "0.21.0",
   "zeroconf": [
     "_d200deck._tcp.local."
   ]

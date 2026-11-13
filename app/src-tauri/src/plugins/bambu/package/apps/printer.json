@@ -1,0 +1,59 @@
+{
+  "id": "com.deckling.bambu:printer",
+  "name": "Bambu Lab printer",
+  "description": "Shows a Bambu Lab printer from Home Assistant: the machine with its print growing, the state, the percentage and the time left. Press switches to the temperatures and the filament. Long press toggles the chamber light.",
+  "icon": "com.deckling.core:bambu-lab",
+  "face": "printer",
+  "config": [
+    {
+      "key": "device",
+      "label": "Printer (from Home Assistant)",
+      "type": "select",
+      "values": {
+        "source": "com.deckling.bambu:devices"
+      }
+    },
+    {
+      "key": "model",
+      "label": "Drawn as",
+      "type": "select",
+      "default": "auto",
+      "values": [
+        {
+          "label": "Automatic (the model Home Assistant reports)",
+          "value": "auto"
+        },
+        {
+          "label": "A1",
+          "value": "a1"
+        },
+        {
+          "label": "A1 mini",
+          "value": "a1-mini"
+        },
+        {
+          "label": "P1S",
+          "value": "p1s"
+        }
+      ]
+    }
+  ],
+  "implements": {
+    "progress": {
+      "value": {
+        "bind": "com.deckling.bambu:{device}.progress",
+        "fallback": 0
+      }
+    },
+    "label": {
+      "text": {
+        "bind": "com.deckling.bambu:{device}.status",
+        "fallback": ""
+      }
+    }
+  },
+  "on": {
+    "press": [],
+    "long": []
+  }
+}

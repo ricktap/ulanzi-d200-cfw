@@ -675,7 +675,7 @@ mod tests {
         assert!(r.app("com.deckling.ha:entity").unwrap().icon.as_ref().unwrap().is_object(), "HA picks the icon per key");
         let ids: Vec<&str> = r.plugins.iter().map(|p| p.id.as_str()).collect();
         assert_eq!(ids, [
-            "core", "com.deckling.core", "com.deckling.ha", "com.deckling.jetbrains", "com.deckling.teams", "com.deckling.web",
+            "core", "com.deckling.bambu", "com.deckling.core", "com.deckling.ha", "com.deckling.jetbrains", "com.deckling.teams", "com.deckling.web",
             "com.deckling.amber", "com.deckling.cpu-heat", "com.deckling.glacier", "com.deckling.rainbow",
         ]);
         assert!(r.apps.contains_key("com.deckling.core:clock"));

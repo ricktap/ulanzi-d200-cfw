@@ -38,6 +38,8 @@ cfg["profiles"][0]["pages"]["main"]["11"] = {"app": "com.deckling.ha:entity", "c
 # an on icon and another icon for off (key 10)
 cfg["profiles"][0]["pages"]["main"]["10"] = {"app": "com.deckling.ha:entity", "config": {"id": "switch.plug", "pill": "none"},
     "states": [{"icon": "com.deckling.core:light", "icon_off": "com.deckling.core:volume-muted"}]}
+# a Bambu Lab printer from Home Assistant (key 9)
+cfg["profiles"][0]["pages"]["main"]["9"] = {"app": "com.deckling.bambu:printer", "config": {"device": "p1s1"}}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 
 broker = Broker(18830)
@@ -144,6 +146,27 @@ broker.publish("d200/ha/switch.plug/set", json.dumps({"label": "Plug", "on": Fal
 off10 = coral(10)
 broker.publish("d200/ha/switch.plug/set", json.dumps({"label": "Plug", "on": True}), retain=True); time.sleep(1.2)
 check("off icon while off, on icon while on", off10 > 20 and coral(10) == 0, (off10, coral(10)))
+
+# Bambu Lab printer: Home Assistant's message draws the machine; press cycles the views; long press asks for the light
+def key_px(k):
+    x, y = RECT(k)
+    return snap()[y:y + 196, x:x + 196].copy()
+before = key_px(9)
+broker.publish("d200/bambu/p1s1/state", json.dumps({"name": "P1S", "model": "P1S", "status": "printing", "progress": 34, "remainingMinutes": 96,
+    "nozzle": 245, "nozzleTarget": 245, "bed": 70, "bedTarget": 70, "lightOn": True, "filamentColor": "#0000FFFF",
+    "spools": [{"material": "PLA", "remaining": 80, "color": "#FF00FFFF"}]}), retain=True)
+time.sleep(1.6)
+shown = key_px(9)
+blue = int((np.abs(shown.astype(int) - [0, 0, 255]).sum(axis=2) < 60).sum())
+check("printer key: the machine with the nozzle in the filament's colour", (shown != before).any() and blue > 5, blue)
+tap(9); time.sleep(1.4)
+temps = key_px(9)
+tap(9); time.sleep(1.4)
+fil = key_px(9)
+magenta = int((np.abs(fil.astype(int) - [255, 0, 255]).sum(axis=2) < 60).sum())
+check("printer key: press shows temperatures, then the filament", (temps != shown).any() and magenta > 100, magenta)
+key(9, 1); time.sleep(0.6); key(9, 0); time.sleep(0.6)
+check("printer key: long press asks Home Assistant for the light", b"light" in broker.got("d200/bambu/p1s1/action"), broker.got("d200/bambu/p1s1/action"))
 
 # the deck's state for Home Assistant, and its commands
 def state():

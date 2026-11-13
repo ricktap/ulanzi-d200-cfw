@@ -695,6 +695,14 @@ pub const MUTED: Rgb = [135, 144, 158];
 fn slot(name: &str, default: Rgb) -> Rgb {
     ICON_THEME.with(|t| t.borrow().iter().find(|(k, _)| k == name).and_then(|(_, v)| parse_color(v))).unwrap_or(default)
 }
+/// Lines and text: base.
+pub fn ink() -> Rgb {
+    slot("icon-base", IVORY)
+}
+/// Secondary text: muted.
+pub fn dim() -> Rgb {
+    slot("icon-muted", MUTED)
+}
 /// Active: accent.
 pub fn mint() -> Rgb {
     slot("icon-mint", MINT)

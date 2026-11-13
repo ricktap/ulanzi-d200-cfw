@@ -124,6 +124,10 @@ try:
     srv = http.server.HTTPServer(("127.0.0.1", 0), Hook)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     hook = f"http://127.0.0.1:{srv.server_address[1]}/hook"
+    code, _ = api("PUT", "/api/topics/bambu/x1/state", {"name": "X1", "model": "X1C", "status": "printing", "progress": 12})
+    time.sleep(0.6)
+    code2, sig = api("GET", "/api/signals/com.deckling.bambu:x1.status")
+    check("PUT /api/topics reaches the plugins (a printer without MQTT)", code == 200 and code2 == 200 and sig.get("value") == "printing", sig)
     code, st = api("GET", "/api/state")
     code, _ = api("PUT", "/api/layout", {"key": 3, "label": "Built", "page": "main"})
     time.sleep(1.0)

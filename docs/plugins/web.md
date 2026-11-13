@@ -42,6 +42,7 @@ wrong token).
 | `GET /api/subscriptions` | webhooks registered over the API, with the seconds they have left |
 | `POST /api/subscriptions` | registers or renews a webhook: `{"url": ..., "ttl": 900, "events": ["presses", "keys"]}` (10 to 3600 s, at most 16). `presses`: presses on Web keys (the default); `keys`: every key event on any key, posted as `{"type": "key", "key", "event", "profile", "page", "n"}`; `state`: every change of `GET /api/state`, posted with `"type": "state"` |
 | `DELETE /api/subscriptions` | removes one: `{"url": ...}` |
+| `PUT /api/topics/<topic>` | delivers the body to the plugins as if it had arrived over MQTT on `<base>/<topic>`, e.g. `bambu/<id>/state` or `ha/<id>/set` |
 | `GET /api/layout` | every profile, page and key with label, icon, colours and app |
 | `PUT /api/layout` | puts a key on a page: `{key (0-12), profile?, page?, label?, icon?, color?, text_color?}`; a new page is added; saved to deck.json |
 | `DELETE /api/layout` | takes a key off a page: `{key, profile?, page?}` |

@@ -273,10 +273,12 @@ pub enum AppKind {
     TeamsPresence,
     /// JetBrains IDE debugger.
     Debugger,
+    /// A Bambu Lab printer from Home Assistant.
+    Printer,
 }
 
 impl AppKind {
-    pub const ALL: [AppKind; 10] = [
+    pub const ALL: [AppKind; 11] = [
         AppKind::Sysmon,
         AppKind::Mute,
         AppKind::Weather,
@@ -287,6 +289,7 @@ impl AppKind {
         AppKind::TeamsCamera,
         AppKind::TeamsPresence,
         AppKind::Debugger,
+        AppKind::Printer,
     ];
     /// The app id of this built-in app.
     pub fn id(self) -> &'static str {
@@ -301,6 +304,7 @@ impl AppKind {
             AppKind::TeamsCamera => "com.deckling.teams:camera",
             AppKind::TeamsPresence => "com.deckling.teams:presence",
             AppKind::Debugger => "com.deckling.jetbrains:debugger",
+            AppKind::Printer => "com.deckling.bambu:printer",
         }
     }
     pub fn from_id(id: &str) -> Option<AppKind> {

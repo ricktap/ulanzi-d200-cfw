@@ -8,6 +8,7 @@ The plugins that ship with D200 Deck. Each folder holds one plugin:
 | [teams/](teams/) | `com.deckling.teams` | Microsoft Teams meeting controls, presence, mail and calendar |
 | [jetbrains/](jetbrains/) | `com.deckling.jetbrains` | whether a JetBrains IDE is debugging |
 | [ha/](ha/) | `com.deckling.ha` | Home Assistant over MQTT: entities on keys, the remote page, the printer |
+| [bambu/](bambu/) | `com.deckling.bambu` | Bambu Lab printers from Home Assistant on keys |
 | [web/](web/) | `com.deckling.web` | an HTTP API with a token for scripts and other tools |
 
 `core` without a prefix is not a plugin: it is what is fixed in the app (keys, pages,

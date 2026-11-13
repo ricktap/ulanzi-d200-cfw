@@ -71,6 +71,10 @@ class DeckApi:
     async def state(self) -> dict[str, Any]:
         return await self.call("GET", "/api/state")
 
+    async def topic(self, topic: str, payload: Any) -> None:
+        """What goes to `<base>/<topic>` over MQTT, for the deck's plugins."""
+        await self.call("PUT", f"/api/topics/{topic}", payload)
+
     async def layout(self) -> dict[str, Any]:
         return await self.call("GET", "/api/layout")
 

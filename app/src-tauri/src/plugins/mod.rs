@@ -6,6 +6,7 @@
 //! key and never sees key presses. MQTT is part of the app: a plugin names the topics
 //! it reads (relative to the base topic) and may publish through the host.
 
+pub mod bambu;
 pub mod core;
 pub mod ha;
 pub mod jetbrains;
@@ -48,6 +49,8 @@ pub enum HostRequest {
     Press { key: usize, event: crate::config::KeyEvent },
     /// Use these settings for the deck's shared MQTT connection (saved to deck.json).
     SetMqtt(crate::config::MqttCfg),
+    /// A message for the plugins as if it had arrived over MQTT: `<base>/<topic>` with `payload`.
+    Topic { topic: String, payload: String },
     /// Put a key on a page, or take it off (saved to deck.json); see `Engine::set_layout_key`.
     SetLayoutKey(serde_json::Value),
 }
