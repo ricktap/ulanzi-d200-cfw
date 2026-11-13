@@ -130,6 +130,13 @@ Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckl
 | App from a missing plugin | dashed "Plugin missing" placeholder |
 | Plain button | icon and label; bound icons read the state's `props` and theme variables |
 
+**Theme colours.** Every set icon is drawn in the theme: its colour slots follow the theme
+variables (`--icon-base` base, `--icon-muted` muted, `--icon-mint` accent, `--icon-lavender` info,
+`--icon-amber` warning, `--icon-coral` danger), on plain buttons, app keys and inside the
+built-in widgets, and `tone` bindings read the same variables. Pills, the wide key and cards
+use them too (`render::mint()` and friends, never the constants). A colour the key or widget
+sets itself wins.
+
 **On and off.** An app with the `toggle` interface is on or off. A key can give it an icon for
 on (`icon`) and one for off (`icon_off`); without `icon_off` the on icon is drawn in both, and
 an icon with a `toggle` binding shows its own off look. An app may name the two states and, for

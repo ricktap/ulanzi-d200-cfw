@@ -1870,7 +1870,7 @@ impl Engine {
                         let (dx, dy) = (xx as f32 - (w as f32 - 20.0), yy as f32 - 20.0);
                         if dx * dx + dy * dy <= 36.0 {
                             let o = (yy * w + xx) * 3;
-                            rgb[o..o + 3].copy_from_slice(&render::MINT);
+                            rgb[o..o + 3].copy_from_slice(&render::mint());
                         }
                     }
                 }
@@ -1965,11 +1965,29 @@ impl Engine {
         t
     }
 
+    /// The theme's colours for the icons' colour slots (accent for mint strokes, danger for
+    /// coral ones ...), and what resolving them read (a variable bound to a signal).
+    fn icon_theme(&self, vars: &Map<String, Value>) -> (Vec<(String, String)>, Reads) {
+        let none = Map::new();
+        let ctx = Ctx { implements: None, props: None, config: &none, signals: &self.signals, theme: vars };
+        let mut reads = Reads::default();
+        let colours = render::ICON_SLOTS
+            .iter()
+            .filter_map(|(slot, var)| {
+                let v = bind::resolve(&json!({ "tone": var }), &ctx, &mut reads).map(|v| bind::text(&v))?;
+                render::parse_color(&v).map(|_| (slot.to_string(), v))
+            })
+            .collect();
+        (colours, reads)
+    }
+
     /// The face of key `k`, and what its icon read.
     fn face_r(&self, v: &View, k: usize, pressed: bool) -> Option<(Vec<u8>, Reads)> {
         let f = self.fonts()?;
         let vars = self.theme_vars();
         let theme_eff = self.effective_theme(&vars);
+        let (icon_colours, theme_reads) = self.icon_theme(&vars);
+        let _icon_theme = render::IconTheme::set(icon_colours);
         let mut reads = Reads::default();
         let base = base_dir(&self.path);
         let size = render::key_size(k);
@@ -2171,9 +2189,12 @@ impl Engine {
         };
         if pressed {
             let (w, h) = (c.w(), c.h());
-            c.overlay(render::MINT, 0.10);
-            c.stroke_rect(2.0, 2.0, w - 4.0, h - 4.0, 12.0, 5.0, render::MINT);
+            c.overlay(render::mint(), 0.10);
+            c.stroke_rect(2.0, 2.0, w - 4.0, h - 4.0, 12.0, 5.0, render::mint());
         }
+        // the icons' colours come from the theme: redraw when a signal behind it changes
+        reads.signals.extend(theme_reads.signals);
+        reads.variables.extend(theme_reads.variables);
         Some((c.into_rgb(), reads))
     }
 
@@ -2760,6 +2781,7 @@ impl Engine {
                 let reg = crate::registry::current();
                 let def = k.app.as_deref().and_then(|id| reg.app(id));
                 let vars = self.theme_vars();
+                let _icon_theme = render::IconTheme::set(self.icon_theme(&vars).0);
                 let st = k.state(0);
                 let shown = def.map(|d| shown_interfaces(&d.implements, k.cfg_str("as").unwrap_or("auto")));
                 let env = IconEnv::new(Ctx {
