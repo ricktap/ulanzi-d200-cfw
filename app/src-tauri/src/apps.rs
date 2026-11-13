@@ -381,6 +381,14 @@ mod tests {
         };
         assert!(n(&on, [255, 0, 0]) > 300 && n(&on, [0x69, 0xE0, 0xC1]) == 0, "sound on: icon and pill in the accent");
         assert!(n(&muted, [0, 0, 255]) > 300 && n(&muted, [0xFF, 0x82, 0x78]) == 0, "muted: mark and pill in danger");
+        // every key on the theme's background gets its light; a key with its own colour stays flat
+        let px = |c: &Canvas, x: usize, y: usize| { let d = c.pm.data(); let i = (y * 196 + x) * 4; [d[i], d[i + 1], d[i + 2]] };
+        let (themed, own) = {
+            let _s = crate::render::KeySurface { bg: [33, 26, 20], light: [255, 0, 0], strength: 0.3 }.set();
+            (mute_face(&f, Some(true), [33, 26, 20], IVORY), mute_face(&f, Some(true), [0, 0, 60], IVORY))
+        };
+        assert!(px(&themed, 3, 3)[0] > 80 && px(&themed, 192, 192) == [33, 26, 20], "{:?} {:?}", px(&themed, 3, 3), px(&themed, 192, 192));
+        assert_eq!(px(&own, 3, 3), [0, 0, 60]);
         // the swap ends with its guard
         assert_eq!(plain.pm.data(), mute_face(&f, Some(true), BG, IVORY).pm.data());
         let coral = |c: &Canvas| c.pm.data().chunks_exact(4).filter(|p| p[0] == coral()[0] && p[1] == coral()[1] && p[2] == coral()[2]).count();
@@ -470,7 +478,7 @@ const K: f32 = 196.0;
 const CX: f32 = 98.0;
 
 fn key(bg: Rgb) -> Canvas {
-    Canvas::new(K as u32, K as u32, bg)
+    crate::render::key_canvas(K as u32, K as u32, bg)
 }
 
 thread_local! {
@@ -835,7 +843,7 @@ pub fn presence_face(f: &Fonts, p: Option<&Presence>, signed_in: bool, err: Opti
     let t = text.to_uppercase();
     if c.tw(f, &t, 17.0, crate::render::Weight::Bold, 2.4) + 34.0 > 184.0 {
         c.rect(14.0, 142.0, 168.0, 32.0, 16.0, col, 1.0);
-        c.caps(f, text, 13.0, CX, 163.0, BG, 156.0);
+        c.caps(f, text, 13.0, CX, 163.0, crate::render::bg(), 156.0);
     } else {
         c.pill(f, text, CX, 158.0, col);
     }

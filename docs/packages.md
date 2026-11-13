@@ -137,6 +137,10 @@ built-in widgets, and `tone` bindings read the same variables. Pills, the wide k
 use them too (`render::mint()` and friends, never the constants). A colour the key or widget
 sets itself wins.
 
+**Background.** Every key without a colour of its own stands on the theme's `background`, with
+the same soft light from the upper left (`render::key_canvas`, `KeySurface`); the wide key and
+the cards use that background too. A key with its own background colour stays flat.
+
 **On and off.** An app with the `toggle` interface is on or off. A key can give it an icon for
 on (`icon`) and one for off (`icon_off`); without `icon_off` the on icon is drawn in both, and
 an icon with a `toggle` binding shows its own off look. An app may name the two states and, for
