@@ -35,6 +35,9 @@ cfg["profiles"][0]["pages"]["main"]["12"] = {"app": "com.deckling.ha:entity", "c
     "states": [{"on": {"press": [{"action": "com.deckling.ha:press", "params": {"id": "{id}"}}]}}]}
 # the same entity "shown as" a push button (no colour, no value) on key 11
 cfg["profiles"][0]["pages"]["main"]["11"] = {"app": "com.deckling.ha:entity", "config": {"id": "light.kitchen", "as": "button", "pill": "state"}}
+# an on icon and another icon for off (key 10)
+cfg["profiles"][0]["pages"]["main"]["10"] = {"app": "com.deckling.ha:entity", "config": {"id": "switch.plug", "pill": "none"},
+    "states": [{"icon": "com.deckling.core:light", "icon_off": "com.deckling.core:volume-muted"}]}
 json.dump(cfg, open(sim + "/cfg/deck.json", "w"))
 
 broker = Broker(18830)
@@ -132,6 +135,15 @@ tap(12); time.sleep(0.6)
 check("HA key press goes back to HA", b"press" in broker.got("d200/ha/light.kitchen/action"), broker.got("d200/ha/light.kitchen/action"))
 ke = [json.loads(m[2]) for m in broker.log if m[1] == "d200/key_event"]
 check("Key pressed has the HA key's label and icon", bool(ke) and ke[-1].get("key") == 12 and ke[-1].get("key_label") == "Kitchen" and bool(ke[-1].get("key_icon")), ke[-1:])
+
+# on icon and off icon: the muted speaker (coral mark) only while the entity is off
+def coral(k):
+    x, y = RECT(k)
+    return int((np.abs(snap()[y:y + 196, x:x + 196].astype(int) - [0xFF, 0x82, 0x78]).sum(axis=2) < 40).sum())
+broker.publish("d200/ha/switch.plug/set", json.dumps({"label": "Plug", "on": False}), retain=True); time.sleep(1.2)
+off10 = coral(10)
+broker.publish("d200/ha/switch.plug/set", json.dumps({"label": "Plug", "on": True}), retain=True); time.sleep(1.2)
+check("off icon while off, on icon while on", off10 > 20 and coral(10) == 0, (off10, coral(10)))
 
 # the deck's state for Home Assistant, and its commands
 def state():

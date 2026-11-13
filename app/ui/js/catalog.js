@@ -108,6 +108,12 @@ export const pluginOn = (id) => id === "core" || state.config?.plugins?.[id]?.en
 /** Does an installed and switched-on package offer this app / action? */
 export const appAvailable = (id) => !!appDef(id) && pluginOn(nsOf(id));
 
+/** The name of a package: "com.deckling.teams" → "Microsoft Teams"; `core` is the deck itself. */
+export const pluginName = (id) => (id === "core" ? "Basics" : state.catalog.plugins?.find((p) => p.id === id)?.name || id);
+
+/** As byNamespace, with the plugins' names as titles. */
+export const byPlugin = (list) => byNamespace(list).map((g) => ({ ...g, title: pluginName(g.title) }));
+
 /** [{title, items}] grouped by namespace, in catalog order, without switched-off plugins. */
 export function byNamespace(list) {
   const groups = new Map();

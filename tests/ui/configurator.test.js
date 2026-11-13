@@ -18,7 +18,7 @@ const fs = require('fs');
 
   // 1. tap an app: Weather on key 7
   await p.click('.key[data-key="7"]'); await wait(300);
-  await p.click('.item:has-text("Weather")'); await wait();
+  await p.click('#lib-body .item:has-text("Weather")'); await wait();
   ok(page0()['7']?.app === 'com.deckling.core:weather', 'tap places Weather on key 7: ' + page0()['7']?.app);
   ok((await p.textContent('#hint')).includes('Weather'), 'hint says so');
 
@@ -32,14 +32,14 @@ const fs = require('fs');
 
   // 4. add an action to Long press of key 7
   await p.click('.key[data-key="7"]'); await wait(300);
-  await p.click('.sec-head:has-text("Long press")'); await wait(300);
-  await p.click('#lib-tabs [data-tab="actions"]'); await wait(300);
-  await p.click('.item:has-text("Run a command"), .item:has-text("Command")'); await wait();
+  await p.click('.sec:has-text("Long press") .sec-head'); await wait(300);
+  await p.click('.sec:has-text("Long press") .add-action'); await wait(400);
+  await p.click('#dlg-pick .item:has-text("Run a command"), #dlg-pick .item:has-text("Command")'); await wait();
   const lp = page0()['7']?.states?.[0]?.on?.long || [];
   ok(lp.some(a => a.action === 'com.deckling.core:command'), 'action lands in Long press: ' + JSON.stringify(lp));
 
   // 5. edit its parameter
-  const inp = p.locator('.sec.target .act input').first();
+  const inp = p.locator('.sec:has-text("Long press") .act input').first();
   await inp.fill('echo hi'); await wait(1200);
   const lp2 = page0()['7']?.states?.[0]?.on?.long || [];
   ok(JSON.stringify(lp2).includes('echo hi'), 'parameter saved: ' + JSON.stringify(lp2));
@@ -59,16 +59,17 @@ const fs = require('fs');
 
   // 9. icon: pick a non-default icon for key 7 (pomodoro)
   await p.click('.key[data-key="7"]'); await wait(300);
-  await p.click('#lib-tabs [data-tab="icons"]'); await wait(800);
-  await p.locator('.icon-cell').nth(1).click(); await wait();
-  ok(!!page0()['7']?.states?.[0]?.icon, 'icon chosen: ' + page0()['7']?.states?.[0]?.icon);
-  await p.click('.box button:has-text("Restore default icons")'); await wait();
+  await p.locator('#insp .icon-row button:has-text("Change")').first().click(); await wait(800);
+  await p.locator('#dlg-pick .icon-cell').nth(1).click(); await wait();
+  ok(!!page0()['7']?.states?.[0]?.icon, 'icon chosen in the picker: ' + page0()['7']?.states?.[0]?.icon);
+  await p.locator('#insp .icon-row button:has-text("Change")').first().click(); await wait(800);
+  await p.click('#dlg-pick details.more summary'); await wait(300);
+  await p.click('#dlg-pick button:has-text("Restore default icons")'); await wait();
   ok(!page0()['7']?.states?.[0]?.icon, 'restore default icons');
 
   // 10. switch off the Teams plugin: its keys show Plugin missing
   await p.click('.key[data-key="9"]'); await wait(300);
-  await p.click('#lib-tabs [data-tab="apps"]'); await wait(300);
-  await p.click('.item:has-text("Teams mic")'); await wait();
+  await p.click('#lib-body .item:has-text("Teams mic")'); await wait();
   await p.click('#side [data-view="packages"]'); await wait();
   await p.locator('.pkg:has-text("com.deckling.teams") input.switch').click(); await wait();
   ok(cfg().plugins['com.deckling.teams'].enabled === false, 'teams switched off');
@@ -103,19 +104,20 @@ const fs = require('fs');
   // 13. a button with two states, emoji, colours
   await p.click('#sel-profile'); await p.selectOption('#sel-profile', '0'); await wait(1200);
   await p.click('.key[data-key="12"]'); await wait(300);
-  await p.click('#lib-tabs [data-tab="apps"]'); await wait(300);
-  await p.click('.item:has-text("Button")'); await wait();
+  await p.click('#lib-body .item:has-text("Button")'); await wait();
   await p.click('#insp button:has-text("+ State")'); await wait();
   const k12 = () => page0()['12'];
   ok((k12()?.states || []).length === 2, 'button has two states');
   ok((k12()?.states || []).every(st => JSON.stringify(st.on || {}).includes('core:state')), 'both states switch to the next');
-  await p.click('#lib-tabs [data-tab="icons"]'); await wait(800);
-  await p.click('.emoji-grid button >> nth=3'); await wait();
+  await p.locator('#insp .icon-row button:has-text("Change")').first().click(); await wait(800);
+  await p.click('#dlg-pick .emoji-grid button >> nth=3'); await wait();
   ok(k12()?.states?.[1]?.icon === '🎵', 'emoji on state 2: ' + k12()?.states?.[1]?.icon);
   await p.locator('#insp .box:has-text("Colours") input[type=color]').first().evaluate((el) => { el.value = '#334455'; el.dispatchEvent(new Event('input')); }); await wait(1200);
   ok(k12()?.states?.[1]?.bg === '#334455', 'background colour of state 2');
 
-  // 14. a theme variable bound to a signal
+  // 14. a theme variable bound to a signal (Appearance)
+  await p.click('#side [data-view="look"]'); await wait(600);
+  ok(await p.locator('#look-preview .key img[src^="data:"]').count() > 5, 'Appearance shows the keys as a preview');
   await p.selectOption('#theme select >> nth=-1', 'accent'); await wait(800);
   await p.locator('#theme .box:has-text("accent") select').first().selectOption('signal'); await wait(1200);
   const acc = cfg().plugins.core.config.theme.variables.accent;
@@ -149,8 +151,8 @@ const fs = require('fs');
   await p.click('#dlg-prompt #prompt-ok'); await wait(1800);
   ok(await p.locator('.pkg:has-text("com.test.ocean")').count() === 0, 'the theme is removed');
   await p.screenshot({ path: OUT + '/12-packages.png', fullPage: true });
-  await p.click('#side [data-view="deck"]'); await wait(1200);
-  ok((await p.locator('#theme .theme-pick').first().textContent()).includes('missing'), 'the deck says the theme is missing');
+  await p.click('#side [data-view="look"]'); await wait(1200);
+  ok((await p.locator('#theme .theme-pick').first().textContent()).includes('missing'), 'Appearance says the theme is missing');
 
   // 17. web API: generate a token, switch the server on, see where it listens
   await p.click('#side [data-view="packages"]'); await wait();
@@ -167,20 +169,25 @@ const fs = require('fs');
   await p.locator('.pkg:has-text("com.deckling.web") label:has-text("Run the web server") input').click(); await wait(800);
   await p.screenshot({ path: OUT + '/13-web.png', fullPage: true });
 
-  // icons per state: Mute on key 9, Muted gets the TC001, then the original again
+  // on and off icons: Mute on key 9
+  const TC = 'com.deckling.core:ulanzi-tc001';
   await p.click('#side [data-view="deck"]'); await wait(500);
   await p.click('.key[data-key="9"]'); await wait(300);
   await p.click('#insp button:has-text("Clear key")').catch(() => {}); await wait(500);
-  await p.click('#lib-tabs [data-tab="apps"]'); await wait(300);
-  await p.click('.item:has-text("Mute") >> nth=0'); await wait();
+  ok(await p.locator('#insp button:has-text("Make it a plain button")').count() === 1, 'an empty key says what to do');
+  await p.click('#lib-body .item:has-text("Mute") >> nth=0'); await wait();
   ok(page0()['9']?.app === 'com.deckling.core:mute', 'Mute on key 9: ' + page0()['9']?.app);
-  ok(await p.locator('#insp .state-icon').count() === 2, 'two states listed with their original icons');
-  await p.locator('#insp .state-icon:has-text("Muted") button:has-text("Change")').click(); await wait(500);
-  await p.locator('#lib-body .icon-cell[title="com.deckling.core:ulanzi-tc001"]').click(); await wait();
-  ok(page0()['9']?.config?.state_icons?.muted === 'com.deckling.core:ulanzi-tc001', 'Muted uses the TC001: ' + JSON.stringify(page0()['9']?.config));
-  await p.screenshot({ path: OUT + '/14-state-icons.png', fullPage: true });
-  await p.locator('#insp .state-icon:has-text("Muted") button:has-text("Original")').click(); await wait();
-  ok(!page0()['9']?.config?.state_icons, 'back to the original icon');
+  ok(await p.locator('#insp .icon-row').count() === 2, 'an icon row for on (Muted) and one for off (Sound on)');
+  await p.locator('#insp .icon-row:has-text("Muted") button:has-text("Change")').click(); await wait(600);
+  await p.locator(`#dlg-pick .icon-cell[title="${TC}"]`).first().click(); await wait();
+  ok(page0()['9']?.states?.[0]?.icon === TC, 'on icon: ' + JSON.stringify(page0()['9']?.states));
+  await p.locator('#insp .icon-row:has-text("Sound on") button:has-text("Change")').click(); await wait(600);
+  await p.locator('#dlg-pick .icon-cell[title="com.deckling.core:light"]').first().click(); await wait();
+  ok(page0()['9']?.states?.[0]?.icon_off === 'com.deckling.core:light', 'off icon: ' + JSON.stringify(page0()['9']?.states));
+  await p.screenshot({ path: OUT + '/14-on-off-icons.png', fullPage: true });
+  await p.locator('#insp .icon-row:has-text("Sound on") button:has-text("Remove")').click(); await wait();
+  await p.locator('#insp .icon-row:has-text("Muted") button:has-text("Default")').click(); await wait();
+  ok(!page0()['9']?.states?.[0]?.icon && !page0()['9']?.states?.[0]?.icon_off, 'both back to the defaults');
 
   // narrow window
   await p.setViewportSize({ width: 820, height: 1000 }); await wait(500);

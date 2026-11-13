@@ -2,6 +2,7 @@
   {
     "id": "core:page",
     "name": "Go to page",
+    "description": "Shows another page of this profile.",
     "params": [
       {
         "key": "page",
@@ -16,16 +17,19 @@
   {
     "id": "core:back",
     "name": "Back",
+    "description": "Goes back to the page shown before.",
     "params": []
   },
   {
     "id": "core:home",
     "name": "Home page",
+    "description": "Goes to the first page of the profile.",
     "params": []
   },
   {
     "id": "core:profile",
     "name": "Switch profile",
+    "description": "Switches to another profile, or back to automatic.",
     "params": [
       {
         "key": "profile",
@@ -40,6 +44,7 @@
   {
     "id": "core:state",
     "name": "Change state",
+    "description": "Buttons with several states: shows the next state, or a chosen one.",
     "params": [
       {
         "key": "to",
@@ -52,6 +57,7 @@
   {
     "id": "core:brightness",
     "name": "Brightness",
+    "description": "Sets the D200's brightness, or makes it brighter or darker.",
     "params": [
       {
         "key": "value",
@@ -64,6 +70,7 @@
   {
     "id": "core:notify",
     "name": "Notification",
+    "description": "Shows a text on the wide key for a few seconds.",
     "params": [
       {
         "key": "text",
@@ -85,11 +92,13 @@
   {
     "id": "core:notify_clear",
     "name": "Clear notifications",
+    "description": "Removes the notification on the wide key.",
     "params": []
   },
   {
     "id": "core:screensaver",
     "name": "Screensaver",
+    "description": "Starts or stops the screensaver now.",
     "params": [
       {
         "key": "on",
@@ -115,6 +124,7 @@
   {
     "id": "core:display",
     "name": "Display on or off",
+    "description": "Turns the D200's screen dark or lights it again.",
     "params": [
       {
         "key": "on",
@@ -140,6 +150,7 @@
   {
     "id": "core:follow",
     "name": "Follow the program in front",
+    "description": "Switches profiles with the program in front, or stops doing so.",
     "params": [
       {
         "key": "on",
@@ -165,6 +176,7 @@
   {
     "id": "core:theme",
     "name": "Theme",
+    "description": "Changes the theme of the whole deck.",
     "params": [
       {
         "key": "theme",
@@ -179,6 +191,7 @@
   {
     "id": "core:screensaver_scene",
     "name": "Screensaver scene",
+    "description": "Chooses what the screensaver shows.",
     "params": [
       {
         "key": "scene",

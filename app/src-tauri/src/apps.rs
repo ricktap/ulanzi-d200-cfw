@@ -358,10 +358,21 @@ mod tests {
         let Ok(f) = Fonts::load() else { return }; // no font on this machine
         let plain = mute_face(&f, Some(true), BG, IVORY);
         let swapped = {
-            let _s = crate::render::IconSwap::set(vec![("com.deckling.core:volume-muted".into(), "com.deckling.core:ulanzi-tc001".into())]);
+            let _s = crate::render::IconSwap::set(vec![crate::render::Swap { from: "com.deckling.core:volume-muted".into(), to: "com.deckling.core:ulanzi-tc001".into(), on: Some(true) }]);
             mute_face(&f, Some(true), BG, IVORY)
         };
         assert_ne!(plain.pm.data(), swapped.pm.data(), "the muted state draws the chosen icon");
+        // an icon that knows on and off gets its state: the TC001 is lit for on, grey for off
+        let cyan = |c: &Canvas| c.pm.data().chunks_exact(4).filter(|p| p[0] == 0xAD && p[1] == 0xE6 && p[2] == 0xEE).count();
+        let both = || crate::render::IconSwap::set(vec![
+            crate::render::Swap { from: "com.deckling.core:volume-muted".into(), to: "com.deckling.core:ulanzi-tc001".into(), on: Some(true) },
+            crate::render::Swap { from: "com.deckling.core:volume-on".into(), to: "com.deckling.core:ulanzi-tc001".into(), on: Some(false) },
+        ]);
+        let (lit, dark) = {
+            let _s = both();
+            (mute_face(&f, Some(true), BG, IVORY), mute_face(&f, Some(false), BG, IVORY))
+        };
+        assert!(cyan(&lit) > 50 && cyan(&dark) == 0, "{} {}", cyan(&lit), cyan(&dark));
         // the swap ends with its guard
         assert_eq!(plain.pm.data(), mute_face(&f, Some(true), BG, IVORY).pm.data());
         let coral = |c: &Canvas| c.pm.data().chunks_exact(4).filter(|p| p[0] == CORAL[0] && p[1] == CORAL[1] && p[2] == CORAL[2]).count();

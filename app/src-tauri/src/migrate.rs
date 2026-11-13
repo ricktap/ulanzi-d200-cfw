@@ -18,6 +18,10 @@
 //! `plugins.<id>.config`: `weather` and `pomodoro` to com.deckling.core, `teams` (its
 //! fields) to com.deckling.teams, everything else (long press, profiles following the
 //! front app, brightness, MQTT, screensaver, cards, theme) to `core`.
+//!
+//! Version 6 to 7: a state gets `icon_off` (the icon while the app is off). The per-state
+//! icons of Mute, Teams mic and Teams camera (`config.state_icons`, 0.19) become `icon` (on)
+//! and `icon_off`.
 
 use serde_json::{json, Map, Value};
 
@@ -41,6 +45,7 @@ pub fn migrate(mut v: Value, target: u32) -> Result<Value, String> {
             4 => v,
             // 5 to 6 adds `on.double` (double press) and `double_press_ms`; nothing moves.
             5 => v,
+            6 => v6_to_v7(v),
             _ => return Err(format!("no migration from version {ver}")),
         };
         ver += 1;
@@ -145,6 +150,42 @@ fn v2_to_v3(mut v: Value) -> Value {
                 }
             }
         }
+    }
+    v
+}
+
+/// (app, the state that is "on", the state that is "off") for `config.state_icons`.
+const ON_OFF_V7: [(&str, &str, &str); 3] =
+    [("com.deckling.core:mute", "muted", "on"), ("com.deckling.teams:mute", "live", "muted"), ("com.deckling.teams:camera", "on", "off")];
+
+fn v6_to_v7(mut v: Value) -> Value {
+    let profiles = v.get_mut("profiles").and_then(Value::as_array_mut).map(std::mem::take).unwrap_or_default();
+    let profiles: Vec<Value> = profiles
+        .into_iter()
+        .map(|mut p| {
+            for page in p.get_mut("pages").and_then(Value::as_object_mut).into_iter().flat_map(|m| m.values_mut()) {
+                for key in page.as_object_mut().into_iter().flat_map(|m| m.values_mut()) {
+                    let Some((_, on, off)) = ON_OFF_V7.iter().find(|(app, ..)| key["app"] == *app) else { continue };
+                    let Some(icons) = key.get_mut("config").and_then(Value::as_object_mut).and_then(|c| c.remove("state_icons")) else { continue };
+                    if key["config"].as_object().is_some_and(Map::is_empty) {
+                        key.as_object_mut().unwrap().remove("config");
+                    }
+                    if !key["states"].is_array() || key["states"].as_array().is_some_and(Vec::is_empty) {
+                        key["states"] = json!([{}]);
+                    }
+                    let st = &mut key["states"][0];
+                    for (state, field) in [(on, "icon"), (off, "icon_off")] {
+                        if let Some(icon) = icons.get(*state).filter(|i| i.is_string()) {
+                            st[field] = icon.clone();
+                        }
+                    }
+                }
+            }
+            p
+        })
+        .collect();
+    if v.get("profiles").is_some() {
+        v["profiles"] = Value::Array(profiles);
     }
     v
 }
@@ -283,6 +324,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn v6_state_icons_become_on_and_off() {
+        let v6 = json!({"version": 6, "profiles": [{"name": "Default", "pages": {"main": {
+            "1": {"app": "com.deckling.core:mute", "config": {"state_icons": {"muted": "a:x", "on": "a:y"}, "pill": "none"}},
+            "2": {"app": "com.deckling.teams:mute", "config": {"state_icons": {"live": "a:mic"}}, "states": [{"label": "Mic"}]},
+            "3": {"app": "com.deckling.core:weather", "config": {"state_icons": {"rain": "a:r"}}},
+        }}}]});
+        let v = migrate(v6, 7).unwrap();
+        let keys = &v["profiles"][0]["pages"]["main"];
+        assert_eq!(keys["1"], json!({"app": "com.deckling.core:mute", "config": {"pill": "none"}, "states": [{"icon": "a:x", "icon_off": "a:y"}]}));
+        assert_eq!(keys["2"], json!({"app": "com.deckling.teams:mute", "states": [{"label": "Mic", "icon": "a:mic"}]}));
+        assert_eq!(keys["3"]["config"]["state_icons"]["rain"], "a:r", "weather keeps its states");
+        assert_eq!(v["version"], 7);
+    }
+
+    #[test]
     fn v1_keys_and_actions() {
         let v1 = json!({
             "status_key": {"actions": {"press": [{"type": "home"}]}},
@@ -351,7 +407,7 @@ mod tests {
     fn newer_versions_are_refused() {
         assert!(migrate(json!({"version": 9, "profiles": []}), 4).is_err());
         assert_eq!(migrate(json!({"version": 4, "x": 1}), 5).unwrap(), json!({"version": 5, "x": 1}));
-        assert_eq!(migrate(json!({"version": 4, "x": 1}), 6).unwrap(), json!({"version": 6, "x": 1}));
+        assert_eq!(migrate(json!({"version": 4, "x": 1}), 7).unwrap(), json!({"version": 7, "x": 1}));
         assert_eq!(migrate(json!({"version": 4, "x": 1}), 4).unwrap(), json!({"version": 4, "x": 1}));
     }
 }

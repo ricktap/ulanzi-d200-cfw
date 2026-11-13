@@ -16,16 +16,14 @@
     "press": [],
     "long": []
   },
-  "states": [
-    {
-      "key": "on",
-      "label": "Sound on",
-      "icon": "com.deckling.core:volume-on"
-    },
-    {
-      "key": "muted",
+  "on_off": {
+    "on": {
       "label": "Muted",
       "icon": "com.deckling.core:volume-muted"
+    },
+    "off": {
+      "label": "Sound on",
+      "icon": "com.deckling.core:volume-on"
     }
-  ]
+  }
 }

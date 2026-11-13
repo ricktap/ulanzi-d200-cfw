@@ -1,7 +1,7 @@
 {
   "id": "com.deckling.ha:entity",
   "name": "Home Assistant",
-  "description": "Shows an entity that Home Assistant describes on <base>/ha/<id>/set. Home Assistant picks the icon, text, state and colour. Press and long press go back as <base>/ha/<id>/action.",
+  "description": "Shows something from Home Assistant, such as a light or a sensor: its icon, name, state and colour. A press goes back to Home Assistant.",
   "icon": {
     "bind": "com.deckling.ha:{id}.icon",
     "fallback": "com.deckling.ha:entity"

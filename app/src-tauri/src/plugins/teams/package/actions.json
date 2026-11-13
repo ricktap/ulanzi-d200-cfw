@@ -2,6 +2,7 @@
   {
     "id": "com.deckling.teams:meeting",
     "name": "Teams meeting",
+    "description": "In a Teams meeting: mute, camera, raise hand, leave and more.",
     "params": [
       {
         "key": "command",
@@ -39,6 +40,7 @@
   {
     "id": "com.deckling.teams:presence",
     "name": "Teams presence",
+    "description": "Sets your Teams status, e.g. Busy or Available.",
     "params": [
       {
         "key": "to",

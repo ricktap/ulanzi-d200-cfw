@@ -1,19 +1,20 @@
-// Action sections of the inspector (On press, Long press, Extended) and adding an
-// action from the library. A key's actions live in `on.<event>` of its state as
+// Action sections of the inspector (Press, Long press, Double press, key down and up).
+// "Add action" opens the picker and adds to that section. A key's actions live in `on.<event>` of its state as
 // `{action, params}`; parameter fields come from the catalog's schema.
 import { h, toast } from "./dom.js";
 import { call } from "./api.js";
 import { state, edit, hint, render, saveNow, settingsOf } from "./store.js";
 import { actionDef, actionDefaults, pluginOn, nsOf } from "./catalog.js";
 import { schemaField } from "./fields.js";
+import { pickAction } from "./picker.js";
 
 /** [slot, title, foldable] */
 export const SLOTS = [
-  ["press", "On press", false],
+  ["press", "Press", false],
   ["long", "Long press", true],
   ["double", "Double press", true],
-  ["down", "Extended: key down", true],
-  ["up", "Extended: key up", true],
+  ["down", "Key goes down", true],
+  ["up", "Key comes up", true],
 ];
 
 const opened = new Set(); // foldable sections the user opened
@@ -39,30 +40,37 @@ export function actionSections(holder, { where, slots = SLOTS } = {}) {
   const ms = settingsOf(state.config).long_press_ms;
   if (!slots.some(([s]) => s === state.slot)) state.slot = slots[0][0];
 
+  const WHEN = {
+    long: `held for ${ms} ms`,
+    double: `twice within ${settingsOf(state.config).double_press_ms ?? 300} ms`,
+    down: "the moment it is pressed",
+    up: "the moment it is released",
+  };
   return slots.map(([ev, title, foldable]) => {
     const list = listOf(ev, false);
-    const target = state.slot === ev;
-    const open = !foldable || list.length > 0 || opened.has(ev) || target;
-    const count = list.length ? `${list.length} action${list.length > 1 ? "s" : ""}` : open ? "" : "add";
-    const head = h("button", { type: "button", class: "sec-head", onclick: () => {
-      if (state.slot === ev && foldable && !list.length) opened.has(ev) ? opened.delete(ev) : opened.add(ev);
-      else opened.add(ev);
+    const open = !foldable || list.length > 0 || opened.has(ev);
+    const add = async () => {
+      const id = await pickAction({ title: `Add an action · ${title} · ${where}` });
+      if (!id) return;
       state.slot = ev;
+      opened.add(ev);
+      addAction(id, holder, where);
+    };
+    const head = h("button", { type: "button", class: "sec-head", "aria-expanded": String(open), onclick: () => {
+      if (!foldable || list.length) return;
+      opened.has(ev) ? opened.delete(ev) : opened.add(ev);
       render("inspector");
     } },
       h("b", {}, title),
-      ev === "long" ? h("span", { class: "count" }, `${ms} ms`) : null,
-      ev === "double" ? h("span", { class: "count" }, `within ${settingsOf(state.config).double_press_ms ?? 300} ms`) : null,
-      target ? h("span", { class: "tgt" }, "target") : null,
-      h("span", { class: "count" }, count));
+      WHEN[ev] ? h("span", { class: "count" }, WHEN[ev]) : null,
+      h("span", { class: "count" }, list.length ? `${list.length} action${list.length > 1 ? "s" : ""}` : foldable ? (open ? "▾" : "▸") : ""));
     const body = open
       ? h("div", { class: "sec-body" },
         list.map((a, i) => actionRow(a, i, list, `${title} · ${where}`)),
-        list.length ? null : h("p", { class: "sub" }, target
-          ? h("span", {}, "Pick an action under ", h("a", { onclick: () => { state.libTab = "actions"; render("library"); } }, "Actions"), " in the library.")
-          : "No actions."))
+        list.length ? null : h("p", { class: "sub" }, "Nothing happens yet."),
+        h("button", { class: "btn small add-action", type: "button", onclick: add }, "+ Add action"))
       : null;
-    return h("div", { class: "sec" + (target ? " target" : "") }, head, body);
+    return h("div", { class: "sec" }, head, body);
   });
 }
 
@@ -82,8 +90,7 @@ function actionRow(a, i, list, where) {
     : [];
   return h("div", { class: "act" },
     h("div", { class: "act-main" },
-      h("span", { class: "name" }, def ? def.name : a.action),
-      h("span", { class: "sub mono" }, a.action),
+      h("span", { class: "name", title: a.action }, def ? def.name : a.action),
       !def ? h("span", { class: "sub" }, "Plugin missing. The action is kept as it is.") : null,
       off ? h("span", { class: "sub" }, "Its plugin is switched off under Packages.") : null,
       params),
@@ -94,7 +101,7 @@ function actionRow(a, i, list, where) {
 }
 
 /**
- * Append action `id` (with its default parameters) to the target section of the
+ * Append action `id` (with its default parameters) to the section `state.slot` of the
  * selected key. `holder(create)` as above; `where` names the key for undo.
  */
 export async function addAction(id, holder, where) {

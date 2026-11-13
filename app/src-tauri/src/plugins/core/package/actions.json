@@ -2,6 +2,7 @@
   {
     "id": "com.deckling.core:command",
     "name": "Run command",
+    "description": "Runs a shell command on the computer.",
     "params": [
       {
         "key": "command",
@@ -13,6 +14,7 @@
   {
     "id": "com.deckling.core:open",
     "name": "Open",
+    "description": "Opens a program, a file, a folder or a web address.",
     "params": [
       {
         "key": "target",
@@ -24,6 +26,7 @@
   {
     "id": "com.deckling.core:keys",
     "name": "Shortcut",
+    "description": "Presses a keyboard shortcut.",
     "params": [
       {
         "key": "combo",
@@ -36,6 +39,7 @@
   {
     "id": "com.deckling.core:media",
     "name": "Media",
+    "description": "Play, pause, next or previous track.",
     "params": [
       {
         "key": "command",
@@ -69,6 +73,7 @@
   {
     "id": "com.deckling.core:volume",
     "name": "Volume",
+    "description": "Makes the computer louder or quieter, or sets a level.",
     "params": [
       {
         "key": "value",
@@ -81,16 +86,19 @@
   {
     "id": "com.deckling.core:mute",
     "name": "Mute or unmute",
+    "description": "Mutes or unmutes the computer's sound.",
     "params": []
   },
   {
     "id": "com.deckling.core:weather_refresh",
     "name": "Refresh weather",
+    "description": "Fetches the weather now.",
     "params": []
   },
   {
     "id": "com.deckling.core:pomodoro",
     "name": "Pomodoro",
+    "description": "Starts, pauses or resets the Pomodoro timer.",
     "params": [
       {
         "key": "do",

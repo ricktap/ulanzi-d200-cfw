@@ -2026,7 +2026,9 @@ impl Engine {
             let st0 = key.state(0);
             let chosen = st0.look.icon.as_deref().map(str::trim).filter(|i| !i.is_empty());
             // Built-in widgets draw while the app's default icon is chosen.
-            let builtin_face = def.is_some_and(|d| d.face.is_some() && chosen.is_none_or(|c| Some(c) == d.icon_static()));
+            // The widget draws while the app's default icon is chosen; a widget with an on and an
+            // off state keeps drawing and swaps its two icons for the key's.
+            let builtin_face = def.is_some_and(|d| d.face.is_some() && (d.on_off.is_some() || chosen.is_none_or(|c| Some(c) == d.icon_static())));
             match key.kind() {
                 Some(kind) if builtin_face => {
                     let st = st0.clone();
@@ -2036,17 +2038,29 @@ impl Engine {
                     // "Text below" None: the built-in faces leave their status pill out
                     let _pill = apps::PillGuard::hide(key.cfg_str("pill") == Some("none"));
                     // icons the key gave the widget's states (config.state_icons: state -> icon)
-                    let swaps: Vec<(String, String)> = def
+                    let swaps: Vec<render::Swap> = def
                         .map(|d| {
                             let reg = crate::registry::current();
-                            d.states
+                            let id = |icon: &str| reg.icon(icon).map(|i| i.id.clone());
+                            let mut out: Vec<render::Swap> = d
+                                .states
                                 .iter()
                                 .filter_map(|s| {
                                     let to = key.config.get("state_icons")?.get(&s.key)?.as_str()?.to_string();
-                                    let from = reg.icon(&s.icon)?.id.clone();
-                                    Some((from, to))
+                                    Some(render::Swap { from: id(&s.icon)?, to, on: None })
                                 })
-                                .collect()
+                                .collect();
+                            // the key's on icon, and its off icon (else the on icon again)
+                            if let Some(oo) = &d.on_off {
+                                let on_icon = st.look.icon.clone();
+                                let off_icon = st.look.icon_off.clone().or_else(|| on_icon.clone());
+                                for (state, to, on) in [(&oo.on, on_icon, true), (&oo.off, off_icon, false)] {
+                                    if let (Some(from), Some(to)) = (state.icon.as_deref().and_then(id), to) {
+                                        out.push(render::Swap { from, to, on: Some(on) });
+                                    }
+                                }
+                            }
+                            out
                         })
                         .unwrap_or_default();
                     let _swap = render::IconSwap::set(swaps);
@@ -2111,8 +2125,12 @@ impl Engine {
                         b.as_ref().and_then(|b| bind::resolve(b, &env.ctx, &mut env.reads.borrow_mut())).map(|v| bind::text(&v)).filter(|t| !t.is_empty())
                     };
                     let mut look = st0.look.clone();
+                    let is_off = d.implements.get("toggle").and_then(|t| t.get("on")).and_then(|b| bind::resolve(b, &env.ctx, &mut env.reads.borrow_mut())).and_then(|v| v.as_bool())
+                        == Some(false);
                     if show_as == "value" {
                         look.icon = None;
+                    } else if is_off && look.icon_off.is_some() {
+                        look.icon = look.icon_off.clone(); // the key's icon for off
                     } else if chosen.is_none() {
                         look.icon = pick(&d.icon);
                     }

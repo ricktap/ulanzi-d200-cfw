@@ -82,11 +82,13 @@ input[type="range"] { min-height: 0; padding: 0; border: 0; background: none; ac
 .saved.busy { color: var(--warn); }
 
 /* ---------------------------------------------------------------- shell: four areas, stacked when narrow */
-.shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 130px minmax(240px, 300px) minmax(440px, 1fr) minmax(300px, 380px); }
+.shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 176px minmax(240px, 290px) minmax(440px, 1fr) minmax(320px, 400px); }
 .shell > * { min-height: 0; overflow-y: auto; border-right: 1px solid var(--line); }
 .shell > :last-child { border-right: 0; }
 .side { display: flex; flex-direction: column; gap: 6px; padding: 12px; background: var(--surface-2); }
-.side button { text-align: left; }
+.side button { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; height: auto; }
+.side button b { font-weight: 700; }
+.side button span { font-size: 11px; font-weight: 400; color: var(--hint); line-height: 1.35; }
 .wide-pane { grid-column: 2 / -1; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
 @media (max-width: 1180px) {
   body { overflow: auto; }
@@ -231,8 +233,34 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); }
 .drop-zone { border: 1px dashed var(--line-2); border-radius: var(--r-lg); padding: 14px; color: var(--hint); font-size: 13px; max-width: 900px; }
 .drop-zone.over { border-color: var(--on); color: var(--text); }
 
-/* icons per state of an app's widget */
-.state-icon { align-items: center; gap: 8px; padding: 6px; border-radius: 10px; }
-.state-icon.on { background: var(--sel-bg); outline: 1px solid var(--sel-line); }
-.state-icon .thumb { width: 36px; height: 36px; display: grid; place-items: center; flex: none; }
-.state-icon .thumb img { width: 36px; height: 36px; }
+/* where am I: Profile and Page in front of their controls */
+.where { min-width: 46px; }
+.pages { align-items: center; }
+
+/* inspector: the two halves, icon rows, details */
+.step-title { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.insp-head + .step-title { margin-top: 0; }
+.step-title h3 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--sel); }
+.icon-row { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.icon-row .thumb { width: 40px; height: 40px; display: grid; place-items: center; flex: none; border-radius: 8px; border: 1px solid var(--line); background: var(--app); }
+.icon-row .thumb img { width: 32px; height: 32px; }
+.noicon { color: var(--hint); width: 28px; text-align: center; flex: none; }
+.emoji { font-size: 22px; }
+.add-action { align-self: flex-start; }
+details.more { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 0 12px; color: var(--text-2); }
+details.more summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: 13px; color: var(--hint); }
+details.more[open] { padding-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+.kv { display: flex; flex-direction: column; gap: 2px; }
+.kv code { overflow-wrap: anywhere; color: var(--text-2); }
+
+/* the picker dialog */
+.pick { width: 820px; max-height: 84vh; }
+.pick-head { display: flex; align-items: center; gap: 12px; }
+.pick-body { overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 200px; padding-right: 4px; }
+.pick .icon-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+
+/* appearance */
+.look-cols { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.look-main { flex: 1 1 420px; max-width: 640px; display: flex; flex-direction: column; gap: 14px; }
+.look-side { flex: 1 1 360px; max-width: 560px; display: flex; flex-direction: column; gap: 8px; position: sticky; top: 0; }
+#look-preview .key { cursor: default; }

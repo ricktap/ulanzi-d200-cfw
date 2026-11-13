@@ -79,11 +79,12 @@ no list of its own.
 
 | Module | Part of the window |
 |---|---|
-| `library.js` | Apps, Actions and Icons on the left |
+| `library.js` | the apps on the left |
+| `picker.js` | the picker dialog for icons and actions |
 | `deck.js` | the device: previews, selection, dragging, image drops, page tabs |
 | `profiles.js` | the profile editor above the device |
-| `theme.js` | the Theme block |
-| `inspector.js`, `actions.js` | the inspector: app, settings, icon, label, action sections |
+| `theme.js` | the Theme block on the Appearance view |
+| `inspector.js`, `actions.js` | the inspector: what the key shows (app, settings, icons, text, colours) and does (action sections) |
 | `packages.js` | the Packages view and the Application card |
 | `signals.js` | the Signals view |
 
