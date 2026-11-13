@@ -273,6 +273,14 @@ An empty payload removes the id. A press sends `press` to `d200/ha/<id>/action`,
 Each field is also a signal, e.g. `com.deckling.ha:light.kitchen.on`, so themes and icons on
 other keys can read it.
 
+## Bambu Lab printers
+
+If Home Assistant has the Bambu Lab integration, the D200 Deck integration finds its printers
+and sends each one to the deck (`d200/bambu/<device id>/state`, retained, at most once a second
+per printer). In D200 Deck, the app **Bambu Lab printer** shows one on a key; a long press on it
+toggles the printer's chamber light through Home Assistant. See
+[plugins/bambu.md](plugins/bambu.md).
+
 ## Topics
 
 `d200` is the default base topic.
@@ -280,6 +288,8 @@ other keys can read it.
 | Topic | Direction | Payload |
 |---|---|---|
 | `d200/notify` | to deck | text; or `{title, text, icon, color, duration, priority}`; or a full card `{kind, source, title, detail, note, icon, color, progress, url, critical, group}` (`kind`: push, email, meeting, printer, steam, media) |
+| `d200/bambu/<id>/state` | to deck, **retained** | a Bambu Lab printer for the app Bambu Lab printer, see [plugins/bambu.md](plugins/bambu.md); empty payload removes it |
+| `d200/bambu/<id>/action` | from deck | `light`: toggle the chamber light |
 | `d200/printer` | to deck | `{state, percent, remaining_min, name, job, spools, ams}`; `state`: heating, printing, paused, complete, error, offline; `spools`: `[{"color": "#69E0C1", "progress": 80}, …]` shows the AMS (`ams`: `"ams"` or `"ams-lite"`) |
 | `d200/ha/<id>/set` | to deck, **retained** | an entity, see above; empty payload removes it |
 | `d200/ha/<id>/action` | from deck | `press`, `long_press` |

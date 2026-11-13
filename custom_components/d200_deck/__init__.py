@@ -31,7 +31,7 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.const import Platform
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.network import NoURLAvailableError
@@ -62,6 +62,7 @@ from .const import (
     TRANSPORT_MQTT,
     TRANSPORT_WEB,
 )
+from .bambu import Printer, find_printers, printer_payload
 from .payload import default_action, entity_payload, key_id
 from .web import DeckApi, WebError
 
@@ -119,6 +120,10 @@ class Bridge:
         # Web API only (over MQTT the deck's own device has all this): what the entities show
         self.connected: bool | None = None
         self.state: dict[str, Any] = {}
+        # Bambu Lab printers for the deck's plugin Bambu Lab
+        self.printers: list[Printer] = []
+        self._printer_unsub: Any = None
+        self._printer_timers: dict[str, Any] = {}
         # every profile, page and key (MQTT `<base>/layout`, retained)
         self.layout: dict[str, Any] | None = None
         self.signal = f"{DOMAIN}_{entry.entry_id}"
@@ -212,9 +217,65 @@ class Bridge:
     async def publish_all(self) -> None:
         for e in self.entities:
             await self.publish_entity(e)
+        for p in self.printers:
+            await self.publish_printer(p)
+
+    async def _send_topic(self, topic: str, payload: dict[str, Any] | None) -> None:
+        """A retained message for one of the deck's plugins (`<base>/<topic>`); None clears it."""
+        if self.use_mqtt:
+            body = "" if payload is None else json.dumps(payload, ensure_ascii=False)
+            await mqtt.async_publish(self.hass, self.topic(topic), body, qos=0, retain=True)
+        if self.api:
+            await self._web(topic, self.api.topic(topic, payload))
+
+    async def publish_printer(self, p: Printer) -> None:
+        await self._send_topic(f"bambu/{p.device_id}/state", printer_payload(self.hass, p))
+
+    async def _watch_printers(self) -> None:
+        """Find the Bambu Lab printers (again) and follow their entities."""
+        found = find_printers(self.hass)
+        if [(p.device_id, p.name, p.watched()) for p in found] == [(p.device_id, p.name, p.watched()) for p in self.printers]:
+            return
+        for gone in {p.device_id for p in self.printers} - {p.device_id for p in found}:
+            await self._send_topic(f"bambu/{gone}/state", None)
+        self.printers = found
+        if self._printer_unsub:
+            self._printer_unsub()
+            self._printer_unsub = None
+        by_entity = {e: p for p in found for e in p.watched()}
+
+        @callback
+        def changed(event: Event[EventStateChangedData]) -> None:
+            p = by_entity.get(event.data["entity_id"])
+            if p is None or p.device_id in self._printer_timers:
+                return  # one message a second per printer is plenty (temperatures change all the time)
+
+            async def send(_now) -> None:
+                self._printer_timers.pop(p.device_id, None)
+                await self.publish_printer(p)
+
+            self._printer_timers[p.device_id] = async_call_later(self.hass, 1.0, send)
+
+        if by_entity:
+            self._printer_unsub = async_track_state_change_event(self.hass, list(by_entity), changed)
+        for p in found:
+            await self.publish_printer(p)
+
+    async def printer_action(self, device_id: str, what: str) -> None:
+        """From the deck: a long press on a printer key toggles its chamber light."""
+        p = next((p for p in self.printers if p.device_id == device_id), None)
+        light = p.entities.get("light") if p else None
+        if what == "light" and light:
+            await self.hass.services.async_call("light", "toggle", {ATTR_ENTITY_ID: light}, blocking=False)
 
     async def start(self) -> None:
         await self.publish_all()
+        await self._watch_printers()
+
+        async def rediscover(_now) -> None:
+            await self._watch_printers()
+
+        self._unsub.append(async_track_time_interval(self.hass, rediscover, RESYNC))
 
         @callback
         def changed(event: Event[EventStateChangedData]) -> None:
@@ -238,6 +299,13 @@ class Bridge:
             self.hass.async_create_task(self.press(parts[-2], payload.strip()))
 
         self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic("ha/+/action"), action))
+
+        @callback
+        def printer_action(msg: mqtt.ReceiveMessage) -> None:
+            payload = msg.payload if isinstance(msg.payload, str) else msg.payload.decode()
+            self.hass.async_create_task(self.printer_action(msg.topic.split("/")[-2], payload.strip()))
+
+        self._unsub.append(await mqtt.async_subscribe(self.hass, self.topic("bambu/+/action"), printer_action))
 
         def text(msg: mqtt.ReceiveMessage) -> str:
             return (msg.payload if isinstance(msg.payload, str) else msg.payload.decode()).strip()
@@ -338,6 +406,12 @@ class Bridge:
         for u in self._unsub:
             u()
         self._unsub.clear()
+        if self._printer_unsub:
+            self._printer_unsub()
+            self._printer_unsub = None
+        for cancel in self._printer_timers.values():
+            cancel()
+        self._printer_timers.clear()
         if self.api and self.webhook_url:
             await self._web("unsubscribe", self.api.unsubscribe(self.webhook_url))
 

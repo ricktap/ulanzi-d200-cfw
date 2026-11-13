@@ -1,0 +1,17 @@
+[
+  {
+    "id": "com.deckling.bambu:light",
+    "name": "Printer light",
+    "description": "Asks Home Assistant to switch the printer's chamber light on or off.",
+    "params": [
+      {
+        "key": "device",
+        "label": "Printer",
+        "type": "select",
+        "values": {
+          "source": "com.deckling.bambu:devices"
+        }
+      }
+    ]
+  }
+]

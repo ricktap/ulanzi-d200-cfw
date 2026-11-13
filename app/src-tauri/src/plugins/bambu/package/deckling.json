@@ -1,0 +1,16 @@
+{
+  "id": "com.deckling.bambu",
+  "type": "plugin",
+  "name": "Bambu Lab",
+  "version": "1.0.0",
+  "description": "Bambu Lab printers from Home Assistant: an A1, A1 mini or P1S on a key, with the print's progress, the temperatures and the filament. Needs the D200 Deck integration in Home Assistant, which sends the printers of its Bambu Lab integration.",
+  "runtime": {
+    "kind": "builtin"
+  },
+  "contributes": {
+    "signals": "signals.json",
+    "actions": "actions.json",
+    "apps": "apps/"
+  },
+  "config": []
+}

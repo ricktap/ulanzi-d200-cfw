@@ -1,0 +1,22 @@
+[
+  {
+    "name": "com.deckling.bambu:{id}.name",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.bambu:{id}.status",
+    "type": "text"
+  },
+  {
+    "name": "com.deckling.bambu:{id}.progress",
+    "type": "percent"
+  },
+  {
+    "name": "com.deckling.bambu:{id}.light",
+    "type": "flag"
+  },
+  {
+    "name": "com.deckling.bambu:{id}.state",
+    "type": "object"
+  }
+]

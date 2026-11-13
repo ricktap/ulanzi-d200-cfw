@@ -202,7 +202,7 @@ impl Web {
                 json!({
                     "name": "D200 Deck", "version": env!("CARGO_PKG_VERSION"),
                     "openapi": "/api/openapi.json",
-                    "endpoints": ["GET /api/state", "GET|PUT|DELETE /api/layout", "GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
+                    "endpoints": ["PUT /api/topics/<topic>", "GET /api/state", "GET|PUT|DELETE /api/layout", "GET /api/signals", "GET|PUT /api/signals/<name>", "GET /api/keys", "PUT|DELETE /api/keys/<id>",
                                   "POST /api/notify", "POST /api/actions/<action>", "POST /api/keys/<0-13>/press",
                                   "GET|POST|DELETE /api/subscriptions", "GET|PUT /api/mqtt"],
                 }),
@@ -273,6 +273,19 @@ impl Web {
                 Some((_, v)) => (200, v),
                 None => (503, json!({ "error": "the deck has no state yet" })),
             },
+            ("PUT" | "POST", ["api", "topics", rest @ ..]) if !rest.is_empty() => {
+                let topic = rest.join("/");
+                if topic.len() > 200 || topic.contains(['+', '#']) {
+                    return (400, json!({ "error": "not a topic" }));
+                }
+                let payload = match body {
+                    Value::Null => String::new(),
+                    Value::String(s) => s,
+                    other => other.to_string(),
+                };
+                host.request(HostRequest::Topic { topic: topic.clone(), payload });
+                (200, json!({ "topic": topic }))
+            }
             ("GET", ["api", "layout"]) => match host.all_signals().into_iter().find(|(n, _)| n == "deck.layout") {
                 Some((_, v)) => (200, v),
                 None => (503, json!({ "error": "the deck has no layout yet" })),
@@ -514,6 +527,12 @@ pub fn openapi() -> Value {
             "/api": { "get": { "summary": "What this server offers", "responses": { "200": ok("Name, version, endpoints"), "401": err } } },
             "/api/openapi.json": { "get": { "summary": "This description", "security": [], "responses": { "200": ok("OpenAPI 3.1") } } },
             "/api/state": { "get": { "summary": "What the deck shows and knows: profile, page, display, screensaver, USB, the program in front, Teams, media, Pomodoro, versions", "responses": { "200": ok("The deck state"), "401": err, "503": err } } },
+            "/api/topics/{topic}": { "put": {
+                "summary": "Deliver a message to the plugins as if it had arrived over MQTT on <base>/<topic>",
+                "description": "For setups without MQTT: e.g. bambu/<device id>/state with a printer's state (plugin Bambu Lab), or ha/<id>/set. The body is the payload (JSON or text); an empty body is an empty payload.",
+                "parameters": [{ "name": "topic", "in": "path", "required": true, "description": "The topic below the base topic; may contain slashes", "schema": { "type": "string" } }],
+                "requestBody": { "content": { "application/json": { "schema": {} } } },
+                "responses": { "200": ok("{topic}"), "400": err, "401": err } } },
             "/api/layout": {
                 "get": { "summary": "Every profile, page and key with its label, icon, colours and app", "responses": { "200": ok("{profiles: [{name, pages: [{name, keys: {\"0\": {label, icon, color, text_color, app}}}]}]}"), "401": err, "503": err } },
                 "put": {
@@ -912,7 +931,7 @@ mod tests {
         let doc = openapi();
         assert_eq!(doc["openapi"], "3.1.0");
         let paths = doc["paths"].as_object().unwrap();
-        for p in ["/api/layout", "/api/state", "/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
+        for p in ["/api/topics/{topic}", "/api/layout", "/api/state", "/api/mqtt", "/api", "/api/openapi.json", "/api/signals", "/api/signals/{name}", "/api/keys", "/api/keys/{id}", "/api/keys/{index}/press", "/api/notify", "/api/actions/{action}", "/api/subscriptions"] {
             assert!(paths.contains_key(p), "{p}");
         }
         assert_eq!(doc["paths"]["/api/openapi.json"]["get"]["security"], json!([]));

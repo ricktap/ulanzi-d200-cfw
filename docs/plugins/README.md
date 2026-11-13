@@ -10,6 +10,7 @@ under **Packages** in the app.
 | [Microsoft Teams](teams.md) | `com.deckling.teams` | meeting controls (mute, camera, hand, leave), presence, new mail and meetings on the wide key |
 | [JetBrains](jetbrains.md) | `com.deckling.jetbrains` | whether a JetBrains IDE is debugging; resume or start debugging from a key |
 | [Home Assistant](ha.md) | `com.deckling.ha` | Home Assistant entities on keys over MQTT, the remote page, the printer card |
+| [Bambu Lab](bambu.md) | `com.deckling.bambu` | Bambu Lab printers from Home Assistant on keys: the machine, progress, temperatures, filament |
 | [Web API](web.md) | `com.deckling.web` | an HTTP API with a token (and an OpenAPI description) for scripts and other tools |
 
 `core` without a prefix is not a plugin: it is what is fixed in the app (keys, pages, profiles,
