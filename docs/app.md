@@ -45,6 +45,9 @@ four views.
   setup. The Application card has autostart, export and import, and updates.
 - **Signals**: every signal and its current value, updated once a second.
 
+The top bar has "Check for updates"; when a newer release exists (also found in the background
+every six hours) the same button reads "Update to x" and installs it.
+
 Every change is saved at once; Undo (or Cmd/Ctrl+Z) takes it back.
 
 ## Stateful icons

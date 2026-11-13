@@ -189,6 +189,13 @@ const fs = require('fs');
   await p.locator('#insp .icon-row:has-text("Muted") button:has-text("Default")').click(); await wait();
   ok(!page0()['9']?.states?.[0]?.icon && !page0()['9']?.states?.[0]?.icon_off, 'both back to the defaults');
 
+  // the update button in the top bar checks when no update is known
+  ok((await p.textContent('#btn-update')).trim() === 'Check for updates', 'top bar offers Check for updates');
+  await p.click('#btn-update'); await wait(700);
+  ok((await p.textContent('#btn-update')).trim() === 'Up to date', 'it says Up to date: ' + (await p.textContent('#btn-update')).trim());
+  await wait(4200);
+  ok((await p.textContent('#btn-update')).trim() === 'Check for updates', 'and offers the check again');
+
   // narrow window
   await p.setViewportSize({ width: 820, height: 1000 }); await wait(500);
   await p.screenshot({ path: OUT + '/10-narrow.png', fullPage: true });
