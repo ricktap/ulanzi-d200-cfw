@@ -307,15 +307,21 @@ impl Canvas {
         let reg = crate::registry::current();
         let Some(def) = reg.icon(name) else { return false };
         // a key gave this state of its widget another icon (IconSwap)
-        let def = ICON_SWAP.with(|s| s.borrow().iter().find(|(from, _)| *from == def.id).and_then(|(_, to)| reg.icon(to).cloned()));
-        let def = match &def {
-            Some(d) => d,
-            None => reg.icon(name).expect("looked up above"),
-        };
+        let swap = ICON_SWAP.with(|s| s.borrow().iter().find(|sw| sw.from == def.id).cloned());
+        let swapped = swap.as_ref().and_then(|sw| reg.icon(&sw.to));
+        let def = swapped.unwrap_or(def);
         let s = w.min(h).max(1.0);
         let empty = IconEnv::empty();
         let env = env.unwrap_or(&empty);
-        let pm = crate::icons::render_bound(def, s as u32, overrides, &env.ctx, &mut env.reads.borrow_mut());
+        // a swapped icon learns whether its state is the on or the off one (toggle.on)
+        let props: serde_json::Map<String, serde_json::Value> =
+            swap.iter().filter(|_| swapped.is_some()).filter_map(|sw| sw.on).map(|on| ("toggle.on".to_string(), serde_json::json!(on))).collect();
+        let pm = if props.is_empty() {
+            crate::icons::render_bound(def, s as u32, overrides, &env.ctx, &mut env.reads.borrow_mut())
+        } else {
+            let ctx = crate::bind::Ctx { implements: None, props: Some(&props), config: env.ctx.config, signals: env.ctx.signals, theme: env.ctx.theme };
+            crate::icons::render_bound(def, s as u32, overrides, &ctx, &mut env.reads.borrow_mut())
+        };
         if let Some(pm) = pm {
             let px = x + (w - s) / 2.0;
             let py = y + (h - s) / 2.0;
@@ -855,15 +861,24 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
 }
 
 thread_local! {
-    /// Icon id -> the icon drawn instead, while the engine draws one built-in face (`IconSwap`).
-    static ICON_SWAP: std::cell::RefCell<Vec<(String, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// Icons drawn instead of others while the engine draws one built-in face (`IconSwap`).
+    static ICON_SWAP: std::cell::RefCell<Vec<Swap>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// While it lives, the built-in faces draw `to` wherever they would draw `from` (both icon ids).
+/// Draw `to` wherever a built-in face would draw `from` (both icon ids). `on`: the state this
+/// icon stands for, given to the new icon as `toggle.on`.
+#[derive(Debug, Clone)]
+pub struct Swap {
+    pub from: String,
+    pub to: String,
+    pub on: Option<bool>,
+}
+
+/// While it lives, the built-in faces draw the swapped icons.
 pub struct IconSwap;
 
 impl IconSwap {
-    pub fn set(swaps: Vec<(String, String)>) -> IconSwap {
+    pub fn set(swaps: Vec<Swap>) -> IconSwap {
         ICON_SWAP.with(|s| *s.borrow_mut() = swaps);
         IconSwap
     }

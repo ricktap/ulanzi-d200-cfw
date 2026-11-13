@@ -130,6 +130,20 @@ Plugin signals carry their namespace: `com.deckling.core:system.cpu`, `com.deckl
 | App from a missing plugin | dashed "Plugin missing" placeholder |
 | Plain button | icon and label; bound icons read the state's `props` and theme variables |
 
+**On and off.** An app with the `toggle` interface is on or off. A key can give it an icon for
+on (`icon`) and one for off (`icon_off`); without `icon_off` the on icon is drawn in both, and
+an icon with a `toggle` binding shows its own off look. An app may name the two states and, for
+a built-in widget, say which icon it draws in each:
+
+```json
+"on_off": { "on":  { "label": "Muted",    "icon": "com.deckling.core:volume-muted" },
+            "off": { "label": "Sound on", "icon": "com.deckling.core:volume-on" } }
+```
+
+A widget with `on_off` (Mute, Teams mic, Teams camera) keeps its layout and swaps those two
+icons for the key's. Widgets with more states list them in `states` (`key`, `label`, `icon`); a
+key replaces them with `config.state_icons`.
+
 The engine remembers what each key's icon read and redraws a plain button when one of those
 signals changes. App keys redraw every second as before.
 

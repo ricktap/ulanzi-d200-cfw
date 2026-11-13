@@ -1,7 +1,7 @@
 {
   "id": "com.deckling.web:key",
   "name": "Web key",
-  "description": "Shows a key that a script describes with PUT /api/keys/<id> (label, kind, icon, value, on, color, progress, background). Press and long press go to the webhook and to the signal <id>.pressed.",
+  "description": "Shows a key that a script or another program fills over the Web API. It is described with PUT /api/keys/<id> (label, kind, icon, value, on, color, progress, background); presses go to the webhook.",
   "icon": {
     "bind": "com.deckling.web:{id}.icon",
     "fallback": "com.deckling.ha:entity"

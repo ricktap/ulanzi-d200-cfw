@@ -2,6 +2,7 @@
   {
     "id": "com.deckling.ha:press",
     "name": "Send to Home Assistant",
+    "description": "Tells Home Assistant that the key was pressed.",
     "params": [
       {
         "key": "id",
@@ -32,6 +33,7 @@
   {
     "id": "com.deckling.ha:mqtt",
     "name": "MQTT publish",
+    "description": "Sends a message to an MQTT topic.",
     "params": [
       {
         "key": "topic",
@@ -53,6 +55,7 @@
   {
     "id": "com.deckling.ha:remote",
     "name": "Remote page",
+    "description": "Shows the page whose keys Home Assistant sets.",
     "params": []
   }
 ]

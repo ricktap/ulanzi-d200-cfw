@@ -2,6 +2,7 @@
   {
     "id": "com.deckling.web:press",
     "name": "Send to the webhook",
+    "description": "Posts the press to the webhook of the Web API.",
     "params": [
       {
         "key": "id",

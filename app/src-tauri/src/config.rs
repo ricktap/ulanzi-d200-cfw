@@ -27,6 +27,10 @@ pub struct Look {
     /// An emoji, or a path to an image, drawn above the label.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// App keys: the icon while the app is off (its `toggle` is off). None: the same icon,
+    /// which draws its own off look if it has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_off: Option<String>,
     /// Path to an image that fills the whole key.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
@@ -658,7 +662,7 @@ pub struct Config {
 }
 
 /// The current deck.json format.
-pub const VERSION: u32 = 6;
+pub const VERSION: u32 = 7;
 
 fn yes() -> bool {
     true

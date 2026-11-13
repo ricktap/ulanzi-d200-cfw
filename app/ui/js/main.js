@@ -72,11 +72,12 @@ function showPane(name) {
   if (name === "signals") startSignals();
   else stopSignals();
   if (name === "packages") renderPackages();
-  if (name === "deck") renderAll();
+  if (name === "deck" || name === "look") renderAll();
 }
 
 function renderAll() {
   forgetPreviews();
+  renderLibrary();
   renderDevice();
   renderPreviews();
   select(state.selected);

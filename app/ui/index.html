@@ -16,53 +16,69 @@
     <span class="saved" id="saved">Saved</span>
     <button class="btn primary" id="btn-firmware" hidden>Start firmware</button>
     <button class="btn" id="btn-update" hidden><span id="btn-update-label">Update</span></button>
-    <button class="btn" id="btn-notify" title="Show a test notification on the wide key">Notify</button>
+    <button class="btn" id="btn-notify" title="Show a test notification on the wide key">Test notification</button>
     <button class="btn" id="btn-undo" disabled title="Nothing to undo">Undo</button>
   </header>
 
   <div class="shell">
     <nav class="side" id="side" aria-label="Areas">
-      <button data-view="deck" class="on">Deck</button>
-      <button data-view="packages">Packages</button>
-      <button data-view="signals">Signals</button>
+      <button data-view="deck" class="on"><b>Keys</b><span>Profiles, pages and what each key does</span></button>
+      <button data-view="look"><b>Appearance</b><span>Theme, colours and brightness</span></button>
+      <button data-view="packages"><b>Packages</b><span>Plugins and their settings</span></button>
+      <button data-view="signals"><b>Signals</b><span>Live values from the plugins</span></button>
     </nav>
 
     <!-- Deck: library, device, inspector -->
-    <section class="lib panel" data-pane="deck" aria-label="Library">
-      <h2>Library</h2>
-      <div class="tabs" id="lib-tabs">
-        <button data-tab="apps" class="on">Apps</button>
-        <button data-tab="actions">Actions</button>
-        <button data-tab="icons">Icons</button>
-      </div>
+    <section class="lib panel" data-pane="deck" aria-label="Apps">
+      <h2>Apps</h2>
+      <p class="sub">What a key can show. Drag one onto a key, or tap it to put it on the selected key.</p>
+      <input id="lib-search" placeholder="Search apps" autocomplete="off">
       <div class="lib-body" id="lib-body"></div>
     </section>
 
     <section class="device-col" data-pane="deck" aria-label="Device">
       <div class="profile-bar">
+        <span class="label where">Profile</span>
         <select id="sel-profile" title="Profile"></select>
-        <button class="btn" id="pf-add">+ Profile</button>
         <button class="btn" id="pf-edit">Edit profile</button>
-        <label class="switch-row" title="Switch to the profile bound to the program in front">
-          <input type="checkbox" id="follow" class="switch"> Follow program
-        </label>
+        <button class="btn" id="pf-add">+ Profile</button>
       </div>
+      <label class="switch-row" title="Switch to the profile bound to the program in front">
+        <input type="checkbox" id="follow" class="switch"> Switch profiles with the program in front
+      </label>
       <div class="profile-editor panel" id="pf-editor" hidden></div>
-      <div class="device"><div class="grid" id="grid"></div></div>
       <div class="pages">
+        <span class="label where">Page</span>
         <div class="tabs pages-tabs" id="page-tabs"></div>
         <button class="btn" id="pg-add">+ Page</button>
       </div>
-      <p class="hint" id="hint">Pick a key, then an app on the left. Icons shows what fits it.</p>
-      <div class="bright-row">
-        <span class="label">Brightness</span>
-        <input type="range" id="brightness" min="5" max="255" step="5">
-        <span id="brightness-val" class="mono-num"></span>
-      </div>
-      <div class="theme panel" id="theme"></div>
+      <div class="device"><div class="grid" id="grid"></div></div>
+      <p class="hint" id="hint">Select a key to edit it on the right. Drag an app from the left onto a key to place it.</p>
     </section>
 
     <aside class="insp panel" data-pane="deck" aria-label="Inspector" id="insp"></aside>
+
+    <!-- Appearance: theme and brightness, with the keys as they look -->
+    <section class="wide-pane" data-pane="look" hidden>
+      <h2>Appearance</h2>
+      <p class="sub">How the whole deck looks. A key can still have colours of its own (Keys, select a key, Colours).</p>
+      <div class="look-cols">
+        <div class="look-main">
+          <div class="box">
+            <span class="label">Brightness</span>
+            <div class="bright-row">
+              <input type="range" id="brightness" min="5" max="255" step="5">
+              <span id="brightness-val" class="mono-num"></span>
+            </div>
+          </div>
+          <div class="theme panel" id="theme"></div>
+        </div>
+        <div class="look-side">
+          <span class="label">Preview: the page shown on the D200</span>
+          <div class="device"><div class="grid" id="look-preview"></div></div>
+        </div>
+      </div>
+    </section>
 
     <!-- Packages -->
     <section class="wide-pane" data-pane="packages" hidden>
@@ -119,6 +135,19 @@
         <button class="btn primary" id="json-import" type="button">Import</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- picker: icons, actions -->
+  <dialog id="dlg-pick">
+    <div class="dlg wide pick">
+      <div class="pick-head">
+        <h3 id="pick-title" class="grow"></h3>
+        <button class="btn small" id="pick-close" type="button">Close</button>
+      </div>
+      <p class="sub" id="pick-sub"></p>
+      <input id="pick-search" autocomplete="off">
+      <div class="pick-body" id="pick-body"></div>
+    </div>
   </dialog>
 
   <!-- prompt / confirm -->

@@ -53,6 +53,9 @@ pub struct SignalDef {
 pub struct ActionDef {
     pub id: String,
     pub name: String,
+    /// One sentence for the action picker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Parameter schema: fields like app settings (`text`, `toggle`, `select`, `number`).
     #[serde(default)]
     pub params: Vec<Value>,
@@ -87,10 +90,28 @@ pub struct AppDef {
     /// Preset actions for a new key.
     #[serde(default)]
     pub on: Value,
-    /// Core only: the states a built-in widget draws with their own icons (muted, sound on, …).
-    /// A key can give each one another icon (`config.state_icons`).
+    /// Core only: further states a built-in widget draws with their own icons (weather,
+    /// presence). A key can give each one another icon (`config.state_icons`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub states: Vec<AppState>,
+    /// What on and off mean for this app (its `toggle`), e.g. "Muted" and "Sound on", and for a
+    /// built-in widget the icon it draws in each. A key replaces them with `icon` and `icon_off`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_off: Option<OnOff>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnOff {
+    pub on: OnOffState,
+    pub off: OnOffState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnOffState {
+    pub label: String,
+    /// Built-in widgets: the icon drawn in this state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

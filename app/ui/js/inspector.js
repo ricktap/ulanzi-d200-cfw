@@ -1,15 +1,16 @@
-// The inspector for the selected key: app, its settings, icon and label, the
-// action sections, test press and clear.
+// The inspector for the selected key, top to bottom: what it shows (app and its
+// settings, icons, text, colours), then what it does (actions), test press and clear.
 import { $, h, put, ask } from "./dom.js";
 import {
   state, STATUS_KEY, edit, hint, render, profile, keyObj, ensureKey, ensureState, keyKind, settingsOf } from "./store.js";
-import { appDef, iconDef, withNs, shortRole, pluginOn, nsOf } from "./catalog.js";
+import { appDef, iconDef, withNs, shortRole, pluginOn, nsOf, isSetIcon } from "./catalog.js";
 import { schemaField } from "./fields.js";
 import { textField } from "./controls.js";
 import { actionSections, testPress } from "./actions.js";
-import { appHelp, clearKey } from "./apps.js";
+import { appHelp, clearKey, placeApp } from "./apps.js";
 import { keyEl } from "./deck.js";
 import { iconImg } from "./library.js";
+import { pickIcon, niceIcon } from "./picker.js";
 
 /** The object that carries `on` for key k (state 0 of an app key, the shown state of a button, status_key). */
 export function keyHolder(k) {
@@ -29,7 +30,8 @@ export const keyWhere = (k) => (k === STATUS_KEY ? "the wide key" : `key ${k}`);
 
 const thumb = (k) => {
   const src = keyEl(k)?.querySelector("img")?.src;
-  return h("div", { class: "insp-thumb" + (k === STATUS_KEY ? " wide" : "") }, src ? h("img", { alt: "", src }) : null);
+  // the image arrives with the key's preview (deck.js renderPreview fills it in)
+  return h("div", { class: "insp-thumb" + (k === STATUS_KEY ? " wide" : "") }, h("img", { alt: "", src: src || "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" }));
 };
 
 function head(k, eyebrow, title) {
@@ -45,90 +47,184 @@ export function renderInspector() {
   const key = keyObj(k);
   const kind = keyKind(key);
   if (kind === "empty") {
-    return put(el, head(k, `Key ${k}`, "Empty"),
-      h("p", { class: "note" }, "Tap an app in the library to put it here, or drag one onto the key. An action from the library makes it a plain button."));
+    return put(el, head(k, `Key ${k}`, "Empty key"),
+      h("div", { class: "box" },
+        h("b", {}, "Give this key something to show"),
+        h("p", { class: "sub" }, "Pick an app from the list on the left: tap it, or drag it onto the key."),
+        h("p", { class: "sub" }, "For a key that only runs actions (open a program, switch the page), start with a plain button."),
+        h("button", { class: "btn", type: "button", onclick: () => placeApp("core:button", k) }, "Make it a plain button")));
   }
   const app = kind === "app" ? appDef(key.app) : null;
   if (kind === "app" && (!app || !pluginOn(nsOf(key.app)))) return put(el, head(k, `Key ${k}`, "Plugin missing"), missing(k, key, !!app));
   put(el,
     head(k, `Key ${k}`, app ? app.name : "Button"),
-    appBox(key, app),
-    app ? settingsBox(k, key, app) : null,
+    step("Shows"),
+    showsBox(k, key, app),
     app ? null : statesBox(k, key),
     iconBox(k, key, app),
-    app ? stateIconsBox(k, key, app) : null,
+    textBox(k, key, app),
     app ? null : propsBox(k, key),
     coloursBox(k, key, app),
+    step("Does", app ? "Actions run in addition to what the app does by itself." : "What happens when the key is pressed."),
     actionSections(keyHolder(k), { where: keyWhere(k) }),
     h("div", { class: "row wrap" },
       h("button", { class: "btn", type: "button", onclick: testPress }, "Test press"),
-      h("button", { class: "btn danger", type: "button", onclick: () => clearKey(k) }, "Clear key")));
+      h("button", { class: "btn danger", type: "button", onclick: () => clearKey(k) }, "Clear key")),
+    detailsBox(key, app));
 }
 
-function appBox(key, app) {
-  const roles = app ? [...new Set([...app.roles.map(shortRole), "button"])] : ["button"];
+/** A heading between the two halves of the inspector: what the key shows, what it does. */
+const step = (title, sub) => h("div", { class: "step-title" }, h("h3", {}, title), sub ? h("span", { class: "sub" }, sub) : null);
+
+/** The app with its description and its own settings. */
+function showsBox(k, key, app) {
+  if (!app) {
+    return h("div", { class: "box" },
+      h("b", {}, "Button"),
+      h("p", { class: "sub" }, "An icon and a text of your choice. It does what you add under Does."));
+  }
   const help = appHelp(app);
+  const fields = app.config || [];
   return h("div", { class: "box" },
-    h("div", { class: "head" }, h("span", { class: "label grow" }, "App"), h("span", { class: "sub mono" }, app ? app.id : "core:button")),
-    h("span", { class: "sub" }, "Fulfils: " + roles.join(", ")),
-    help ? h("p", { class: "sub" }, help) : null);
+    h("b", {}, app.name),
+    help ? h("p", { class: "sub" }, help) : null,
+    fields.map((f) => configField(k, app, f)),
+    h("p", { class: "sub" }, "Another app: pick it on the left. The label and your actions stay."));
 }
+
+const configField = (k, app, f) => schemaField(f, () => keyObj(k)?.config?.[f.key], (v, typing) => {
+  edit(`${app.name} · ${f.label || f.key}`, () => {
+    const key = ensureKey(k);
+    if (v === undefined) {
+      if (key.config) delete key.config[f.key];
+      if (key.config && !Object.keys(key.config).length) delete key.config;
+    } else (key.config ||= {})[f.key] = v;
+  }, { redraw: false, coalesce: typing ? `config:${k}:${f.key}` : null });
+}, { labelled: true });
 
 /** Every app key: the text under the icon (the status pill or the value). */
 const TEXT_BELOW = {
-  key: "pill", label: "Text below", type: "select", default: "auto",
+  key: "pill", label: "Under the icon", type: "select", default: "auto",
   values: [
     { label: "Automatic", value: "auto" },
-    { label: "None", value: "none" },
-    { label: "On/Off", value: "state" },
-    { label: "Value (Off when off)", value: "value" },
+    { label: "Nothing", value: "none" },
+    { label: "On / Off", value: "state" },
+    { label: "The value (Off while off)", value: "value" },
   ],
 };
 
-function settingsBox(k, key, app) {
-  const fields = [...(app.config || []), TEXT_BELOW];
+/** Label, and for apps what stands under the icon. */
+function textBox(k, key, app) {
+  const idx = app ? 0 : state.selState;
+  const read = () => keyObj(k)?.states?.[idx];
+  const holder = () => ensureState(ensureKey(k), idx);
   return h("div", { class: "box" },
-    h("span", { class: "label" }, "Settings"),
-    fields.map((f) => schemaField(f, () => keyObj(k)?.config?.[f.key], (v, typing) => {
-      edit(`${app.name} · ${f.label || f.key}`, () => {
-        const key = ensureKey(k);
-        if (v === undefined) {
-          if (key.config) delete key.config[f.key];
-          if (key.config && !Object.keys(key.config).length) delete key.config;
-        } else (key.config ||= {})[f.key] = v;
-      }, { redraw: false, coalesce: typing ? `config:${k}:${f.key}` : null });
-    }, { labelled: true })));
+    h("span", { class: "label" }, "Text"),
+    textField("Label", read, holder, "label", { area: true, rows: 2, ph: app ? "Empty: the app's own text" : "Text on the key", name: "Label", where: `key ${k}` }),
+    app ? configField(k, app, TEXT_BELOW) : null);
 }
 
-/** Apps whose widget draws several states (muted, sound on): an icon per state, the
- *  original next to it. Only while the widget is drawn (the app's default icon). */
-function stateIconsBox(k, key, app) {
-  if (!app.states?.length || key.states?.[0]?.icon) return null;
+/** One line of the Icon box: what it is for, the icon now, Change and back to the default. */
+function iconRow({ title, note, icon, k, live, placeholder, onChange, onReset, resetLabel }) {
+  return h("div", { class: "icon-row" },
+    h("span", { class: "thumb" }, icon ? (isSetIcon(icon) || iconDef(icon) ? iconImg(icon, k, live) : h("span", { class: "emoji" }, icon)) : h("span", { class: "noicon" }, "–")),
+    h("span", { class: "grow" }, h("div", {}, title), h("div", { class: "sub" }, note || (icon ? niceIcon(icon) : placeholder))),
+    h("button", { class: "btn small", type: "button", onclick: onChange }, "Change"),
+    onReset ? h("button", { class: "btn small", type: "button", onclick: onReset }, resetLabel) : null);
+}
+
+/**
+ * The key's icons. An app key has an icon for on and, if the app can be off, an optional one
+ * for off; apps that show more states (weather, presence) list those too. A button has one
+ * icon per state.
+ */
+function iconBox(k, key, app) {
+  if (!app) return buttonIconBox(k, key);
+  const st = key.states?.[0] || {};
+  const oo = app.on_off;
+  const canBeOff = app.roles.includes("toggle");
+  const set = (field, label) => (id) => {
+    edit(`${label} · key ${k}`, () => {
+      const s = ensureState(ensureKey(k), 0);
+      if (id) s[field] = id;
+      else delete s[field];
+    });
+    hint(id ? `Key ${k}: ${label.toLowerCase()} is ${niceIcon(id)} now.` : `Key ${k}: ${label.toLowerCase()} is the default again.`);
+  };
+  const onLabel = canBeOff ? `Icon · ${oo ? oo.on.label : "On"}` : "Icon";
+  const offLabel = `Icon · ${oo ? oo.off.label : "Off"}`;
+  const onIcon = st.icon ? withNs(st.icon) : oo?.on.icon || app.icon || null;
+  const offIcon = st.icon_off ? withNs(st.icon_off) : st.icon ? withNs(st.icon) : oo?.off.icon || null;
+  const change = async (field, label, opts) => {
+    const id = await pickIcon({ app, k, page: field === "icon", ...opts });
+    if (id !== undefined) set(field, label)(id);
+  };
+  const rows = [
+    iconRow({
+      title: onLabel, icon: onIcon, k, live: true,
+      note: st.icon ? null : onIcon ? `${niceIcon(onIcon)} · the app's default` : "Chosen by the app",
+      placeholder: "Chosen by the app",
+      onChange: () => change("icon", onLabel, {
+        title: `${onLabel} · ${app.name}`, current: st.icon ? withNs(st.icon) : null,
+        reset: { label: "The app's default", icon: oo?.on.icon || app.icon, note: oo?.on.icon || app.icon ? niceIcon(oo?.on.icon || app.icon) : "The app chooses it" },
+      }),
+      onReset: st.icon ? () => set("icon", onLabel)(null) : null, resetLabel: "Default",
+    }),
+    canBeOff ? iconRow({
+      title: offLabel, icon: offIcon, k, live: false,
+      note: st.icon_off ? null : st.icon || !oo ? "Optional. Now: the same icon, in its off look" : `${niceIcon(offIcon)} · the app's default`,
+      placeholder: "Optional",
+      onChange: () => change("icon_off", offLabel, {
+        title: `${offLabel} · ${app.name}`, current: st.icon_off ? withNs(st.icon_off) : null,
+        sub: "Shown while the app is off. Without one, the on icon is used, greyed out if it can.",
+        reset: { label: "No icon of its own for off", icon: null, note: "The on icon is used" },
+      }),
+      onReset: st.icon_off ? () => set("icon_off", offLabel)(null) : null, resetLabel: "Remove",
+    }) : null,
+  ];
+  // more states of the app's own display (weather, presence), while it draws it
   const chosen = key.config?.state_icons || {};
-  const set = (st, id) => edit(`${app.name} · ${st.label} icon`, () => {
-    const c = (ensureKey(k).config ||= {});
-    const m = (c.state_icons ||= {});
-    if (id) m[st.key] = id;
-    else delete m[st.key];
-    if (!Object.keys(m).length) delete c.state_icons;
-    if (!Object.keys(c).length) delete ensureKey(k).config;
-  });
+  const more = app.states?.length && !st.icon ? app.states.map((s) => iconRow({
+    title: s.label, icon: chosen[s.key] || s.icon, k,
+    note: chosen[s.key] ? null : `${niceIcon(s.icon)} · the app's default`,
+    onChange: async () => {
+      const id = await pickIcon({ k, title: `Icon · ${s.label} · ${app.name}`, current: chosen[s.key] || null, reset: { label: "The app's default", icon: s.icon, note: niceIcon(s.icon) } });
+      if (id !== undefined) setStateIcon(k, s.key, id);
+    },
+    onReset: chosen[s.key] ? () => setStateIcon(k, s.key, null) : null, resetLabel: "Default",
+  })) : null;
   return h("div", { class: "box" },
-    h("span", { class: "label" }, "Icons per state"),
-    h("p", { class: "sub" }, "The app draws a different icon in each state. Give a state another one; the original is on the left."),
-    app.states.map((st) => {
-      const mine = chosen[st.key];
-      return h("div", { class: "row state-icon" + (state.iconFor === st.key ? " on" : "") },
-        h("span", { class: "thumb", title: `original: ${st.icon}` }, iconImg(st.icon, k)),
-        h("span", { class: "sub" }, "→"),
-        h("span", { class: "thumb", title: mine || "the original" }, mine ? iconImg(mine, k) : h("span", { class: "sub" }, "same")),
-        h("span", { class: "grow" }, h("div", {}, st.label), h("div", { class: "sub" }, (mine || st.icon).split(":").pop().replace(/-/g, " "))),
-        h("button", { class: "btn small", type: "button", onclick: () => { state.iconFor = st.key; state.libTab = "icons"; render("library", "inspector"); } }, "Change"),
-        mine ? h("button", { class: "btn small", type: "button", onclick: () => set(st, null) }, "Original") : null);
-    }));
+    h("span", { class: "label" }, "Icon"),
+    rows,
+    more ? [h("span", { class: "label" }, "Icon per state"), more] : null);
 }
 
-/** Set a widget state's icon (library, icons tab while `state.iconFor` is set). */
+function buttonIconBox(k, key) {
+  const idx = state.selState;
+  const read = () => keyObj(k)?.states?.[idx];
+  const holder = () => ensureState(ensureKey(k), idx);
+  const cur = read()?.icon;
+  const set = (id) => {
+    edit(`Icon · key ${k}`, () => {
+      const s = holder();
+      if (id) { s.icon = id; delete s.image; } else delete s.icon;
+    });
+    hint(id ? `Key ${k} shows ${niceIcon(id)} now.` : `Key ${k} has no icon now.`);
+  };
+  return h("div", { class: "box" },
+    h("span", { class: "label" }, "Icon"),
+    iconRow({
+      title: "Icon", icon: cur ? withNs(cur) : null, k, live: true, placeholder: "None: the label fills the key",
+      onChange: async () => {
+        const id = await pickIcon({ k, emoji: true, title: `Icon · key ${k}`, current: cur ? withNs(cur) : null, reset: { label: "No icon", icon: null, note: "The label fills the key" } });
+        if (id !== undefined) set(id);
+      },
+      onReset: cur ? () => set(null) : null, resetLabel: "Remove",
+    }),
+    textField("Image instead", read, holder, "image", { ph: "Path to a PNG or JPEG; fills the key", name: "Image", where: `key ${k}`, dropEmpty: true }));
+}
+
+/** Set the icon of one more state of an app's display (`config.state_icons`). */
 export function setStateIcon(k, stateKey, id) {
   const app = appDef(keyObj(k)?.app);
   const st = app?.states?.find((s) => s.key === stateKey);
@@ -141,32 +237,20 @@ export function setStateIcon(k, stateKey, id) {
     if (!Object.keys(m).length) delete c.state_icons;
     if (!Object.keys(c).length) delete ensureKey(k).config;
   });
-  hint(id ? `Key ${k}: ${st.label} shows ${id} now.` : `Key ${k}: ${st.label} shows its original icon again.`);
+  hint(id ? `Key ${k}: ${st.label} shows ${niceIcon(id)} now.` : `Key ${k}: ${st.label} shows its default icon again.`);
 }
 
-/** The richest role the icon shares with the app. */
-function readsRole(iconId, app) {
-  const icon = iconDef(iconId);
-  if (!icon) return null;
-  const roles = [...(app?.roles || []), "button"];
-  return roles.find((r) => icon.roles.includes(r)) || null;
-}
-
-function iconBox(k, key, app) {
-  const idx = app ? 0 : state.selState;
-  const read = () => keyObj(k)?.states?.[idx];
-  const holder = () => ensureState(ensureKey(k), idx);
-  const chosen = read()?.icon;
-  const shown = chosen ? withNs(chosen) : app?.icon || "";
-  const role = shown ? readsRole(shown, app) : null;
-  const where = `key ${k}`;
-  return h("div", { class: "box" },
-    h("div", { class: "head" }, h("span", { class: "label grow" }, "Icon"),
-      h("button", { class: "btn small", type: "button", onclick: () => { state.iconFor = null; state.libTab = "icons"; render("library"); } }, "Change icon")),
-    h("span", { class: "sub mono" }, shown || "none", chosen ? "" : app ? " (default)" : ""),
-    role ? h("span", { class: "sub" }, "Reads: " + shortRole(role)) : null,
-    textField("Label", read, holder, "label", { area: true, rows: 2, ph: app ? "Empty: the app's own text" : "Text on the key", name: "Label", where }),
-    app ? null : textField("Image", read, holder, "image", { ph: "Path to a PNG or JPEG; fills the key", name: "Image", where, dropEmpty: true }));
+/** The ids behind the names, for packages, deck.json and Home Assistant. */
+function detailsBox(key, app) {
+  const st = key.states?.[app ? 0 : state.selState] || {};
+  const roles = app ? [...new Set([...app.roles.map(shortRole), "button"])] : ["button"];
+  const row = (name, value) => (value ? h("div", { class: "kv" }, h("span", { class: "sub" }, name), h("code", {}, value)) : null);
+  return h("details", { class: "more" },
+    h("summary", {}, "Details"),
+    row("App", app ? app.id : "core:button"),
+    row("Offers to icons", roles.join(", ")),
+    row("Icon", st.icon ? withNs(st.icon) : app?.icon),
+    row("Icon for off", st.icon_off ? withNs(st.icon_off) : null));
 }
 
 // ------------------------------------------------------------------ buttons: states, icon values, colours
@@ -201,10 +285,10 @@ function statesBox(k, key) {
     });
   };
   return h("div", { class: "box" },
-    h("div", { class: "head" }, h("span", { class: "label grow" }, n > 1 ? `States: you edit state ${state.selState + 1} of ${n}` : "States"),
+    h("div", { class: "head" }, h("span", { class: "label grow" }, n > 1 ? `States: you are editing state ${state.selState + 1} of ${n}` : "States"),
       h("button", { class: "btn small", type: "button", onclick: add }, "+ State")),
     n > 1 ? h("div", { class: "tabs" }, Array.from({ length: n }, (_, i) => h("button", {
-      type: "button", class: i === state.selState ? "on" : "", onclick: () => { state.selState = i; state.slot = "press"; render("inspector", "library"); },
+      type: "button", class: i === state.selState ? "on" : "", onclick: () => { state.selState = i; state.slot = "press"; render("inspector"); },
     }, `${i + 1}${i === 0 ? " · start" : ""}`))) : h("p", { class: "sub" }, "Add a state for a key that toggles, e.g. On and Off. Each state has its own icon, label and actions."),
     n > 1 ? h("div", { class: "row wrap" },
       h("span", { class: "sub grow" }, "The action Change state switches between them."),
@@ -293,7 +377,8 @@ function wideKey() {
     h("div", { class: "box" },
       h("label", { class: "field" }, h("span", { class: "label" }, "Content"), app),
       (sk.app || "profile") === "profile" ? h("label", { class: "field" }, h("span", { class: "label" }, "Right side"), show) : null),
-    actionSections(keyHolder(STATUS_KEY), { where: "the wide key", slots: [["press", "On press", false], ["long", "Long press", true], ["double", "Double press", true]] }),
+    step("Does"),
+    actionSections(keyHolder(STATUS_KEY), { where: "the wide key", slots: [["press", "Press", false], ["long", "Long press", true], ["double", "Double press", true]] }),
     h("button", { class: "btn", type: "button", onclick: testPress }, "Test press"),
   ];
 }

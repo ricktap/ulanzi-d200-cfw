@@ -33,6 +33,8 @@ export function buildGrid() {
       },
     }, h("img", { alt: "" }));
     grid.append(el);
+    // the same faces on the Appearance pane, to look at only
+    $("look-preview").append(h("div", { class: "key" + (k === STATUS_KEY ? " wide" : ""), "data-k": k }, h("img", { alt: "" })));
   }
 }
 
@@ -41,6 +43,7 @@ export async function renderPreview(k) {
   const url = await invoke("preview", { profile: p, page, remote, key: k }).catch(() => null);
   if (!url) return;
   keyEl(k).querySelector("img").src = url;
+  document.querySelector(`#look-preview [data-k="${k}"] img`).src = url;
   if (k === state.selected) {
     const t = document.querySelector("#insp .insp-thumb img");
     if (t) t.src = url;
@@ -70,11 +73,10 @@ export function select(k) {
   if (k !== state.selected) {
     state.selState = 0;
     state.slot = "press";
-    state.iconFor = null;
   }
   state.selected = k;
   markKeys();
-  render("inspector", "library");
+  render("inspector");
 }
 
 // ------------------------------------------------------------------ pages and profiles above and below
@@ -108,7 +110,7 @@ export function startLiveFaces() {
   let last = 0;
   listen("face", (e) => dirty.add(e.payload.key));
   setInterval(() => {
-    if (!dirty.size || document.visibilityState !== "visible" || state.pane !== "deck") return;
+    if (!dirty.size || document.visibilityState !== "visible" || (state.pane !== "deck" && state.pane !== "look")) return;
     const now = Date.now();
     if (!document.hasFocus() && now - last < 3000) return;
     last = now;

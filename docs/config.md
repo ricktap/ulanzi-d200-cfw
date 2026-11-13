@@ -3,14 +3,14 @@
 The app edits this file for you. This page is for hand edits and scripting. The source of truth
 is `app/src-tauri/src/config.rs`; the target model is `docs/deckling/architecture.md`.
 
-The file has a `version`. This app writes version 6. An older file is migrated when it is loaded
+The file has a `version`. This app writes version 7. An older file is migrated when it is loaded
 (`migrate.rs`); the original stays next to it as `deck.v<N>.json`. A newer version, or a file that
 does not parse, is moved to `deck.json.old` and the app starts from `default-config.json`.
 Fields, apps and actions this version does not know are kept when the file is saved.
 
 ```jsonc
 {
-  "version": 6,
+  "version": 7,
   "plugins": {
     "core": { "config": { "long_press_ms": 500, "follow_active_app": true, "mqtt": { ... }, ... } },
     "com.deckling.core": { "config": { "weather": { ... }, "pomodoro": { ... } } },
@@ -45,7 +45,8 @@ palette in `plugins.core.config.theme`. `overlays` are themes of type `partial` 
 set the same variable, the later one wins. `plugins.core.config.theme.variables` comes last. Themes
 are packages: built in (`com.deckling.amber`, `com.deckling.glacier`, `com.deckling.rainbow`,
 `com.deckling.cpu-heat`) or from the packages folder (see [packages.md](packages.md)). Version 4
-and 5 files load unchanged as version 6.
+and 5 files load unchanged as version 6. Version 7 adds `icon_off` to a state; the per-state icons
+of Mute, Teams mic and Teams camera (`config.state_icons`, 0.19) become `icon` and `icon_off`.
 
 Keys `0`-`12` are the square keys. The wide key (13) is the **status key** and is set up in
 `status_key`.
@@ -55,7 +56,7 @@ Keys `0`-`12` are the square keys. The wide key (13) is the **status key** and i
 | Field | Meaning |
 |---|---|
 | `app` | app id, see below. Missing: a plain button (`core:button`) |
-| `config` | the app's settings for this key, by the schema in the app's `config`. Every app key also takes `pill` (Text below): `auto`, `none`, `state` (On/Off), `value` (the value, Off while off); built-in apps only know `none` (no status pill). The Home Assistant and Web key apps take `as` (Show as): `auto`, `button`, `toggle`, `rgb`, `progress`, `value`. Built-in apps that draw several states (Mute, Teams mute, camera and presence, Weather) take `state_icons`: state -> icon id, e.g. `{"muted": "com.deckling.core:ulanzi-tc001"}`; the states are listed in the app's `states` |
+| `config` | the app's settings for this key, by the schema in the app's `config`. Every app key also takes `pill` (Text below): `auto`, `none`, `state` (On/Off), `value` (the value, Off while off); built-in apps only know `none` (no status pill). The Home Assistant and Web key apps take `as` (Show as): `auto`, `button`, `toggle`, `rgb`, `progress`, `value`. Built-in apps that draw more than on and off (Teams presence, Weather) take `state_icons`: state -> icon id, e.g. `{"rain": "com.deckling.core:downloads"}`; the states are listed in the app's `states` |
 | `states` | list of states. State 0 is the first one. A `core:state` action cycles through them |
 
 A key whose app comes from a plugin that is not installed shows "Plugin missing" and keeps all
@@ -67,6 +68,7 @@ A state holds the look and the actions:
 |---|---|
 | `label` | text |
 | `icon` | icon id (`"com.deckling.core:volume-on"`), emoji, or image path. On an app key: the chosen icon |
+| `icon_off` | app keys: the icon while the app is off (its `toggle` is off). Missing: `icon` is used, in its off look if it has one |
 | `image` | full-key image |
 | `props` | static interface properties for the icon, e.g. `{"toggle.on": true, "rgb.color": "#B79AF7"}`. An app supplies these itself |
 | `bg`, `fg` | colours, `#rrggbb` |

@@ -17,22 +17,29 @@ connected, and the song or the clock.
 ## Configurator
 
 The app's window follows `docs/deckling/briefing.md`, section 6. A sidebar switches between
-three views.
+four views.
 
-- **Deck**: the library on the left (Apps, Actions, Icons), the device in the middle and the
-  inspector on the right.
-  - Tap an app to put it on the selected key, or drag it onto a key. Drag a key onto another to
-    swap them. Drop an image file on a key to make it a button with that image.
-  - Actions from the library go to the section marked as target in the inspector: On press,
-    Long press, or Extended (key down, key up).
-  - Icons shows only icons that share a role with the key's app, drawn with the app's live
-    values. "Apply set" and "Restore default icons" work on the whole page.
-  - Above the device: the profile, "+ Profile" and "Edit profile". The editor sets the name,
-    the programs that switch to the profile, and the pages.
-  - Below it: the pages, a line that says what just happened, brightness and the Theme block
-    (palette colours and theme variables, also bound to a signal).
+- **Keys**: the apps on the left, the device in the middle and the inspector on the right.
+  - Above the device, from outside in: the **Profile** ("Edit profile" sets its name, the
+    programs that switch to it and its pages) and the **Page**. Below it, a line says what just
+    happened.
+  - **Apps** (left, with a search): tap one to put it on the selected key, or drag it onto a
+    key. Drag a key onto another to swap them. Drop an image file on a key to make it a button
+    with that image.
+  - **The inspector** reads top to bottom. *Shows*: the app and its settings, the icons, the
+    text and the colours. *Does*: the actions for Press, Long press, Double press, and key down
+    and up. "Add action" and "Change" (an icon) open a picker with a search over the page; the
+    ids behind the names are under Details.
+  - **Icons of an app key**: one for on and, for apps that can be off, an optional one for
+    off. Apps name the two (Mute: "Muted" and "Sound on"). Without an off icon the on icon is
+    used; an icon that knows on and off (light, TC001) greys itself. Apps with more states
+    (Weather, Teams presence) list an icon per state. The picker shows icons that follow the
+    app's values first, then every icon by group; "Icons for the whole page" applies an icon
+    set or restores the defaults.
   - A button can have several states, each with its own icon, label, colours and actions; the
     action Change state switches between them. Emoji work as icons.
+- **Appearance**: brightness and the Theme block (full theme, partial themes, palette colours
+  and theme variables, also bound to a signal), next to a preview of the page on the D200.
 - **Packages**: every plugin with its switch, its state and its settings (from the plugin's
   `config` schema). `core` holds the deck's global settings, including MQTT. Teams has a guided
   setup. The Application card has autostart, export and import, and updates.
@@ -57,7 +64,7 @@ The state object matches `setIconState` from the icon package, e.g.
 
 ## Theme
 
-The Theme block under the device sets the palette colours (accent, info, warning, danger,
+The Theme block (Appearance) sets the palette colours (accent, info, warning, danger,
 background). The per-widget overrides below are still read from deck.json
 (`plugins.core.config.theme.widgets`), but the configurator no longer edits them: in the
 target model they become theme variables. The widget package's THEMING.md:
