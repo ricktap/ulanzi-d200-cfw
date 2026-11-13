@@ -45,7 +45,9 @@ const fs = require('fs');
   ok(JSON.stringify(lp2).includes('echo hi'), 'parameter saved: ' + JSON.stringify(lp2));
 
   // 6. undo twice: parameter, then action
-  await p.click('#btn-undo'); await wait(); await p.click('#btn-undo'); await wait();
+  await p.click('#btn-undo'); await wait(); await p.click('#btn-undo');
+  // the file is written after a short delay; on a busy machine that can take a moment
+  for (let i = 0; i < 20 && (page0()['7']?.states?.[0]?.on?.long || []).length; i++) await wait(300);
   ok(!(page0()['7']?.states?.[0]?.on?.long || []).length, 'undo removes the action');
 
   // 7. label
