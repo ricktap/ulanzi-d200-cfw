@@ -2,7 +2,7 @@
 //! Data collection lives here; the engine owns the instances and calls the faces.
 
 use crate::config::{Key, Location, PomodoroCfg};
-use crate::render::{hex, Canvas, Fonts, Rgb, Th, AMBER, BG, CORAL, IVORY, LINE, MINT, MUTED};
+use crate::render::{amber, coral, hex, mint, Canvas, Fonts, Rgb, Th, BG, IVORY, LINE, MUTED};
 use serde_json::Value;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -373,9 +373,17 @@ mod tests {
             (mute_face(&f, Some(true), BG, IVORY), mute_face(&f, Some(false), BG, IVORY))
         };
         assert!(cyan(&lit) > 50 && cyan(&dark) == 0, "{} {}", cyan(&lit), cyan(&dark));
+        // the theme colours icons and pills: accent red, danger blue
+        let n = |c: &Canvas, rgb: [u8; 3]| c.pm.data().chunks_exact(4).filter(|p| p[0] == rgb[0] && p[1] == rgb[1] && p[2] == rgb[2]).count();
+        let (on, muted) = {
+            let _t = crate::render::IconTheme::set(vec![("icon-mint".into(), "#FF0000".into()), ("icon-coral".into(), "#0000FF".into())]);
+            (mute_face(&f, Some(false), BG, IVORY), mute_face(&f, Some(true), BG, IVORY))
+        };
+        assert!(n(&on, [255, 0, 0]) > 300 && n(&on, [0x69, 0xE0, 0xC1]) == 0, "sound on: icon and pill in the accent");
+        assert!(n(&muted, [0, 0, 255]) > 300 && n(&muted, [0xFF, 0x82, 0x78]) == 0, "muted: mark and pill in danger");
         // the swap ends with its guard
         assert_eq!(plain.pm.data(), mute_face(&f, Some(true), BG, IVORY).pm.data());
-        let coral = |c: &Canvas| c.pm.data().chunks_exact(4).filter(|p| p[0] == CORAL[0] && p[1] == CORAL[1] && p[2] == CORAL[2]).count();
+        let coral = |c: &Canvas| c.pm.data().chunks_exact(4).filter(|p| p[0] == coral()[0] && p[1] == coral()[1] && p[2] == coral()[2]).count();
         let no_pill = {
             let _p = PillGuard::hide(true);
             mute_face(&f, Some(true), BG, IVORY)
@@ -606,7 +614,7 @@ pub fn sysmon_face(f: &Fonts, s: &crate::plugins::core::SysView, mode: &str, idx
             let (seg, gap) = (13.8, 3.4);
             let lit = (v / 10.0).round() as usize;
             for i in 0..10 {
-                let col = if i < lit { if v > 90.0 { CORAL } else { th.progress } } else { th.track };
+                let col = if i < lit { if v > 90.0 { coral() } else { th.progress } } else { th.track };
                 c.rect(PAD + i as f32 * (seg + gap), 156.0, seg, 14.0, 2.5, col, 1.0);
             }
         }
@@ -638,8 +646,8 @@ pub fn sysmon_face(f: &Fonts, s: &crate::plugins::core::SysView, mode: &str, idx
 
 pub fn mute_face(f: &Fonts, muted: Option<bool>, bg: Rgb, _fg: Rgb) -> Canvas {
     match muted {
-        Some(true) => icon_label_pill(f, bg, "volume-muted", &[], Some("Sound"), Some(("Muted", CORAL))),
-        Some(false) => icon_label_pill(f, bg, "volume-on", &[], Some("Sound"), Some(("On", MINT))),
+        Some(true) => icon_label_pill(f, bg, "volume-muted", &[], Some("Sound"), Some(("Muted", coral()))),
+        Some(false) => icon_label_pill(f, bg, "volume-on", &[], Some("Sound"), Some(("On", mint()))),
         None => icon_label_pill(f, bg, "volume-on", &[("icon-mint", "#87909E")], Some("Sound"), Some(("N/A", MUTED))),
     }
 }
@@ -715,9 +723,9 @@ pub fn pomodoro_face(f: &Fonts, p: &Pomodoro, cfg: &PomodoroCfg, bg: Rgb, _fg: R
     let t = format!("{:02}:{:02}", secs / 60, secs % 60);
     let (col, label) = match p.phase {
         Phase::Idle => (MUTED, "Focus"),
-        Phase::Work => (AMBER, "Focus"),
-        Phase::Short => (MINT, "Break"),
-        Phase::Long => (MINT, "Long break"),
+        Phase::Work => (amber(), "Focus"),
+        Phase::Short => (mint(), "Break"),
+        Phase::Long => (mint(), "Long break"),
     };
     let frac = if p.phase == Phase::Idle { 0.0 } else { 1.0 - rem.as_secs_f32() / total.as_secs_f32() };
     c.ring(CX, CX, 80.0, 9.0, frac, col, [42, 47, 55]);
@@ -757,7 +765,7 @@ pub fn media_face(f: &Fonts, np: Option<&NowPlaying>, _art: Option<&DynamicImage
         } else {
             4.0
         };
-        let col = if np.playing { MINT } else { MUTED };
+        let col = if np.playing { mint() } else { MUTED };
         c.rect(x0 + i as f32 * (bw + gap), 150.0 - hgt, bw, hgt, 1.5, col, 1.0);
     }
     c.caps(f, if np.playing { "Playing" } else { "Paused" }, 20.0, CX, 182.0, IVORY, 176.0);
@@ -787,10 +795,10 @@ pub fn teams_face(f: &Fonts, kind: &str, link: &TeamsLinkState, m: Option<&Meeti
     };
     let active = if mic { !m.muted } else { m.video_on };
     match (mic, active) {
-        (true, true) => icon_label_pill(f, bg, on_icon, &[], None, Some(("Live", MINT))),
-        (true, false) => icon_label_pill(f, bg, off_icon, &[], None, Some(("Muted", CORAL))),
-        (false, true) => icon_label_pill(f, bg, on_icon, &[], Some("Camera"), Some(("On", MINT))),
-        (false, false) => icon_label_pill(f, bg, off_icon, &[], Some("Camera"), Some(("Off", CORAL))),
+        (true, true) => icon_label_pill(f, bg, on_icon, &[], None, Some(("Live", mint()))),
+        (true, false) => icon_label_pill(f, bg, off_icon, &[], None, Some(("Muted", coral()))),
+        (false, true) => icon_label_pill(f, bg, on_icon, &[], Some("Camera"), Some(("On", mint()))),
+        (false, false) => icon_label_pill(f, bg, off_icon, &[], Some("Camera"), Some(("Off", coral()))),
     }
 }
 
@@ -808,11 +816,11 @@ pub fn presence_face(f: &Fonts, p: Option<&Presence>, signed_in: bool, err: Opti
         return c;
     };
     let (icon, text, col) = match p.availability.as_str() {
-        "Available" | "AvailableIdle" => ("presence-available", "Available", MINT),
-        "Away" => ("presence-away", "Away", AMBER),
-        "BeRightBack" => ("presence-away", "Be right back", AMBER),
-        "Busy" | "BusyIdle" => ("do-not-disturb", "Busy", CORAL),
-        "DoNotDisturb" => ("do-not-disturb", "Do not disturb", CORAL),
+        "Available" | "AvailableIdle" => ("presence-available", "Available", mint()),
+        "Away" => ("presence-away", "Away", amber()),
+        "BeRightBack" => ("presence-away", "Be right back", amber()),
+        "Busy" | "BusyIdle" => ("do-not-disturb", "Busy", coral()),
+        "DoNotDisturb" => ("do-not-disturb", "Do not disturb", coral()),
         "Offline" => ("teams", "Offline", MUTED),
         _ => ("teams", "Unknown", MUTED),
     };
@@ -838,7 +846,7 @@ pub fn presence_face(f: &Fonts, p: Option<&Presence>, signed_in: bool, err: Opti
 
 pub fn debugger_face(f: &Fonts, active: Option<&str>, bg: Rgb, _fg: Rgb) -> Canvas {
     match active {
-        Some(_) => icon_label_pill(f, bg, "debug-active", &[], Some("Debug"), Some(("Running", MINT))),
+        Some(_) => icon_label_pill(f, bg, "debug-active", &[], Some("Debug"), Some(("Running", mint()))),
         None => icon_label_pill(f, bg, "debug-active", &[("icon-mint", "#87909E")], Some("Debug"), Some(("Idle", [58, 64, 74]))),
     }
 }

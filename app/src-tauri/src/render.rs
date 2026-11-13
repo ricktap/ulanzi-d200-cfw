@@ -313,13 +313,25 @@ impl Canvas {
         let s = w.min(h).max(1.0);
         let empty = IconEnv::empty();
         let env = env.unwrap_or(&empty);
+        // the theme colours every icon (IconTheme); what the caller sets wins
+        let themed: Vec<(String, String)> = ICON_THEME.with(|t| t.borrow().clone());
+        let merged: Vec<(&str, &str)> = overrides.iter().copied().chain(themed.iter().map(|(k, v)| (k.as_str(), v.as_str()))).collect();
+        let overrides = &merged[..];
         // a swapped icon learns whether its state is the on or the off one (toggle.on)
         let props: serde_json::Map<String, serde_json::Value> =
             swap.iter().filter(|_| swapped.is_some()).filter_map(|sw| sw.on).map(|on| ("toggle.on".to_string(), serde_json::json!(on))).collect();
-        let pm = if props.is_empty() {
-            crate::icons::render_bound(def, s as u32, overrides, &env.ctx, &mut env.reads.borrow_mut())
+        // a widget draws its icons without an environment: their `tone` bindings read the theme too
+        let theme_map: serde_json::Map<String, serde_json::Value> = if env.ctx.theme.is_empty() {
+            ICON_SLOTS.iter().filter_map(|(slot, var)| themed.iter().find(|(k, _)| k == slot).map(|(_, v)| (var.to_string(), serde_json::json!(v)))).collect()
         } else {
-            let ctx = crate::bind::Ctx { implements: None, props: Some(&props), config: env.ctx.config, signals: env.ctx.signals, theme: env.ctx.theme };
+            serde_json::Map::new()
+        };
+        let theme = if env.ctx.theme.is_empty() { &theme_map } else { env.ctx.theme };
+        let pm = if props.is_empty() {
+            let ctx = crate::bind::Ctx { implements: env.ctx.implements, props: env.ctx.props, config: env.ctx.config, signals: env.ctx.signals, theme };
+            crate::icons::render_bound(def, s as u32, overrides, &ctx, &mut env.reads.borrow_mut())
+        } else {
+            let ctx = crate::bind::Ctx { implements: None, props: Some(&props), config: env.ctx.config, signals: env.ctx.signals, theme };
             crate::icons::render_bound(def, s as u32, overrides, &ctx, &mut env.reads.borrow_mut())
         };
         if let Some(pm) = pm {
@@ -677,6 +689,28 @@ pub const CORAL: Rgb = [255, 130, 120];
 pub const AMBER: Rgb = [255, 191, 105];
 pub const LAVENDER: Rgb = [183, 154, 247];
 pub const MUTED: Rgb = [135, 144, 158];
+
+/// The theme's colour for one of the icons' colour slots while a face is drawn (`IconTheme`),
+/// else the Night Signal default. Widgets, pills and cards use these, never the constants.
+fn slot(name: &str, default: Rgb) -> Rgb {
+    ICON_THEME.with(|t| t.borrow().iter().find(|(k, _)| k == name).and_then(|(_, v)| parse_color(v))).unwrap_or(default)
+}
+/// Active: accent.
+pub fn mint() -> Rgb {
+    slot("icon-mint", MINT)
+}
+/// Error: danger.
+pub fn coral() -> Rgb {
+    slot("icon-coral", CORAL)
+}
+/// Attention: warning.
+pub fn amber() -> Rgb {
+    slot("icon-amber", AMBER)
+}
+/// Info.
+pub fn lavender() -> Rgb {
+    slot("icon-lavender", LAVENDER)
+}
 pub const LINE: Rgb = [48, 54, 63];
 
 pub const DEFAULT_BG: Rgb = BG;
@@ -806,8 +840,8 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
     let value = value.filter(|v| !v.trim().is_empty());
     let numeric = value.is_some_and(|v| v.trim_start_matches('-').chars().next().is_some_and(|ch| ch.is_ascii_digit()));
     let pill_col = |v: &str| match v.to_ascii_lowercase().as_str() {
-        "on" | "open" | "home" | "playing" | "unlocked" | "active" | "heat" | "cool" => MINT,
-        "unavailable" | "unknown" | "error" | "problem" => CORAL,
+        "on" | "open" | "home" | "playing" | "unlocked" | "active" | "heat" | "cool" => mint(),
+        "unavailable" | "unknown" | "error" | "problem" => coral(),
         _ => MUTED,
     };
     let max = w - 20.0;
@@ -863,6 +897,31 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
 thread_local! {
     /// Icons drawn instead of others while the engine draws one built-in face (`IconSwap`).
     static ICON_SWAP: std::cell::RefCell<Vec<Swap>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+thread_local! {
+    /// The theme's colours for the icons' colour slots, while the engine draws one face.
+    static ICON_THEME: std::cell::RefCell<Vec<(String, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The icons' colour slots and the theme variable each one follows.
+pub const ICON_SLOTS: [(&str, &str); 6] =
+    [("icon-base", "base"), ("icon-muted", "muted"), ("icon-mint", "accent"), ("icon-lavender", "info"), ("icon-amber", "warning"), ("icon-coral", "danger")];
+
+/// While it lives, every set icon is drawn in these colours: (slot such as "icon-mint", "#RRGGBB").
+pub struct IconTheme;
+
+impl IconTheme {
+    pub fn set(colours: Vec<(String, String)>) -> IconTheme {
+        ICON_THEME.with(|t| *t.borrow_mut() = colours);
+        IconTheme
+    }
+}
+
+impl Drop for IconTheme {
+    fn drop(&mut self) {
+        ICON_THEME.with(|t| t.borrow_mut().clear());
+    }
 }
 
 /// Draw `to` wherever a built-in face would draw `from` (both icon ids). `on`: the state this
@@ -930,18 +989,18 @@ pub fn missing_plugin(f: &Fonts, app: &str, size: (u32, u32)) -> Canvas {
     // dashed frame
     let mut x = 10.0;
     while x < w - 10.0 {
-        c.rect(x, 8.0, 12.0f32.min(w - 10.0 - x), 3.0, 0.0, AMBER, 1.0);
-        c.rect(x, h - 11.0, 12.0f32.min(w - 10.0 - x), 3.0, 0.0, AMBER, 1.0);
+        c.rect(x, 8.0, 12.0f32.min(w - 10.0 - x), 3.0, 0.0, amber(), 1.0);
+        c.rect(x, h - 11.0, 12.0f32.min(w - 10.0 - x), 3.0, 0.0, amber(), 1.0);
         x += 22.0;
     }
     let mut y = 10.0;
     while y < h - 10.0 {
-        c.rect(8.0, y, 3.0, 12.0f32.min(h - 10.0 - y), 0.0, AMBER, 1.0);
-        c.rect(w - 11.0, y, 3.0, 12.0f32.min(h - 10.0 - y), 0.0, AMBER, 1.0);
+        c.rect(8.0, y, 3.0, 12.0f32.min(h - 10.0 - y), 0.0, amber(), 1.0);
+        c.rect(w - 11.0, y, 3.0, 12.0f32.min(h - 10.0 - y), 0.0, amber(), 1.0);
         y += 22.0;
     }
-    c.caps(f, "Plugin", 20.0, w / 2.0, h / 2.0 - 6.0, AMBER, w - 30.0);
-    c.caps(f, "missing", 20.0, w / 2.0, h / 2.0 + 22.0, AMBER, w - 30.0);
+    c.caps(f, "Plugin", 20.0, w / 2.0, h / 2.0 - 6.0, amber(), w - 30.0);
+    c.caps(f, "missing", 20.0, w / 2.0, h / 2.0 + 22.0, amber(), w - 30.0);
     let name = app.split(':').next().unwrap_or(app);
     c.caps(f, name, 12.0, w / 2.0, h - 30.0, MUTED, w - 30.0);
     c
@@ -962,7 +1021,7 @@ pub struct StatusInfo<'a> {
 /// Status key: profile on the left, music or clock on the right.
 pub fn status_face(f: &Fonts, s: &StatusInfo) -> Canvas {
     let mut c = Canvas::new(456, 196, BG);
-    let accent = if s.remote { [3, 169, 244] } else { MINT };
+    let accent = if s.remote { [3, 169, 244] } else { mint() };
     c.glow(accent, 0.16); // soft light from the upper left, no side stripe
     let (title, sub) = if s.remote {
         ("Remote".to_string(), "Home Assistant".to_string())
@@ -988,7 +1047,7 @@ pub fn status_face(f: &Fonts, s: &StatusInfo) -> Canvas {
     c.hline(lx, lx + lw, 140.0, LINE);
     match s.mqtt {
         Some(ok) => {
-            c.rect(lx, 160.0, 16.0, 16.0, 8.0, if ok { MINT } else { CORAL }, 1.0);
+            c.rect(lx, 160.0, 16.0, 16.0, 8.0, if ok { mint() } else { coral() }, 1.0);
             c.caps_at(f, "Home Assistant", 15.0, lx + 28.0, 174.0, IVORY);
         }
         None => {
@@ -1017,7 +1076,7 @@ pub fn status_face(f: &Fonts, s: &StatusInfo) -> Canvas {
             if np.duration > 0.0 {
                 let frac = (np.position / np.duration).clamp(0.0, 1.0) as f32;
                 c.rect(rx - 56.0, 172.0, 112.0, 3.0, 1.5, LINE, 1.0);
-                c.rect(rx - 56.0, 172.0, (112.0 * frac).max(3.0), 3.0, 1.5, if np.playing { MINT } else { MUTED }, 1.0);
+                c.rect(rx - 56.0, 172.0, (112.0 * frac).max(3.0), 3.0, 1.5, if np.playing { mint() } else { MUTED }, 1.0);
             }
         }
         None => {
@@ -1081,7 +1140,7 @@ fn ease_out(t: f32) -> f32 {
 
 /// One animation frame, `t` seconds into the notification.
 pub fn notification_frame(f: &Fonts, base: &Path, n: &Notification, t: f32) -> Canvas {
-    let color = n.color.as_deref().and_then(parse_color).unwrap_or(MINT);
+    let color = n.color.as_deref().and_then(parse_color).unwrap_or(mint());
     let dur = n.duration();
     let style = n.style.as_deref().unwrap_or("slide");
     let glow = match style {

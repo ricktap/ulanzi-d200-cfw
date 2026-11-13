@@ -9,7 +9,7 @@
 //! text is inset 3 %; state emphasis is a soft light from the upper left, tinted
 //! to the accent and faded once on arrival (no side stripe, no flashing).
 
-use crate::render::{hex, mix, parse_color, Canvas, Fonts, Rgb, Th, Tone, Weight, AMBER, BG, CORAL, LAVENDER, MINT, MUTED};
+use crate::render::{amber, coral, hex, lavender, mint, mix, parse_color, Canvas, Fonts, Rgb, Th, Tone, Weight, BG, MUTED};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -99,12 +99,12 @@ impl Card {
             return c;
         }
         if self.critical {
-            return CORAL;
+            return coral();
         }
         match self.kind {
-            Kind::Meeting => AMBER,
-            Kind::Steam => LAVENDER,
-            _ => MINT,
+            Kind::Meeting => amber(),
+            Kind::Steam => lavender(),
+            _ => mint(),
         }
     }
 }
