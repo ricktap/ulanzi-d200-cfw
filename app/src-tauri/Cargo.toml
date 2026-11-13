@@ -1,6 +1,6 @@
 [package]
 name = "d200-deck"
-version = "0.20.2"
+version = "0.20.3"
 edition = "2021"
 description = "Desktop app that drives an Ulanzi D200 running d200fw"
 
