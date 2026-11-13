@@ -1,7 +1,7 @@
 {
   "name": "d200-deck",
   "private": true,
-  "version": "0.20.1",
+  "version": "0.20.2",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",

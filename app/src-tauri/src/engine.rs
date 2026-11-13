@@ -1988,6 +1988,9 @@ impl Engine {
         let theme_eff = self.effective_theme(&vars);
         let (icon_colours, theme_reads) = self.icon_theme(&vars);
         let _icon_theme = render::IconTheme::set(icon_colours);
+        // every key without a colour of its own stands on the theme's background, with its light
+        let surface = render::KeySurface::of(&theme_eff);
+        let _surface = surface.set();
         let mut reads = Reads::default();
         let base = base_dir(&self.path);
         let size = render::key_size(k);
@@ -2050,7 +2053,7 @@ impl Engine {
             match key.kind() {
                 Some(kind) if builtin_face => {
                     let st = st0.clone();
-                    let default_bg = render::DEFAULT_BG;
+                    let default_bg = surface.bg;
                     let (bg, fg) = render::look_colors(&st.look, default_bg);
                     let mode = self.rt.modes.get(&path).copied().unwrap_or(0);
                     // "Text below" None: the built-in faces leave their status pill out
@@ -2172,7 +2175,7 @@ impl Engine {
                         _ if matches!(show_as, "auto" | "progress" | "value") => pick(&d.value),
                         _ => None,
                     };
-                    let c = render::button(f, &base, &look, value.as_deref(), size, render::DEFAULT_BG, Some(&env));
+                    let c = render::button(f, &base, &look, value.as_deref(), size, surface.bg, Some(&env));
                     reads = env.reads.into_inner();
                     c
                 }
@@ -2181,7 +2184,7 @@ impl Engine {
                     let cur = self.rt.states.get(&path).copied().unwrap_or(0);
                     let look = key.state(cur).look;
                     let env = IconEnv::new(Ctx { implements: None, props: Some(&look.props), config: &key.config, signals: &self.signals, theme: &vars });
-                    let c = render::button(f, &base, &look, None, size, render::DEFAULT_BG, Some(&env));
+                    let c = render::button(f, &base, &look, None, size, surface.bg, Some(&env));
                     reads = env.reads.into_inner();
                     c
                 }

@@ -614,7 +614,7 @@ impl Canvas {
         let tw = self.tw(f, &t, size, Weight::Bold, 2.4);
         let (w, h) = (tw + 34.0, 32.0);
         self.rect(cx - w / 2.0, cy - h / 2.0, w, h, h / 2.0, color, 1.0);
-        self.tl(f, &t, size, cx - tw / 2.0, cy + 6.5, BG, Weight::Bold, 2.4);
+        self.tl(f, &t, size, cx - tw / 2.0, cy + 6.5, bg(), Weight::Bold, 2.4);
     }
 
     /// Hairline.
@@ -807,7 +807,10 @@ impl Th {
     /// Background: surface, tinted light from the upper left, optional border.
     pub fn surface(&self, c: &mut Canvas, idle: bool) {
         let k = if idle { self.idle_factor } else { 1.0 };
-        c.glow(self.light, self.light_opacity * k * 0.27);
+        // a key canvas on the theme's background has the light already (KeySurface)
+        if !KEY_SURFACE.with(|s| s.get()).is_some_and(|s| s.bg == self.bg) {
+            c.glow(self.light, self.light_opacity * k * 0.27);
+        }
         if let Some(b) = self.border {
             let (w, h) = (c.w(), c.h());
             c.stroke_rect(0.0, 0.0, w, h, 0.0, 2.0, b);
@@ -827,7 +830,7 @@ pub fn look_colors(look: &Look, default_bg: Rgb) -> (Rgb, Rgb) {
 /// key's state) as a big figure when numeric, else as a pill.
 pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u32, u32), default_bg: Rgb, env: Option<&IconEnv>) -> Canvas {
     let (bg, fg) = look_colors(look, default_bg);
-    let mut c = Canvas::new(size.0, size.1, bg);
+    let mut c = key_canvas(size.0, size.1, bg);
     if let Some(img) = look.image.as_deref().and_then(|p| image::open(resolve(base, p)).ok()) {
         c.image_cover(&img);
         return c;
@@ -897,6 +900,55 @@ pub fn button(f: &Fonts, base: &Path, look: &Look, value: Option<&str>, size: (u
 thread_local! {
     /// Icons drawn instead of others while the engine draws one built-in face (`IconSwap`).
     static ICON_SWAP: std::cell::RefCell<Vec<Swap>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The background every key shares: the theme's background colour and its soft light from the
+/// upper left. Set while the engine draws one face.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct KeySurface {
+    pub bg: Rgb,
+    pub light: Rgb,
+    pub strength: f32,
+}
+
+thread_local! {
+    static KEY_SURFACE: std::cell::Cell<Option<KeySurface>> = const { std::cell::Cell::new(None) };
+}
+
+impl KeySurface {
+    /// The surface of the theme, as the widgets draw it.
+    pub fn of(theme: &crate::config::Theme) -> KeySurface {
+        let th = Th::resolve(theme, "key", Tone::Active);
+        KeySurface { bg: th.bg, light: th.light, strength: th.light_opacity * th.idle_factor * 0.27 }
+    }
+    /// Use it until the guard is dropped.
+    pub fn set(self) -> KeySurfaceGuard {
+        KEY_SURFACE.with(|s| s.set(Some(self)));
+        KeySurfaceGuard
+    }
+}
+
+pub struct KeySurfaceGuard;
+
+impl Drop for KeySurfaceGuard {
+    fn drop(&mut self) {
+        KEY_SURFACE.with(|s| s.set(None));
+    }
+}
+
+/// The theme's background colour while a face is drawn, else the Night Signal one.
+pub fn bg() -> Rgb {
+    KEY_SURFACE.with(|s| s.get()).map_or(BG, |s| s.bg)
+}
+
+/// A key's canvas. On the theme's background it gets the theme's light; a key with a colour
+/// of its own stays flat.
+pub fn key_canvas(w: u32, h: u32, bg: Rgb) -> Canvas {
+    let mut c = Canvas::new(w, h, bg);
+    if let Some(s) = KEY_SURFACE.with(|s| s.get()).filter(|s| s.bg == bg) {
+        c.glow(s.light, s.strength);
+    }
+    c
 }
 
 thread_local! {
@@ -1020,7 +1072,7 @@ pub struct StatusInfo<'a> {
 
 /// Status key: profile on the left, music or clock on the right.
 pub fn status_face(f: &Fonts, s: &StatusInfo) -> Canvas {
-    let mut c = Canvas::new(456, 196, BG);
+    let mut c = Canvas::new(456, 196, bg());
     let accent = if s.remote { [3, 169, 244] } else { mint() };
     c.glow(accent, 0.16); // soft light from the upper left, no side stripe
     let (title, sub) = if s.remote {
@@ -1154,7 +1206,7 @@ pub fn notification_frame(f: &Fonts, base: &Path, n: &Notification, t: f32) -> C
         "pulse" => 0.08 + 0.14 * (0.5 + 0.5 * (t * std::f32::consts::TAU / 1.2).sin()),
         _ => 0.10,
     };
-    let bg = mix(BG, color, glow);
+    let bg = mix(bg(), color, glow);
     let mut c = Canvas::new(456, 196, bg);
     let (w, h) = (c.w(), c.h());
     c.rect(0.0, 0.0, 6.0, h, 0.0, color, 1.0);

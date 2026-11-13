@@ -9,7 +9,7 @@
 //! text is inset 3 %; state emphasis is a soft light from the upper left, tinted
 //! to the accent and faded once on arrival (no side stripe, no flashing).
 
-use crate::render::{amber, coral, hex, lavender, mint, mix, parse_color, Canvas, Fonts, Rgb, Th, Tone, Weight, BG, MUTED};
+use crate::render::{amber, coral, hex, lavender, mint, mix, parse_color, Canvas, Fonts, Rgb, Th, Tone, Weight, MUTED};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -414,7 +414,7 @@ pub fn render(f: &Fonts, base: &Path, card: &Card, extra: &Extra, t: f32) -> Can
     // countdown hairline for timed cards
     let dur = card.duration();
     if dur.is_finite() && t < dur {
-        c.rect(0.0, H - 2.0, W * (1.0 - t / dur), 2.0, 0.0, mix(accent, BG, 0.4), 1.0);
+        c.rect(0.0, H - 2.0, W * (1.0 - t / dur), 2.0, 0.0, mix(accent, crate::render::bg(), 0.4), 1.0);
     }
     if a < 1.0 {
         // fade in from the background
